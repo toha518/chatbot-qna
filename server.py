@@ -493,7 +493,7 @@ async def stop_session(req: StopRequest):
         durasi_str = "-"
     sessions.pop(cid, None)
     session_activity.pop(cid, None)
-    api_rate_limit.pop(cid, None)
+    # api_rate_limit sengaja gak dihapus — biar rate limit tetap jalan
     return {
         "status": "ok",
         "message": f"Sesi obrolan telah ditutup, pukul {now_str} WIB, obrolan berlangsung selama {durasi_str}."
