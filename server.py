@@ -143,14 +143,14 @@ total = load_from_gsheet()
 print(f"[BOOT] Ready! ({total} Q&A, {time.time()-t0:.1f}s)")
 
 
-# ===================== DEEPSEEK AI (Penulis Jawaban) =====================
-# LLM yang nulis jawaban berdasarkan konteks dari MiniLM
+# ===================== LLM API (Penulis Jawaban) =====================
+# Endpoint, key, model dibaca dari .env -- ganti kapan aja
 # DeepSeek cuma "nulis ulang" — gak nyari data sendiri
-# Biaya: ±Rp 2-5 per chat (karena konteks udah disediain MiniLM)
 
-DEEPSEEK_API = os.getenv("DEEPSEEK_API") or "https://opencode.ai/zen/go/v1/chat/completions"  # aman, URL publik
-API_KEY = os.getenv("DEEPSEEK_API_KEY")
-MODEL = os.getenv("DEEPSEEK_MODEL") or "deepseek-v4-flash"  # aman, nama model publik
+
+LLM_API = os.getenv("LLM_API")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+LLM_MODEL = os.getenv("LLM_MODEL")
 
 
 # ===================== TELEGRAM BOT API =====================
@@ -591,9 +591,9 @@ async def chat(req: ChatRequest):
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
-                    DEEPSEEK_API,
-                    json={"model": MODEL, "messages": greetings_only, "max_tokens": 300},
-                    headers={"Authorization": f"Bearer {API_KEY}"}
+                    LLM_API,
+                    json={"model": LLM_MODEL, "messages": greetings_only, "max_tokens": 300},
+                    headers={"Authorization": f"Bearer {LLM_API_KEY}"}
                 )
             jawaban = resp.json()["choices"][0]["message"]["content"]
         except Exception as e:
@@ -661,9 +661,9 @@ async def chat(req: ChatRequest):
         else:
             context = f"PERTANYAAN: {questions[idx0]}\nJAWABAN: {answers[idx0]}\n\n"
 
-    # ===================== DEEPSEEK (Penulis Jawaban) =====================
-    # System prompt: ngasih tau DeepSeek perannya sebagai Cici Anova
-    # Konteks dari MiniLM dikasih sebagai "Data referensi"
+    # ===================== LLM (Penulis Jawaban) =====================
+    # System prompt: ngasih tau LLM perannya sebagai Cici Anova
+    # Konteks dari E5 dikasih sebagai "Data referensi"
     # DeepSeek cuma nulis ulang — gak ngarang di luar konteks
 
     system = """Kamu adalah Cici Anova, asisten Q&A resmi BPS Provinsi Kepulauan Bangka Belitung.
@@ -691,13 +691,13 @@ PENTING — Cara menjawab:
 
     messages.append({"role": "user", "content": req.pertanyaan})
 
-    # Panggil DeepSeek — retry 1x kalau gagal
+    # Panggil LLM — retry 1x kalau gagal
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(
-                DEEPSEEK_API,
-                json={"model": MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
-                headers={"Authorization": f"Bearer {API_KEY}"}
+                LLM_API,
+                json={"model": LLM_MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
+                headers={"Authorization": f"Bearer {LLM_API_KEY}"}
             )
         result = resp.json()
         jawaban = result["choices"][0]["message"]["content"]
@@ -706,9 +706,9 @@ PENTING — Cara menjawab:
             await asyncio.sleep(1)
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
-                    DEEPSEEK_API,
-                    json={"model": MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
-                    headers={"Authorization": f"Bearer {API_KEY}"}
+                    LLM_API,
+                    json={"model": LLM_MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
+                    headers={"Authorization": f"Bearer {LLM_API_KEY}"}
                 )
             result = resp.json()
             jawaban = result["choices"][0]["message"]["content"]
