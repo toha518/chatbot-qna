@@ -148,7 +148,7 @@ print(f"[BOOT] Ready! ({total} Q&A, {time.time()-t0:.1f}s)")
 # DeepSeek cuma "nulis ulang" — gak nyari data sendiri
 # Biaya: ±Rp 2-5 per chat (karena konteks udah disediain MiniLM)
 
-DEEPSEEK_API = os.getenv("DEEPSEEK_API") or "https://api.deepseek.com/chat/completions"  # aman, URL publik
+DEEPSEEK_API = os.getenv("DEEPSEEK_API") or "https://opencode.ai/zen/go/v1/chat/completions"  # aman, URL publik
 API_KEY = os.getenv("DEEPSEEK_API_KEY")
 MODEL = os.getenv("DEEPSEEK_MODEL") or "deepseek-v4-flash"  # aman, nama model publik
 
