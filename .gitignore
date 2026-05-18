@@ -1,0 +1,27 @@
+# === Secrets ===
+.env
+
+# === Python cache ===
+__pycache__/
+*.pyc
+*.pyo
+
+# === Database ===
+*.db
+*.db.bak
+
+# === Index / model cache ===
+*.pkl
+qna_index.pkl
+
+# === Logs ===
+*.log
+*.log.*
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDE ===
+.vscode/
+.idea/
