@@ -33,7 +33,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 |-------|-----------|
 | 🧠 **Semantic Search** | E5-base — retrieval-specialized, lebih akurat dari MiniLM |
 | 🤖 **AI Answering** | DeepSeek LLM — jawab dengan konteks dari database FAQ |
-| 🛡️ **Anti-Spam** | Rate limit + 6 jam session rest + session watchdog |
+| 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite (`history` endpoint) |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |

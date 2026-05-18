@@ -162,7 +162,7 @@ TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 # ===================== ANTI-SPAM =====================
 # Proteksi di layer API (backup dari anti-spam di telegram_bot.py)
 
-RATE_LIMIT = 10             # Maks 10 pesan per menit
+RATE_LIMIT = 5             # Maks 5 pesan per menit
 WINDOW = 60                  # Jendela waktu (detik)
 BLOCK_DURATION = 300         # 5 menit block
 SESSION_TIMEOUT = 1800       # 30 menit reset tracker

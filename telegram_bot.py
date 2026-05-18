@@ -21,7 +21,7 @@ CHATBOT_URL = os.getenv("CHATBOT_URL") or "http://localhost:8000/chat"  # aman, 
 
 # ===================== ANTI-SPAM (Bot Layer) =====================
 # Proteksi sebelum request dikirim ke server API
-RATE_LIMIT = 10             # Maks 10 pesan per menit per user
+RATE_LIMIT = 5             # Maks 5 pesan per menit per user
 WINDOW = 60                  # Jendela waktu (detik)
 BLOCK_DURATION = 300         # Durasi block setelah kena limit (5 menit)
 TRUSTED_USERS = {}           # User yg skip anti-spam (kosong = semua kena)
