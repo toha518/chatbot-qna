@@ -537,7 +537,7 @@ async def chat(req: ChatRequest):
     history = sessions[cid]
     session_activity[cid] = time.time()
     # Batasi history session — maks 20 pesan (10 tanya + 10 jawab)
-    MAX_HISTORY = 20
+    MAX_HISTORY = 10
     while len(history) > MAX_HISTORY * 2:
         history.pop(0)
         history.pop(0)
