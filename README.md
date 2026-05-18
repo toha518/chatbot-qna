@@ -36,7 +36,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
 | ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
 | 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
-| 🚫 **Filter Media** | Sticker, gambar, voice otomatis ditolak — hanya teks |
+| 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
 | 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite (`history` endpoint) |
@@ -60,8 +60,12 @@ Sebelum diproses, teks dibersihkan dari:
 - **Karakter kontrol** (NULL, ESC, backspace, dll) — mencegah injeksi
 - **Emoji berlebih** — maksimal 5 emoji per chat, sisanya dihapus
 
-### 4. 🚫 Filter Media
-Bot **hanya menerima pesan teks**. Stiker, gambar, voice note, video, dan file lainnya otomatis ditolak dengan notifikasi.
+### 4. 🖼️ OCR Gambar
+Bot bisa membaca teks dari **screenshot atau foto** via EasyOCR (offline, gratis).
+- Gambar dari kamera/gallery → **OCR otomatis** → teks digabung caption
+- Stiker, voice, video → tetap ditolak
+- Model EasyOCR (~500MB) di-download sekali, aktif pas ada gambar aja
+- Support bahasa Indonesia + Inggris
 
 ### 5. 📚 Batas History Session
 Riwayat chat yang dikirim ke LLM dibatasi **maks 10 pesan terakhir** (5 tanya + 5 jawab). Chat lama otomatis di-drop, token tetap hemat.
@@ -147,16 +151,16 @@ Simpan (**Ctrl+S**) dan tutup notepad.
 ## 📥 Instal Dependencies
 
 ```cmd
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
-Proses ini akan mendownload **E5-base model (~278MB)** — butuh koneksi stabil, estimasi 3-5 menit.
+Proses ini akan mendownload **E5-base model (~278MB)** + **EasyOCR (~500MB)** — butuh koneksi stabil, estimasi 5-10 menit.
 
-> ⚠️ **Khusus pertama kali:** pas `uvicorn` jalan, model E5-base akan di-download dari HuggingFace. Proses ini butuh ~278MB + koneksi stabil. Setelah selesai, index FAQ otomatis dibuat.
+> ⚠️ **Khusus pertama kali:** pas `uvicorn` jalan, model E5-base di-download dari HuggingFace (~278MB). Pas pertama kali ada gambar masuk, EasyOCR di-download (~500MB).
 
 Jika muncul error `pip not found`, gunakan:
 ```cmd
-python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv
+python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
 ---

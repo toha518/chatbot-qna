@@ -7,10 +7,27 @@ import httpx                       # HTTP client buat panggil server API
 import time
 import re
 import os
+import io
+import tempfile
 from dotenv import load_dotenv
 from collections import defaultdict
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+# ===================== OCR ENGINE (EasyOCR) =====================
+# Model ~500MB, di-load pas pertama kali ada gambar masuk
+# Support bahasa Indonesia + Inggris
+_ocr_reader = None
+
+
+def get_ocr_reader():
+    global _ocr_reader
+    if _ocr_reader is None:
+        print("[OCR] Loading EasyOCR model (~500MB)...")
+        import easyocr
+        _ocr_reader = easyocr.Reader(['id', 'en'], gpu=False)
+        print("[OCR] Ready!")
+    return _ocr_reader
 
 # ===================== KONFIGURASI =====================
 load_dotenv()  # baca .env (kalo ada)
@@ -284,9 +301,74 @@ def main():
     app.add_handler(CommandHandler("stop", stop_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     # Tolak sticker, gambar, voice dll
-    async def handle_non_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("⚠️ Hanya menerima pesan teks. Silakan ketik pertanyaan Anda.")
-    app.add_handler(MessageHandler(~filters.TEXT, handle_non_text))
+    async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handler gambar: download → OCR → gabung caption → kirim ke server"""
+        chat_id = str(update.effective_chat.id)
+
+        # Kasih tau user bot lagi proses
+        await update.message.chat.send_action("typing")
+
+        try:
+            # Ambil foto resolusi tertinggi
+            if update.message.photo:
+                file_id = update.message.photo[-1].file_id
+            elif update.message.document and update.message.document.mime_type.startswith('image/'):
+                file_id = update.message.document.file_id
+            else:
+                await update.message.reply_text("⚠️ Format tidak didukung. Kirim screenshot atau foto.")
+                return
+
+            # Download gambar
+            file = await context.bot.get_file(file_id)
+            image_bytes = io.BytesIO()
+            await file.download_to_memory(image_bytes)
+            image_bytes.seek(0)
+
+            # OCR
+            reader = get_ocr_reader()
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
+                tmp.write(image_bytes.read())
+                tmp_path = tmp.name
+
+            result = reader.readtext(tmp_path, paragraph=True)
+            os.unlink(tmp_path)
+
+            # Ambil teks dengan confidence > 0.3
+            ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
+
+            # Gabung caption (kalo ada) + OCR
+            caption = update.message.caption or ''
+            if caption and ocr_text:
+                combined = f"{caption}\n\n[Gambar: {ocr_text}]"
+            elif ocr_text:
+                combined = f"[Gambar: {ocr_text}]"
+            else:
+                combined = caption
+
+            if not combined.strip():
+                await update.message.reply_text("⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.")
+                return
+
+            # Kirim ke server chatbot kayak chat biasa
+            async with httpx.AsyncClient(timeout=120) as client:
+                resp = await client.post(
+                    CHATBOT_URL,
+                    json={"pertanyaan": combined, "chat_id": chat_id}
+                )
+            data = resp.json()
+            jawaban = data.get("jawaban", "Error: tidak ada jawaban")
+            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Gagal memproses gambar: {str(e)}", reply_markup=MENU_MARKUP)
+            print(f"[IMAGE ERROR] {e}")
+
+    # Handler untuk foto, gambar, dokumen gambar
+    app.add_handler(MessageHandler(filters.PHOTO | (filters.Document.IMAGE), handle_image))
+    # Handler untuk media lain (sticker, voice, video) — tetap ditolak
+    async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.")
+    app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE, handle_media))
 
     # Daftarin command menu ke Telegram (biar muncul pas ketik /)
     try:
