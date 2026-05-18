@@ -45,6 +45,38 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 ---
 
+## 🛡️ Pengamanan
+
+Bot Cici Anova memiliki beberapa lapisan pengamanan untuk menjaga kestabilan, keamanan data, dan efisiensi biaya:
+
+### 1. 🚦 Rate Limit (5 Chat/Menit)
+Batasi maksimal **5 pesan per menit** per user. Jika terlampaui, user diblokir otomatis selama **5 menit**. Berlaku di dua layer: bot Telegram & API server.
+
+### 2. ✂️ Batas Karakter (500 Karakter)
+Setiap pertanyaan dibatasi maksimal **500 karakter**. Jika melebihi, langsung ditolak tanpa diproses oleh AI — hemat token dan biaya.
+
+### 3. 🧹 Input Sanitasi
+Sebelum diproses, teks dibersihkan dari:
+- **Karakter kontrol** (NULL, ESC, backspace, dll) — mencegah injeksi
+- **Emoji berlebih** — maksimal 5 emoji per chat, sisanya dihapus
+
+### 4. 🚫 Filter Media
+Bot **hanya menerima pesan teks**. Stiker, gambar, voice note, video, dan file lainnya otomatis ditolak dengan notifikasi.
+
+### 5. 📚 Batas History Session
+Riwayat chat yang dikirim ke LLM dibatasi **maks 10 pesan terakhir** (5 tanya + 5 jawab). Chat lama otomatis di-drop, token tetap hemat.
+
+### 6. ⏰ Session Timeout (30 Menit)
+Session otomatis berakhir setelah **30 menit** tanpa aktivitas. Watchdog mengirim notifikasi ke user dan membersihkan history.
+
+### 7. 🛑 Session Rest (6 Jam)
+Jika session berjalan lebih dari **6 jam**, user dipaksa istirahat selama **6 jam**. Session dihapus, user harus mulai dari awal.
+
+### 8. 📋 SQLite Logging
+Semua chat terekam di **SQLite database** (`cici_anova.db`). Data tetap utuh meski session direset atau user /stop.
+
+---
+
 ## 💻 Kebutuhan Sistem
 
 | Komponen | Spesifikasi |
