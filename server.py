@@ -709,7 +709,7 @@ PENTING — Cara menjawab:
     jawaban = None
     for i in range(len(LLM_APIS)):
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.post(
                     LLM_APIS[i],
                     json={"model": LLM_MODELS[i], "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
