@@ -13,7 +13,6 @@ import re
 import time
 import asyncio
 import sqlite3
-from difflib import SequenceMatcher
 from sklearn.metrics.pairwise import cosine_similarity
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -166,11 +165,10 @@ TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 RATE_LIMIT = 10             # Maks 10 pesan per menit
 WINDOW = 60                  # Jendela waktu (detik)
 BLOCK_DURATION = 300         # 5 menit block
-SIMILARITY_THRESHOLD = 0.85  # Ambang fuzzy duplicate
 SESSION_TIMEOUT = 1800       # 30 menit reset tracker
 TRUSTED_IDS = {}             # User yg skip anti-spam
 
-# Tiap chat_id punya: timestamps, blocked_until, last_text, last_active, block_notified
+# Tiap chat_id punya: timestamps, blocked_until, last_active, block_notified
 api_rate_limit = {}
 
 
@@ -182,22 +180,6 @@ def normalize(text):
     return text
 
 
-def is_duplicate(chat_id, text):
-    """Cek duplikat pesan — fuzzy match + session-based"""
-    now = time.time()
-    entry = api_rate_limit.get(chat_id)
-    if not entry or not entry["last_text"]:
-        return False
-    if now - entry["last_active"] > SESSION_TIMEOUT:
-        entry["last_text"] = ""
-        return False
-    last_norm = normalize(entry["last_text"])
-    curr_norm = normalize(text)
-    if last_norm == curr_norm:
-        return True
-    ratio = SequenceMatcher(None, last_norm, curr_norm).ratio()
-    return ratio >= SIMILARITY_THRESHOLD
-
 
 def check_api_rate_limit(chat_id):
     """
@@ -208,7 +190,6 @@ def check_api_rate_limit(chat_id):
     now = time.time()
     if chat_id not in api_rate_limit:
         api_rate_limit[chat_id] = {"timestamps": [], "blocked_until": 0,
-                                   "last_text": "", "last_active": 0, "block_notified": False,
                                    "rest_until": 0}
     entry = api_rate_limit[chat_id]
 
@@ -507,7 +488,7 @@ async def chat(req: ChatRequest):
     """
     Alur lengkap pas user chat:
       1. Bersihin session expired
-      2. Anti-spam (duplicate + rate limit)
+      2. Anti-spam (
       3. Cek greeting → langsung DeepSeek (lewat MiniLM)
       4. MiniLM: cari 5 pertanyaan paling relevan di database
       5. DeepSeek: tulis jawaban dari konteks
@@ -520,7 +501,7 @@ async def chat(req: ChatRequest):
     # ===================== ANTI-SPAM =====================
     if cid not in api_rate_limit:
         api_rate_limit[cid] = {"timestamps": [], "blocked_until": 0,
-                               "last_text": "", "last_active": 0, "block_notified": False,
+                               "last_active": 0, "block_notified": False,
                                "rest_until": 0}
 
     if cid not in TRUSTED_IDS:
@@ -530,8 +511,7 @@ async def chat(req: ChatRequest):
                 return {"jawaban": "", "skor": 0}
             return {"jawaban": msg, "skor": 0}
 
-    api_rate_limit[cid]["last_text"] = req.pertanyaan
-    api_rate_limit[cid]["last_active"] = time.time()
+        api_rate_limit[cid]["last_active"] = time.time()
 
     # ===================== SESSION INIT / RESUME =====================
     session_baru = False
@@ -599,7 +579,6 @@ async def chat(req: ChatRequest):
         except Exception as e:
             jawaban = ("Halo! Saya Cici Anova, asisten Q&A resmi BPS Provinsi "
                        "Kepulauan Bangka Belitung...")
-        api_rate_limit[cid]["last_text"] = req.pertanyaan
         api_rate_limit[cid]["last_active"] = time.time()
         # Footer session baru (greeting)
         if session_baru:

@@ -8,7 +8,6 @@ import time
 import re
 import os
 from dotenv import load_dotenv
-from difflib import SequenceMatcher
 from collections import defaultdict
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -25,11 +24,9 @@ CHATBOT_URL = os.getenv("CHATBOT_URL") or "http://localhost:8000/chat"  # aman, 
 RATE_LIMIT = 10             # Maks 10 pesan per menit per user
 WINDOW = 60                  # Jendela waktu (detik)
 BLOCK_DURATION = 300         # Durasi block setelah kena limit (5 menit)
-SIMILARITY_THRESHOLD = 0.85  # Ambang batas fuzzy duplicate
-SESSION_TIMEOUT = 1800       # Reset last_text setelah 30 menit gak aktif
 TRUSTED_USERS = {}           # User yg skip anti-spam (kosong = semua kena)
 
-# {{chat_id: {timestamps: [], blocked_until: 0, last_text: "", last_active: 0}}
+
 user_tracking = {}
 
 
@@ -41,27 +38,6 @@ def normalize(text):
     return text
 
 
-def is_duplicate(chat_id, text):
-    """Cek apakah pesan ini duplikat dari pesan sebelumnya (dalam 1 session)"""
-    now = time.time()
-    entry = user_tracking.get(chat_id)
-    if not entry or not entry["last_text"]:
-        return False
-
-    # Kalau session udah expired (30 menit), reset last_text
-    if now - entry["last_active"] > SESSION_TIMEOUT:
-        entry["last_text"] = ""
-        return False
-
-    # Bandingin pake normalize + fuzzy similarity
-    last_norm = normalize(entry["last_text"])
-    curr_norm = normalize(text)
-
-    if last_norm == curr_norm:
-        return True  # sama persis setelah normalisasi
-
-    ratio = SequenceMatcher(None, last_norm, curr_norm).ratio()
-    return ratio >= SIMILARITY_THRESHOLD  # mirip banget
 
 
 def check_rate_limit(chat_id, text=""):
@@ -70,7 +46,7 @@ def check_rate_limit(chat_id, text=""):
 
     if chat_id not in user_tracking:
         user_tracking[chat_id] = {"timestamps": [], "blocked_until": 0,
-                                  "last_text": "", "last_active": 0, "block_notified": False}
+                                  "last_active": 0, "block_notified": False}
 
     entry = user_tracking[chat_id]
 
@@ -232,7 +208,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     # Simpan tracking
-    entry["last_text"] = text
     entry["last_active"] = time.time()
 
     # ===================== TOMBOL MENU (Bahasa Indonesia) =====================
@@ -274,7 +249,7 @@ def init_entry(chat_id):
     """Inisialisasi tracking buat chat_id baru"""
     if chat_id not in user_tracking:
         user_tracking[chat_id] = {"timestamps": [], "blocked_until": 0,
-                                  "last_text": "", "last_active": 0}
+                                  "last_active": 0}
 
 
 # ===================== MAIN =====================
