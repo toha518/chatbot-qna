@@ -76,7 +76,15 @@ Session otomatis berakhir setelah **30 menit** tanpa aktivitas. Watchdog mengiri
 ### 7. 🛑 Session Rest (6 Jam)
 Jika session berjalan lebih dari **6 jam**, user dipaksa istirahat selama **6 jam**. Session dihapus, user harus mulai dari awal.
 
-### 8. 📋 SQLite Logging
+### 8. 🔄 LLM Failover (3 Provider)
+Bot punya **3 cadangan LLM** secara berurutan:
+1. **OpenCode Go** ($10/bulan) — utama
+2. **DeepSeek langsung** — failover kalo OpenCode limit/error
+3. **Ollama lokal** — failover terakhir kalo internet mati
+
+Failover otomatis — user gak ngerasa perbedaan. Cukup atur di `.env`.
+
+### 9. 📋 SQLite Logging
 Semua chat terekam di **SQLite database** (`cici_anova.db`). Data tetap utuh meski session direset atau user /stop.
 
 ---

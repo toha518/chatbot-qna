@@ -143,13 +143,22 @@ print(f"[BOOT] Ready! ({total} Q&A, {time.time()-t0:.1f}s)")
 
 
 # ===================== LLM API (Penulis Jawaban) =====================
-# Endpoint, key, model dibaca dari .env -- ganti kapan aja
-# DeepSeek cuma "nulis ulang" — gak nyari data sendiri
+# Baca semua LLM config dari .env — format: LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1
+# Urutan prioritas: 1 → 2 → 3 → dst (failover kalo error/limit)
 
-
-LLM_API = os.getenv("LLM_API")
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL = os.getenv("LLM_MODEL")
+LLM_APIS = []
+LLM_KEYS = []
+LLM_MODELS = []
+for i in range(1, 10):
+    api = os.getenv(f"LLM_API_{i}")
+    key = os.getenv(f"LLM_API_KEY_{i}")
+    model = os.getenv(f"LLM_MODEL_{i}")
+    if api and key and model:
+        LLM_APIS.append(api)
+        LLM_KEYS.append(key)
+        LLM_MODELS.append(model)
+if not LLM_APIS:
+    print("[LLM] ⚠️  TIDAK ADA LLM CONFIG! Set LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1 di .env")
 
 
 # ===================== TELEGRAM BOT API =====================
@@ -588,15 +597,21 @@ async def chat(req: ChatRequest):
                         "JANGAN gunakan **bold** atau *miring* atau formatting apapun."},
             {"role": "user", "content": req.pertanyaan}
         ]
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    LLM_API,
-                    json={"model": LLM_MODEL, "messages": greetings_only, "max_tokens": 300},
-                    headers={"Authorization": f"Bearer {LLM_API_KEY}"}
-                )
-            jawaban = resp.json()["choices"][0]["message"]["content"]
-        except Exception as e:
+        jawaban = None
+        for i in range(len(LLM_APIS)):
+            try:
+                async with httpx.AsyncClient(timeout=30) as client:
+                    resp = await client.post(
+                        LLM_APIS[i],
+                        json={"model": LLM_MODELS[i], "messages": greetings_only, "max_tokens": 300},
+                        headers={"Authorization": f"Bearer {LLM_KEYS[i]}"}
+                    )
+                jawaban = resp.json()["choices"][0]["message"]["content"]
+                break
+            except Exception as e:
+                print(f"[LLM] Provider {i} error: {e}")
+                continue
+        if not jawaban:
             jawaban = ("Halo! Saya Cici Anova, asisten Q&A resmi BPS Provinsi "
                        "Kepulauan Bangka Belitung...")
         api_rate_limit[cid]["last_active"] = time.time()
@@ -690,29 +705,24 @@ PENTING — Cara menjawab:
 
     messages.append({"role": "user", "content": req.pertanyaan})
 
-    # Panggil LLM — retry 1x kalau gagal
-    try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                LLM_API,
-                json={"model": LLM_MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
-                headers={"Authorization": f"Bearer {LLM_API_KEY}"}
-            )
-        result = resp.json()
-        jawaban = result["choices"][0]["message"]["content"]
-    except Exception as e:
+    # Panggil LLM — failover ke provider berikutnya kalo error
+    jawaban = None
+    for i in range(len(LLM_APIS)):
         try:
-            await asyncio.sleep(1)
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
-                    LLM_API,
-                    json={"model": LLM_MODEL, "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
-                    headers={"Authorization": f"Bearer {LLM_API_KEY}"}
+                    LLM_APIS[i],
+                    json={"model": LLM_MODELS[i], "messages": messages, "max_tokens": 500, "thinking": {"type": "disabled"}},
+                    headers={"Authorization": f"Bearer {LLM_KEYS[i]}"}
                 )
             result = resp.json()
             jawaban = result["choices"][0]["message"]["content"]
-        except:
-            jawaban = "Maaf, terjadi error. Silakan coba lagi."
+            break
+        except Exception as e:
+            print(f"[LLM] Provider {i+1} gagal: {e}")
+            continue
+    if not jawaban:
+        jawaban = "Maaf, terjadi error. Silakan coba lagi."
 
     # Simpan ke history percakapan
     history.append({"role": "user", "content": req.pertanyaan})
