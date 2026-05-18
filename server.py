@@ -498,6 +498,10 @@ async def chat(req: ChatRequest):
     cleanup_sessions()
     cid = req.chat_id
 
+    # ===================== BATAS KARAKTER =====================
+    if len(req.pertanyaan) > 500:
+        return {"jawaban": "⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.", "skor": 0}
+
     # ===================== ANTI-SPAM =====================
     if cid not in api_rate_limit:
         api_rate_limit[cid] = {"timestamps": [], "blocked_until": 0,

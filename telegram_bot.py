@@ -195,6 +195,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
+    # ===================== BATAS KARAKTER =====================
+    if len(text) > 500:
+        await update.message.reply_text("⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.")
+        return
+
     # ===================== ANTI-SPAM =====================
     init_entry(chat_id)
     entry = user_tracking[chat_id]
