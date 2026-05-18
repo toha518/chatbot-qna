@@ -498,9 +498,20 @@ async def chat(req: ChatRequest):
     cleanup_sessions()
     cid = req.chat_id
 
-    # ===================== BATAS KARAKTER =====================
+    # ===================== INPUT SANITASI =====================
+    # Hapus karakter kontrol (kecuali newline)
+    req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
+    # Hapus emoji berlebih (maks 5)
+    emoji_pattern = re.compile(r'[\U0001F300-\U0010FFFF]')
+    emojis = emoji_pattern.findall(req.pertanyaan)
+    if len(emojis) > 5:
+        for em in set(emojis[5:]):
+            req.pertanyaan = req.pertanyaan.replace(em, '')
+
     if len(req.pertanyaan) > 500:
         return {"jawaban": "⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.", "skor": 0}
+    if len(req.pertanyaan.strip()) == 0:
+        return {"jawaban": "⚠️ Pesan kosong setelah penyaringan.", "skor": 0}
 
     # ===================== ANTI-SPAM =====================
     if cid not in api_rate_limit:
@@ -525,6 +536,11 @@ async def chat(req: ChatRequest):
         session_baru = True
     history = sessions[cid]
     session_activity[cid] = time.time()
+    # Batasi history session — maks 20 pesan (10 tanya + 10 jawab)
+    MAX_HISTORY = 20
+    while len(history) > MAX_HISTORY * 2:
+        history.pop(0)
+        history.pop(0)
 
     # ===================== LONG SESSION REST (6 JAM) =====================
     # Kalo session udah berjalan > 6 jam, paksa istirahat 6 jam

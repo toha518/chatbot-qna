@@ -35,6 +35,9 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 🤖 **AI Answering** | DeepSeek LLM — jawab dengan konteks dari database FAQ |
 | 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
 | ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
+| 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
+| 🚫 **Filter Media** | Sticker, gambar, voice otomatis ditolak — hanya teks |
+| 📚 **Batas History** | Maks 20 pesan per session — hemat token & biaya |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite (`history` endpoint) |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |

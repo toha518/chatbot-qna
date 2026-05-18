@@ -195,6 +195,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
+    # ===================== INPUT SANITASI =====================
+    # Hapus karakter kontrol (kecuali newline)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
+    # Hapus emoji berlebih (maks 5)
+    emoji_pattern = re.compile(r'[\U0001F300-\U0010FFFF]')
+    emojis = emoji_pattern.findall(text)
+    if len(emojis) > 5:
+        for em in set(emojis[5:]):
+            text = text.replace(em, '')
+
+    if len(text.strip()) == 0:
+        await update.message.reply_text("⚠️ Pesan kosong setelah penyaringan.")
+        return
+
     # ===================== BATAS KARAKTER =====================
     if len(text) > 500:
         await update.message.reply_text("⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.")
@@ -269,6 +283,10 @@ def main():
     app.add_handler(CommandHandler("topics", topics_command))
     app.add_handler(CommandHandler("stop", stop_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Tolak sticker, gambar, voice dll
+    async def handle_non_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("⚠️ Hanya menerima pesan teks. Silakan ketik pertanyaan Anda.")
+    app.add_handler(MessageHandler(~filters.TEXT, handle_non_text))
 
     # Daftarin command menu ke Telegram (biar muncul pas ketik /)
     try:
