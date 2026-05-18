@@ -637,7 +637,7 @@ async def chat(req: ChatRequest):
     # ===================== E5 RETRIEVAL =====================
     # 1. Ubah pertanyaan user → vektor (768 angka) via E5-base
     # 2. Hitung cosine similarity dengan vektor FAQ
-    # 3. Ambil top 5 kandidat
+    # 3. Ambil top 3 kandidat
     #
     # Catatan: E5 pake prefix "query:" untuk pertanyaan user,
     # dan "passage:" untuk data FAQ (udah dipasang pas encoding)
@@ -647,7 +647,7 @@ async def chat(req: ChatRequest):
 
     # Ambil top 7 kandidat — lebih banyak konteks buat DeepSeek milih sendiri
     # Daripada cuma 2, dengan 7 DeepSeek bisa bandingin mana yg paling cocok
-    TOP_K = 5
+    TOP_K = 3
     best_idx = scores.argsort()[-TOP_K:][::-1]
 
     context = ""
