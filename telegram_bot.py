@@ -330,7 +330,7 @@ def main():
                 tmp.write(image_bytes.read())
                 tmp_path = tmp.name
 
-            result = reader.readtext(tmp_path, paragraph=True)
+            result = reader.readtext(tmp_path)
             os.unlink(tmp_path)
 
             # Ambil teks dengan confidence > 0.3
