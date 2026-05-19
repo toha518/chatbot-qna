@@ -13,12 +13,12 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 ## 📋 Daftar Isi
 
 - [Fitur](#-fitur)
-- [Pengamanan](#-pengamanan)
+- [Arsitektur Modular](#-arsitektur-modular)
+- [Replikasi / Custom Bot](#-replikasi--custom-bot)
 - [Panduan Instalasi — Windows](#-panduan-instalasi--windows)
 - [Panduan Instalasi — Linux](#-panduan-instalasi--linux)
 - [Verifikasi](#-verifikasi)
 - [Manajemen Server](#-manajemen-server)
-- [Struktur Folder](#-struktur-folder)
 - [API Endpoints](#-api-endpoints)
 - [FAQ](#-faq)
 
@@ -36,57 +36,149 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
 | 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
-| 📜 **Chat History** | Semua chat tersimpan di SQLite — kolom `kendala` & `solusi` (`history` endpoint) |
+| 📜 **Chat History** | Semua chat tersimpan di SQLite — kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
 
 ---
 
-## 🛡️ Pengamanan
+## 🧠 Arsitektur Modular
 
-Bot Cici Anova memiliki beberapa lapisan pengamanan untuk menjaga kestabilan, keamanan data, dan efisiensi biaya:
+Kode chatbot ini dipisah ke modul-modul terpisah biar gampang di-*maintain* dan di-*replikasi*:
 
-### 1. 🚦 Rate Limit (5 Chat/Menit)
-Batasi maksimal **5 pesan per menit** per user. Jika terlampaui, user diblokir otomatis selama **5 menit**. Berlaku di dua layer: bot Telegram & API server.
+```
+chatbot-qna/
+│
+├── server.py                 ← Router FastAPI (tipis, delegasi ke modul lain)
+├── telegram_bot.py           ← Layer Telegram (OCR, anti-spam, kirim API)
+│
+├── core/                     ← 🔧 Mesin utama (jarang diubah)
+│   ├── database.py           ←   SQLite: init, log chat, query history
+│   ├── embedder.py           ←   E5-base: load model, encode, semantic search
+│   └── llm.py                ←   LLM: load config, failover chain, builder prompt
+│
+├── prompts/                  ← 🎯 IDENTITAS & ATURAN (ganti total utk replikasi)
+│   ├── identity.json         ←   Nama, peran, topik bot
+│   ├── system.md             ←   Aturan cara menjawab
+│   └── greeting.md           ←   Template sambutan /start
+│
+├── security/                 ← 🔒 Lapisan pengaman
+│   ├── rate_limiter.py       ←   Anti-spam: limit 5 chat/menit, block 5 menit
+│   └── session.py            ←   Session: timeout, watchdog, notif Telegram
+│
+├── .env                      ← Token & API key (tidak di-git)
+├── .env.example              ← Template env
+└── cici_anova.db             ← SQLite history (auto-generate)
+```
 
-### 2. ✂️ Batas Karakter (500 Karakter)
-Setiap pertanyaan dibatasi maksimal **500 karakter**. Jika melebihi, langsung ditolak tanpa diproses oleh AI — hemat token dan biaya.
+### Detail per Modul
 
-### 3. 🧹 Input Sanitasi
-Sebelum diproses, teks dibersihkan dari:
-- **Karakter kontrol** (NULL, ESC, backspace, dll) — mencegah injeksi
-- **Emoji berlebih** — maksimal 5 emoji per chat, sisanya dihapus
+| Module | Isi | Fungsi |
+|--------|-----|--------|
+| `core/database.py` | `init_db()`, `log_chat()`, `get_chat_history()`, `list_sessions()` | Semua interaksi ke SQLite |
+| `core/embedder.py` | `init_embedder()`, `load_from_gsheet()`, `search()` | Load E5-base, encode FAQ, cari pertanyaan relevan |
+| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM + failover ke provider berikutnya kalau error |
+| `security/rate_limiter.py` | `check_api_rate_limit()`, `init_rate_limit_entry()` | Proteksi spam, block user kalau 5 chat/menit |
+| `security/session.py` | `init_session()`, `cleanup_sessions()`, `session_watchdog()` | Atur session per user, watchdog expired |
 
-### 4. 🖼️ OCR Gambar
-Bot bisa membaca teks dari **screenshot atau foto** via EasyOCR (offline, gratis).
-- Gambar dari kamera/gallery → **OCR otomatis** → teks digabung caption
-- Stiker, voice, video → tetap ditolak
-- Model EasyOCR (~500MB) di-download sekali, aktif pas ada gambar aja
-- Support bahasa Indonesia + Inggris
+---
 
-### 5. 📚 Batas History Session
-Riwayat chat yang dikirim ke LLM dibatasi **maks 10 pesan terakhir** (5 tanya + 5 jawab). Chat lama otomatis di-drop, token tetap hemat.
+## 🔄 Replikasi / Custom Bot
 
-### 6. ⏰ Session Timeout (30 Menit)
-Session otomatis berakhir setelah **30 menit** tanpa aktivitas. Watchdog mengirim notifikasi ke user dan membersihkan history.
+Mau bikin bot serupa tapi dengan identitas & topik berbeda? **Gak perlu edit kode Python sama sekali.** Cukup ganti file di folder `prompts/` + `.env`.
 
-### 7. 🛑 Session Rest (6 Jam)
-Jika session berjalan lebih dari **6 jam**, user dipaksa istirahat selama **6 jam**. Session dihapus, user harus mulai dari awal.
+### Langkah Replikasi
 
-### 8. 🔄 LLM Failover
-Bot punya cadangan LLM otomatis — jika provider utama gagal atau limit, sistem akan failover ke provider berikutnya tanpa user sadari. Cukup atur beberapa API key di `.env`.
+#### 1. Clone repo
 
-### 9. 📋 SQLite Logging
-Semua chat terekam di **SQLite database** (`cici_anova.db`). Data tetap utuh meski session direset atau user /stop.
+```bash
+git clone https://github.com/toha518/chatbot-qna.git
+cd chatbot-qna
+```
 
-**Data Model — Chat Logs:**
-| Kolom | Tipe | Keterangan |
-|-------|------|------------|
-| `id` | INTEGER | Primary key (auto-increment) |
-| `chat_id` | TEXT | ID unik user Telegram |
-| `waktu` | TIMESTAMP | Waktu chat dikirim |
-| `kendala` | TEXT | Masalah/pertanyaan yang diajukan user |
-| `solusi` | TEXT | Jawaban/respon yang diberikan bot |
+#### 2. Ganti identity.json (WAJIB)
+
+File: **`prompts/identity.json`** — ini yang membedakan bot kamu dengan aslinya.
+
+```json
+{
+  "name": "Nama Bot Kamu",
+  "role": "deskripsi peran bot",
+  "topics": ["Topik 1", "Topik 2", "Topik 3"]
+}
+```
+
+Apa yang berubah:
+- `name` → Nama bot (dipakai di greeting & perkenalan)
+- `role` → Deskripsi peran (dipakai di system prompt)
+- `topics` → Daftar topik (dipakai di greeting & system prompt)
+
+#### 3. Ganti aturan menjawab (opsional)
+
+File: **`prompts/system.md`** — aturan cara LLM menjawab pertanyaan.
+
+Template yang bisa diisi:
+```markdown
+Kamu adalah {name}, {role}.
+
+Tugasmu membantu menjawab pertanyaan tentang {topics}.
+
+Kamu akan menerima beberapa data referensi beserta kategorinya. Pilih dan gunakan yang PALING RELEVAN dengan pertanyaan user.
+
+PENTING — Cara menjawab:
+1. [Aturan 1]
+2. [Aturan 2]
+...
+```
+
+Variabel `{name}`, `{role}`, `{topics}` otomatis diisi dari `identity.json`.
+
+#### 4. Ganti sambutan (opsional)
+
+File: **`prompts/greeting.md`** — template pas user bilang "halo".
+
+```markdown
+Kamu adalah {name}, {role}.
+
+Pengguna menyapa kamu. Jawab dengan ramah, perkenalkan diri kamu sebagai {name}...
+```
+
+#### 5. Isi .env dengan data kamu
+
+```ini
+TELEGRAM_BOT_TOKEN=token_bot_baru
+GSHEET_CSV_URL=url_faq_baru
+LLM_API_1=https://api.deepseek.com/chat/completions
+LLM_API_KEY_1=sk-api-key-baru
+LLM_MODEL_1=deepseek-chat
+```
+
+#### 6. Selesai! Jalankan server & bot
+
+```bash
+# Windows
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+python telegram_bot.py
+
+# Linux
+source venv/bin/activate
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+python telegram_bot.py
+```
+
+### Ringkasan — Apa yang Perlu Diubah
+
+| File | Wajib? | Fungsi |
+|------|--------|--------|
+| `prompts/identity.json` | ✅ WAJIB | Nama, peran, topik bot |
+| `prompts/system.md` | ⬜ Opsional | Aturan cara menjawab |
+| `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
+| `.env` | ✅ WAJIB | Token bot, API key, URL FAQ |
+| `materi.csv` | ✅ WAJIB | Data FAQ (Google Sheets CSV) |
+| `server.py` | ❌ Jangan | Kode router — gak perlu disentuh |
+| `telegram_bot.py` | ❌ Jangan | Kode bot — gak perlu disentuh |
+| `core/*.py` | ❌ Jangan | Mesin utama — gak perlu disentuh |
+| `security/*.py` | ❌ Jangan | Pengamanan — gak perlu disentuh |
 
 ---
 
@@ -110,7 +202,7 @@ Semua chat terekam di **SQLite database** (`cici_anova.db`). Data tetap utuh mes
 3. Jalankan installer
 4. ✅ **WAJIB centang** `Add Python to PATH`
 5. Klik **Install Now**
-6. Verifikasi — buka **CMD/PowerShell** dan ketik:
+6. Verifikasi:
 
 ```cmd
 python --version
@@ -135,51 +227,45 @@ cd chatbot-qna
 
 ### 4. Setup Token (.env)
 
-Buat file `.env` di `C:\chatbot-qna\`:
-
 ```cmd
 notepad .env
 ```
 
 Isi dengan:
 
-```
+```ini
 TELEGRAM_BOT_TOKEN=isi_token_dari_botfather
 CHATBOT_URL=http://localhost:8000/chat
-LLM_API_1=https://api.openai.com/v1/chat/completions
+LLM_API_1=https://api.deepseek.com/chat/completions
 LLM_API_KEY_1=sk-isi_api_key
-LLM_MODEL_1=gpt-4o-mini
-LLM_API_2=https://api.deepseek.com/chat/completions
-LLM_API_KEY_2=sk-isi_api_key_deepseek
-LLM_MODEL_2=deepseek-chat
+LLM_MODEL_1=deepseek-chat
+LLM_API_2=https://openrouter.ai/api/v1/chat/completions
+LLM_API_KEY_2=sk-isi_key_openrouter
+LLM_MODEL_2=deepseek/deepseek-v4-flash
 GSHEET_CSV_URL=isi_url_csv_google_sheets
 ```
 
 Simpan (**Ctrl+S**) dan tutup.
 
 > **Dapatkan token:**
-> - Telegram: [@BotFather](https://t.me/botfather)
-> - LLM API: daftar di provider seperti DeepSeek, OpenAI, atau OpenRouter
-> - Google Sheets CSV URL: buka spreadsheet → File → Share → Publish to web → CSV
+> - Telegram → [@BotFather](https://t.me/botfather)
+> - LLM API → daftar di DeepSeek, OpenRouter, atau provider lain
+> - Google Sheets CSV URL → File → Share → Publish to web → CSV
 
 ### 5. Install Dependencies
 
-Buka **CMD** atau **PowerShell** di folder `C:\chatbot-qna\`:
+Buka **CMD** atau **PowerShell** di folder proyek:
 
 ```powershell
 pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
-
-Proses ini mendownload E5-base (~278MB) dan EasyOCR (~500MB). Estimasi 5-10 menit.
 
 Jika `pip` tidak ditemukan:
 ```powershell
 python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
-### 6. Jalankan Server
-
-Buka **CMD 1** (PowerShell juga bisa):
+### 6. Jalankan Server (CMD 1)
 
 ```cmd
 cd C:\chatbot-qna
@@ -192,11 +278,7 @@ Application startup complete.
 Uvicorn running on http://0.0.0.0:8000
 ```
 
-> ⏳ Loading pertama agak lama karena download model E5-base.
-
-### 7. Jalankan Bot Telegram
-
-Buka **CMD 2** baru (biarkan CMD 1 tetap jalan):
+### 7. Jalankan Bot (CMD 2)
 
 ```cmd
 cd C:\chatbot-qna
@@ -208,17 +290,13 @@ Output:
 Bot started!
 ```
 
-Selesai! Buka Telegram dan chat ke bot Anda.
-
 ### 8. Auto-Start (Opsional)
 
-Biar gak perlu buka 2 CMD manual setiap kali:
-
-Buat file `C:\chatbot-qna\start_chatbot.bat`:
+Buat `C:\chatbot-qna\start_chatbot.bat`:
 
 ```batch
 @echo off
-title Cici Anova
+title Chatbot
 cd /d C:\chatbot-qna
 start "Server" cmd /c "python -m uvicorn server:app --host 0.0.0.0 --port 8000"
 timeout /t 15 /nobreak >nul
@@ -226,11 +304,9 @@ start "Bot" cmd /c "python telegram_bot.py"
 exit
 ```
 
-Double-click `start_chatbot.bat` untuk menjalankan keduanya.
+Double-click untuk jalan.
 
-**Auto-start saat boot:**
-1. Tekan **Win + R**, ketik `shell:startup`, Enter
-2. Buat shortcut `start_chatbot.bat` ke folder yang muncul
+**Auto-start saat boot:** `Win+R` → `shell:startup` → buat shortcut `.bat` di situ.
 
 ---
 
@@ -254,12 +330,6 @@ sudo apt update
 sudo apt install -y python3 python3-pip python3-venv git
 ```
 
-Verifikasi:
-```bash
-python3 --version
-git --version
-```
-
 ### 2. Clone Repository
 
 ```bash
@@ -268,14 +338,12 @@ git clone https://github.com/toha518/chatbot-qna.git
 cd chatbot-qna
 ```
 
-### 3. Setup Virtual Environment (Rekomendasi)
+### 3. Virtual Environment (Rekomendasi)
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
-
-> Dengan virtual env, dependensi terisolasi dari sistem — aman dan rapi.
 
 ### 4. Setup Token (.env)
 
@@ -283,58 +351,38 @@ source venv/bin/activate
 nano .env
 ```
 
-Isi:
-
-```
-TELEGRAM_BOT_TOKEN=isi_token_dari_botfather
-CHATBOT_URL=http://localhost:8000/chat
-LLM_API_1=https://api.openai.com/v1/chat/completions
-LLM_API_KEY_1=sk-isi_api_key
-LLM_MODEL_1=gpt-4o-mini
-LLM_API_2=https://api.deepseek.com/chat/completions
-LLM_API_KEY_2=sk-isi_api_key_deepseek
-LLM_MODEL_2=deepseek-chat
-GSHEET_CSV_URL=isi_url_csv_google_sheets
-```
-
-Simpan: `Ctrl+X` → `Y` → `Enter`.
+Isi (sama seperti Windows), simpan `Ctrl+X` → `Y` → `Enter`.
 
 ### 5. Install Dependencies
 
 ```bash
-# Aktifkan virtual env dulu (kalau pake)
-source venv/bin/activate
-
+source venv/bin/activate   # skip kalo gak pake venv
 pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
-### 6. Jalankan Server
+### 6. Jalankan Server (Terminal 1)
 
-**Terminal 1:**
 ```bash
 cd /home/chatbot-qna
-source venv/bin/activate   # skip kalo gak pake venv
+source venv/bin/activate
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-### 7. Jalankan Bot Telegram
+### 7. Jalankan Bot (Terminal 2)
 
-**Terminal 2** (biarkan terminal 1 jalan):
 ```bash
 cd /home/chatbot-qna
-source venv/bin/activate   # skip kalo gak pake venv
+source venv/bin/activate
 python telegram_bot.py
 ```
 
-### 8. Manajemen dengan systemd (Production)
+### 8. systemd (Production — auto-start)
 
-Biar server + bot jalan otomatis walau SSH logout atau server restart, buat 2 service systemd.
-
-#### a) Server API — `/etc/systemd/system/cici-server.service`
+#### `/etc/systemd/system/cici-server.service`
 
 ```ini
 [Unit]
-Description=Cici Anova API Server
+Description=Chatbot API Server
 After=network.target
 
 [Service]
@@ -349,11 +397,11 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-#### b) Bot Telegram — `/etc/systemd/system/cici-bot.service`
+#### `/etc/systemd/system/cici-bot.service`
 
 ```ini
 [Unit]
-Description=Cici Anova Telegram Bot
+Description=Chatbot Telegram Bot
 After=network.target cici-server.service
 Requires=cici-server.service
 
@@ -377,35 +425,6 @@ sudo systemctl enable cici-server cici-bot
 sudo systemctl start cici-server cici-bot
 ```
 
-Cek status:
-```bash
-sudo systemctl status cici-server
-sudo systemctl status cici-bot
-```
-
-> Tanpa virtual env, ganti `ExecStart` jadi `/usr/bin/python3 -m uvicorn ...`
-
-### 9. Alternatif: screen / tmux
-
-Kalau gak mau pake systemd (misal VPS murah tanpa akses root), pakai `screen`:
-
-```bash
-sudo apt install screen -y
-
-# Buat session server
-screen -dmS cici-server bash -c "cd /home/chatbot-qna && source venv/bin/activate && python -m uvicorn server:app --host 0.0.0.0 --port 8000"
-
-# Buat session bot
-screen -dmS cici-bot bash -c "cd /home/chatbot-qna && source venv/bin/activate && python telegram_bot.py"
-
-# Cek session aktif
-screen -ls
-
-# Masuk ke session
-screen -r cici-server   # atau cici-bot
-# Keluar: Ctrl+A, D
-```
-
 ---
 
 ## ✅ Verifikasi
@@ -415,43 +434,18 @@ screen -r cici-server   # atau cici-bot
 http://localhost:8000/health
 ```
 
-Harus muncul JSON:
+Output:
 ```json
 {
   "status": "ok",
   "total_qna": 74,
   "engine": "E5-base",
-  "source": "Google Sheets",
   "active_sessions": 0
 }
 ```
 
 ### Cek bot:
 Buka Telegram, cari bot Anda, kirim pesan. Bot harus merespon.
-
-### Cek history:
-```
-http://localhost:8000/history
-```
-
----
-
-## 📁 Struktur Folder
-
-```
-chatbot-qna/
-├── server.py            ← API server utama (E5-base + LLM)
-├── telegram_bot.py      ← Layer Telegram (bot + anti-spam)
-├── materi.csv           ← Backup FAQ dari Google Sheets
-├── .env                 ← Token & konfigurasi (tidak di-git)
-├── .env.example         ← Template konfigurasi
-├── .gitignore
-├── qna_index.pkl        ← Index E5-base (auto-generate)
-├── cici_anova.db        ← SQLite chat history (auto-generate)
-├── venv/                ← Virtual environment (Linux, opsional)
-├── start_chatbot.bat    ← (Windows) one-click start
-└── __pycache__/         ← Cache Python (auto-generate)
-```
 
 ---
 
@@ -472,7 +466,7 @@ chatbot-qna/
 ## ❓ FAQ
 
 **Q: Kok jawabannya gak nyambung?**  
-A: Bisa jadi FAQ database belum mencakup topik tersebut. Hubungi pegawai BPS untuk update database.
+A: Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
 
 **Q: Error "Address already in use"?**  
 A: Port 8000 masih dipakai. Cek:
@@ -481,14 +475,14 @@ netstat -ano | findstr :8000    # Windows
 sudo lsof -i :8000              # Linux
 ```
 
-**Q: Kok bot offline terus?**  
-A: Pastikan server (uvicorn) dan bot sama-sama jalan. Kena restart? Jalanin ulang.
+**Q: Bikin bot dengan identitas beda?**  
+A: Ganti `prompts/identity.json` + `.env` — gak perlu edit kode Python.
 
 **Q: Chat history ilang?**  
-A: History tersimpan di `cici_anova.db` — file ini di-*ignore* git, jadi aman. Jangan dihapus.
+A: History tersimpan di `cici_anova.db`. File ini di-*ignore* git, jadi aman.
 
 **Q: Bisa pake LLM model lain?**  
-A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider yang dipakai.
+A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider.
 
 ---
 
