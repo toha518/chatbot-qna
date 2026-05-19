@@ -5,7 +5,7 @@ import os
 import time
 from datetime import datetime, timezone, timedelta
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cici_anova.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chatbot.db")
 
 
 def init_db():
