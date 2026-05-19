@@ -12,6 +12,7 @@ import tempfile
 from dotenv import load_dotenv
 from collections import defaultdict
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # ===================== OCR ENGINE (EasyOCR) =====================
