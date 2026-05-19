@@ -23,11 +23,11 @@ from core.llm import (
     build_greeting_prompt, build_system_prompt, call_llm
 )
 from security.rate_limiter import (
-    check_api_rate_limit, init_rate_limit_entry, TRUSTED_IDS
+    check_api_rate_limit, init_rate_limit_entry, TRUSTED_IDS, api_rate_limit
 )
 from security.session import (
     cleanup_sessions, init_session, session_watchdog,
-    sessions, session_activity, session_start_times, api_rate_limit,
+    sessions, session_activity, session_start_times,
     format_durasi
 )
 
