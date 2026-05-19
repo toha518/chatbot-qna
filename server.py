@@ -39,8 +39,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id TEXT NOT NULL,
             waktu TIMESTAMP NOT NULL,
-            pertanyaan TEXT NOT NULL,
-            jawaban TEXT NOT NULL
+            kendala TEXT NOT NULL,
+            solusi TEXT NOT NULL
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_chat_id ON chat_logs(chat_id)")
@@ -75,7 +75,7 @@ def load_from_gsheet():
         raw = resp.read().decode("utf-8")
         lines = raw.splitlines()
         reader = csv.reader(lines)
-        next(reader)  # skip header (baris 1: No,Kategori,Pertanyaan,Jawaban)
+        next(reader)  # skip header (baris 1: No,Kategori,Kendala,Solusi)
 
         qa = []
         cats = []
@@ -416,7 +416,7 @@ def get_history(chat_id: str):
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT waktu, pertanyaan, jawaban FROM chat_logs WHERE chat_id = ? ORDER BY waktu ASC",
+            "SELECT waktu, kendala, solusi FROM chat_logs WHERE chat_id = ? ORDER BY waktu ASC",
             (chat_id,)
         )
         rows = cursor.fetchall()
@@ -625,7 +625,7 @@ async def chat(req: ChatRequest):
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO chat_logs (chat_id, waktu, pertanyaan, jawaban) VALUES (?, ?, ?, ?)",
+                "INSERT INTO chat_logs (chat_id, waktu, kendala, solusi) VALUES (?, ?, ?, ?)",
                 (cid, time.time(), req.pertanyaan, jawaban)
             )
             conn.commit()
@@ -732,7 +732,7 @@ PENTING — Cara menjawab:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO chat_logs (chat_id, waktu, pertanyaan, jawaban) VALUES (?, ?, ?, ?)",
+            "INSERT INTO chat_logs (chat_id, waktu, kendala, solusi) VALUES (?, ?, ?, ?)",
             (cid, time.time(), req.pertanyaan, jawaban)
         )
         conn.commit()
