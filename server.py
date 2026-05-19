@@ -593,8 +593,7 @@ async def chat(req: ChatRequest):
                         "ramah, perkenalkan diri kamu sebagai Cici Anova, dan sebutkan "
                         "bahwa kamu bisa membantu menjawab pertanyaan seputar SOBAT, GC PBI, "
                         "GC PLN, FASIH, dan Pengolahan SE2026. Jawab dengan bahasa Indonesia "
-                        "yang natural. Gunakan emoji secukupnya (👋😊📊) biar hangat dan bersahabat. "
-                        "JANGAN gunakan **bold** atau *miring* atau formatting apapun."},
+                        "yang natural. Gunakan emoji secukupnya biar hangat dan bersahabat. "},
             {"role": "user", "content": req.pertanyaan}
         ]
         jawaban = None
@@ -692,10 +691,6 @@ PENTING — Cara menjawab:
 4. Jika datanya kurang, kombinasikan beberapa referensi yang saling melengkapi
 5. Jika benar-benar tidak ada data relevan, katakan: Maaf, saya tidak menemukan jawaban yang sesuai.
 6. Gunakan emoji SECUKUPNYA untuk membuat jawaban lebih hidup dan bersahabat:
-   - ✅ Emoji di tempat yang pas: 📊 untuk data, 📝 untuk pendaftaran, 📞 untuk kontak, ✅ untuk konfirmasi, ❌ untuk penolakan, ⏰ untuk waktu, 💡 untuk tips
-   - ✅ Maksimal 2 emoji per jawaban — jangan berlebihan
-   - ✅ Hanya pake emoji yang relevan sama konteks, jangan dipaksakan
-   - ❌ Jangan pake **bold** atau *miring* atau formatting apapun"""
 
     messages = [{"role": "system", "content": system}]
     messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
