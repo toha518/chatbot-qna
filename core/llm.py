@@ -1,0 +1,108 @@
+# core/llm.py — LLM: load config, call API with failover, build prompts
+
+import os
+import json
+import httpx
+
+# LLM config (diisi dari .env pas load_llm_config)
+LLM_APIS: list[str] = []
+LLM_KEYS: list[str] = []
+LLM_MODELS: list[str] = []
+
+
+def load_llm_config() -> int:
+    """
+    Baca LLM config dari .env.
+    Format: LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1 (dst sampai 9)
+    """
+    global LLM_APIS, LLM_KEYS, LLM_MODELS
+    LLM_APIS = []
+    LLM_KEYS = []
+    LLM_MODELS = []
+
+    for i in range(1, 10):
+        api = os.getenv(f"LLM_API_{i}")
+        key = os.getenv(f"LLM_API_KEY_{i}")
+        model = os.getenv(f"LLM_MODEL_{i}")
+        if api and key and model:
+            LLM_APIS.append(api)
+            LLM_KEYS.append(key)
+            LLM_MODELS.append(model)
+
+    count = len(LLM_APIS)
+    if count == 0:
+        print("[LLM] ⚠️  TIDAK ADA LLM CONFIG! Set LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1 di .env")
+    else:
+        print(f"[LLM] {count} provider loaded")
+    return count
+
+
+def load_prompts():
+    """
+    Baca file prompts dari folder prompts/.
+    Returns (identity_dict, system_template_str, greeting_template_str).
+    """
+    base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+
+    with open(os.path.join(base, "identity.json"), "r") as f:
+        identity = json.load(f)
+
+    with open(os.path.join(base, "system.md"), "r") as f:
+        system_template = f.read()
+
+    with open(os.path.join(base, "greeting.md"), "r") as f:
+        greeting_template = f.read()
+
+    return identity, system_template, greeting_template
+
+
+def build_greeting_prompt(greeting_template: str, identity: dict, user_query: str) -> list[dict]:
+    """Buat messages list untuk greeting"""
+    topics_str = ", ".join(identity["topics"])
+    system_content = greeting_template.format(
+        name=identity["name"],
+        role=identity["role"],
+        topics=topics_str
+    )
+    return [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_query}
+    ]
+
+
+def build_system_prompt(system_template: str, identity: dict) -> str:
+    """Render system prompt dengan identitas bot"""
+    topics_str = ", ".join(identity["topics"])
+    return system_template.format(
+        name=identity["name"],
+        role=identity["role"],
+        topics=topics_str
+    )
+
+
+async def call_llm(messages: list[dict], timeout: int = 30):
+    """
+    Panggil LLM dengan failover chain.
+    Coba provider 1 → error? lanjut provider 2 → dst.
+    Returns string jawaban, atau None kalo semua gagal.
+    """
+    for i in range(len(LLM_APIS)):
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(
+                    LLM_APIS[i],
+                    json={
+                        "model": LLM_MODELS[i],
+                        "messages": messages,
+                        "max_tokens": 500,
+                        "thinking": {"type": "disabled"}
+                    },
+                    headers={"Authorization": f"Bearer {LLM_KEYS[i]}"}
+                )
+            result = resp.json()
+            return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            print(f"[LLM] Provider {i+1} gagal: {e}")
+            continue
+
+    return None
