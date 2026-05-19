@@ -39,7 +39,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
 | 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
-| 📜 **Chat History** | Semua chat tersimpan di SQLite (`history` endpoint) |
+| 📜 **Chat History** | Semua chat tersimpan di SQLite — kolom `kendala` & `solusi` (`history` endpoint) |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
 
@@ -86,6 +86,15 @@ Failover otomatis — user gak ngerasa perbedaan. Cukup atur di `.env`.
 
 ### 9. 📋 SQLite Logging
 Semua chat terekam di **SQLite database** (`cici_anova.db`). Data tetap utuh meski session direset atau user /stop.
+
+**Data Model — Chat Logs:**
+| Kolom | Tipe | Keterangan |
+|-------|------|------------|
+| `id` | INTEGER | Primary key (auto-increment) |
+| `chat_id` | TEXT | ID unik user Telegram |
+| `waktu` | TIMESTAMP | Waktu chat dikirim |
+| `kendala` | TEXT | Masalah/pertanyaan yang diajukan user |
+| `solusi` | TEXT | Jawaban/respon yang diberikan bot |
 
 ---
 
