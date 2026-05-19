@@ -68,7 +68,7 @@ chatbot-qna/
 │
 ├── .env                      ← Token & API key (tidak di-git)
 ├── .env.example              ← Template env
-└── cici_anova.db             ← SQLite history (auto-generate)
+└── chatbot.db                ← SQLite history (auto-generate)
 ```
 
 ### Detail per Modul
@@ -479,7 +479,7 @@ sudo lsof -i :8000              # Linux
 A: Ganti `prompts/identity.json` + `.env` — gak perlu edit kode Python.
 
 **Q: Chat history ilang?**  
-A: History tersimpan di `cici_anova.db`. File ini di-*ignore* git, jadi aman.
+A: History tersimpan di `chatbot.db`. File ini di-*ignore* git, jadi aman.
 
 **Q: Bisa pake LLM model lain?**  
 A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider.
