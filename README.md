@@ -31,13 +31,12 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 |-------|-----------|
 | 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
 | 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
-| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
 | 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
-| 🔒 **Security** | Anti-spam, sanitasi input, session timeout, markdown fallback, dll |
+| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
+| 🛡️ **Security** | Anti-spam, sanitasi input, session timeout, dll |
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite - kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
-| 📊 **Provider Logging** | Log sukses/gagal tiap provider - tau model mana yang dipake |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
 
 ---
@@ -46,17 +45,12 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 | Fitur | Lapisan | Keterangan |
 |-------|---------|-----------|
-| 🚫 **Anti-Spam (Telegram)** | `telegram_bot.py` | Rate limit 20 chat/menit — block 5 menit. Trusted user bypass |
-| 🚫 **Anti-Spam (API)** | `security/rate_limiter.py` | Rate limit **5 request/menit** per session — block 5 menit. Silent block setelah warning pertama |
+| 🚫 **Anti-Spam** | `security/rate_limiter.py` | Rate limit **5 request/menit** per session — block 5 menit. Silent block setelah warning pertama |
 | ✂️ **Batas Karakter** | `telegram_bot.py` | Maksimal **500 karakter** per chat. Tolak otomatis tanpa proses AI |
 | 🧹 **Input Sanitasi** | `telegram_bot.py` | Hapus karakter kontrol (`\x00-\x1f`) + batasi emoji maks **5 per chat** |
 | 📚 **Batas History** | `security/session.py` | Maks **10 tanya-jawab** terakhir per session — hemat token & biaya |
 | 💬 **Session Timeout** | `security/session.py` | Auto-reset setelah **30 menit idle**. Watchdog scan tiap 15 detik |
 | 🔔 **Notifikasi Session** | `security/session.py` | Kirim pesan otomatis ke Telegram pas session expired (isi jam & durasi) |
-| 🛡️ **Markdown Fallback** | `telegram_bot.py` | Kalo parsing Markdown error, fallback ke **plain text** |
-| 🔑 **Auth Header Safe** | `core/llm.py` | API Key **tidak dikirim** kalo bernilai `***` — aman buat Ollama lokal |
-| 🧠 **Conditional Thinking** | `core/llm.py` | Param `thinking` **hanya dikirim** kalo model mengandung `deepseek` — kompatibel dengan Ollama |
-| 📊 **Provider Logging** | `core/llm.py` | Log ✅ sukses / ❌ gagal tiap provider — tau persis model mana yang dipake |
 
 ---
 
