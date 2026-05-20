@@ -31,17 +31,28 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 |-------|-----------|
 | 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
 | 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
-| 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
-| ✂️ **Batas Karakter** | Maksimal 500 karakter per chat - tolak otomatis tanpa proses AI |
-| 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
+| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
+| 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
+| 🛡️ **Keamanan** | Anti-spam, sanitasi input, session timeout, markdown fallback, dll |
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
-| 📚 **Batas History** | Maks 10 chat terakhir per session - hemat token & biaya |
-| 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite - kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
-| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text - anti error |
 | 📊 **Provider Logging** | Log sukses/gagal tiap provider - tau model mana yang dipake |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
+
+---
+
+## 🛡️ Detail Keamanan
+
+| Fitur | Keterangan |
+|-------|-----------|
+| 🚫 **Anti-Spam** | Rate limit 5 chat/menit — block 5 menit kalo melanggar |
+| ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
+| 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
+| 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
+| 💬 **Session Management** | Auto-reset setelah 30 menit idle + watchdog + notifikasi session ended |
+| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text — anti error |
+| 🔑 **Auth Header** | API Key **tidak dikirim** kalo bernilai `***` — aman buat Ollama lokal |
 
 ---
 
