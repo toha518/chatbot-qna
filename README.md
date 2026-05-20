@@ -29,9 +29,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 | Fitur | Keterangan |
 |-------|-----------|
-| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
-| 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
-| 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
+| 🤖 **AI Answering** | LLM - jawab dengan konteks database FAQ. Bisa pakai model lokal (Ollama) maupun cloud |
 | 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
 | 🛡️ **Security** | Anti-spam, sanitasi input, session timeout, dll |
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
