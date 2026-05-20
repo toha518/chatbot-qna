@@ -99,6 +99,7 @@ async def call_llm(messages: list[dict], timeout: int = 30):
                     model=model,
                     messages=messages,
                 )
+                print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal)")
                 return response.message.content
 
             # API eksternal — pake httpx
@@ -119,10 +120,11 @@ async def call_llm(messages: list[dict], timeout: int = 30):
 
                 resp = await client.post(api, json=payload, headers=headers)
                 result = resp.json()
+                print(f"[LLM] ✅ Provider {i+1} — {model}")
                 return result["choices"][0]["message"]["content"]
 
         except Exception as e:
-            print(f"[LLM] Provider {i+1} gagal: {e}")
+            print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")
             continue
 
     return None
