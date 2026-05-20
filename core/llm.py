@@ -20,7 +20,7 @@ def load_llm_config() -> int:
     LLM_KEYS = []
     LLM_MODELS = []
 
-    for i in range(1, 10):
+    for i in range(1, 21):
         api = os.getenv(f"LLM_API_{i}")
         key = os.getenv(f"LLM_API_KEY_{i}")
         model = os.getenv(f"LLM_MODEL_{i}")
