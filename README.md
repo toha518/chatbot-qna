@@ -6,7 +6,8 @@
 
 Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026**.
 
-> **Stack:** FastAPI + E5-base (semantic search) + LLM + SQLite (history)
+> **Stack:** FastAPI + E5-base (semantic search) + LLM (DeepSeek / Ollama) + SQLite (history)
+> **Fitur Baru:** Auto-detect Ollama lokal + fallback markdown Telegram + logging provider
 
 ---
 
@@ -29,7 +30,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | Fitur | Keterangan |
 |-------|-----------|
 | 🧠 **Semantic Search** | E5-base — retrieval-specialized, lebih akurat dari MiniLM |
-| 🤖 **AI Answering** | LLM — jawab dengan konteks dari database FAQ |
+| 🤖 **AI Answering** | LLM — jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
 | 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
 | ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
 | 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
@@ -38,6 +39,8 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite — kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
+| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text — anti error |
+| 📊 **Provider Logging** | Log sukses/gagal tiap provider — tau model mana yang dipake |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
 
 ---
@@ -77,7 +80,7 @@ chatbot-qna/
 |--------|-----|--------|
 | `core/database.py` | `init_db()`, `log_chat()`, `get_chat_history()`, `list_sessions()` | Semua interaksi ke SQLite |
 | `core/embedder.py` | `init_embedder()`, `load_from_gsheet()`, `search()` | Load E5-base, encode FAQ, cari pertanyaan relevan |
-| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM + failover ke provider berikutnya kalau error |
+| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM + failover chain. Auto-detect Ollama lokal, `thinking` disabled otomatis untuk DeepSeek, max_tokens 2000 |
 | `security/rate_limiter.py` | `check_api_rate_limit()`, `init_rate_limit_entry()` | Proteksi spam, block user kalau 5 chat/menit |
 | `security/session.py` | `init_session()`, `cleanup_sessions()`, `session_watchdog()` | Atur session per user, watchdog expired |
 
@@ -148,9 +151,16 @@ Pengguna menyapa kamu. Jawab dengan ramah, perkenalkan diri kamu sebagai {name}.
 ```ini
 TELEGRAM_BOT_TOKEN=token_bot_baru
 GSHEET_CSV_URL=url_faq_baru
-LLM_API_1=https://api.deepseek.com/chat/completions
-LLM_API_KEY_1=sk-api-key-baru
-LLM_MODEL_1=deepseek-chat
+
+# Provider 1 — Ollama lokal (gratis, offline)
+LLM_API_1=http://localhost:11434/v1/chat/completions
+LLM_API_KEY_1=***
+LLM_MODEL_1=gemma3n:e4b
+
+# Provider 2 — DeepSeek API (cadangan)
+LLM_API_2=https://api.deepseek.com/chat/completions
+LLM_API_KEY_2=sk-api-key-deepseek
+LLM_MODEL_2=deepseek-chat
 ```
 
 #### 6. Selesai! Jalankan server & bot
@@ -176,8 +186,9 @@ python telegram_bot.py
 | `.env` | ✅ WAJIB | Token bot, API key, URL FAQ |
 | `materi.csv` | ✅ WAJIB | Data FAQ (Google Sheets CSV) |
 | `server.py` | ❌ Jangan | Kode router — gak perlu disentuh |
-| `telegram_bot.py` | ❌ Jangan | Kode bot — gak perlu disentuh |
-| `core/*.py` | ❌ Jangan | Mesin utama — gak perlu disentuh |
+| `telegram_bot.py` | ⬜ Optional | Kode bot — fallback markdown sudah built-in |
+| `core/llm.py` | ⬜ Optional | Sudah auto-detect Ollama & DeepSeek |
+| `core/embedder.py` | ⬜ Optional | Bisa ganti model embedder |
 | `security/*.py` | ❌ Jangan | Pengamanan — gak perlu disentuh |
 
 ---
@@ -236,13 +247,22 @@ Isi dengan:
 ```ini
 TELEGRAM_BOT_TOKEN=isi_token_dari_botfather
 CHATBOT_URL=http://localhost:8000/chat
-LLM_API_1=https://api.deepseek.com/chat/completions
-LLM_API_KEY_1=sk-isi_api_key
-LLM_MODEL_1=deepseek-chat
-LLM_API_2=https://openrouter.ai/api/v1/chat/completions
-LLM_API_KEY_2=sk-isi_key_openrouter
-LLM_MODEL_2=deepseek/deepseek-v4-flash
 GSHEET_CSV_URL=isi_url_csv_google_sheets
+
+# LLM 1 — Ollama Lokal (rekomendasi untuk offline)
+LLM_API_1=http://localhost:11434/v1/chat/completions
+LLM_API_KEY_1=***
+LLM_MODEL_1=gemma3n:e4b
+
+# LLM 2 — DeepSeek Langsung (cadangan)
+LLM_API_2=https://api.deepseek.com/chat/completions
+LLM_API_KEY_2=sk-isi_deepseek
+LLM_MODEL_2=deepseek-chat
+
+# LLM 3 — OpenCode Go (cadangan)
+LLM_API_3=https://opencode.ai/zen/go/v1/chat/completions
+LLM_API_KEY_3=sk-isi_opencode
+LLM_MODEL_3=deepseek-v4-flash
 ```
 
 Simpan (**Ctrl+S**) dan tutup.
@@ -257,13 +277,31 @@ Simpan (**Ctrl+S**) dan tutup.
 Buka **CMD** atau **PowerShell** di folder proyek:
 
 ```powershell
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr ollama
 ```
 
 Jika `pip` tidak ditemukan:
 ```powershell
-python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
+python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr ollama
 ```
+
+> **Catatan:** Library `ollama` opsional — hanya diperlukan jika pakai Ollama lokal. Install Ollama dari [ollama.com/download](https://ollama.com/download).
+
+### 5b. Setup Ollama (Opsional — untuk offline)
+
+```cmd
+# Install Ollama → https://ollama.com/download
+# Pull model gemma3n (ringan, tanpa thinking)
+ollama pull gemma3n:e4b
+
+# Test
+ollama run gemma3n:e4b
+```
+
+Rekomendasi model gratis tanpa thinking:
+- `gemma3n:e4b` (4B) — recommended
+- `ministral-3:8b` (8B) — alternatif
+- `gemma3:12b` (12B) — lebih kuat
 
 ### 6. Jalankan Server (CMD 1)
 
@@ -475,6 +513,9 @@ netstat -ano | findstr :8000    # Windows
 sudo lsof -i :8000              # Linux
 ```
 
+**Q: Error "Can't parse entities" di Telegram?**  
+A: Jawaban LLM mengandung karakter Markdown yang gak ditutup. Jangan khawatir — sekarang otomatis fallback ke plain text. ✅
+
 **Q: Bikin bot dengan identitas beda?**  
 A: Ganti `prompts/identity.json` + `.env` — gak perlu edit kode Python.
 
@@ -483,6 +524,12 @@ A: History tersimpan di `chatbot.db`. File ini di-*ignore* git, jadi aman.
 
 **Q: Bisa pake LLM model lain?**  
 A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider.
+
+**Q: Mau offline pake CPU doang?**  
+A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`. Jalan di laptop/PC biasa tanpa GPU. 🖥️
+
+**Q: Kok jawaban kepotong di tengah?**  
+A: Udah dinaikin `max_tokens` dari 500 → 2000. Seharusnya aman sekarang. ✅
 
 ---
 
