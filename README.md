@@ -44,15 +44,19 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 ## 🔒 Security
 
-| Fitur | Keterangan |
-|-------|-----------|
-| 🚫 **Anti-Spam** | Rate limit 5 chat/menit — block 5 menit kalo melanggar |
-| ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
-| 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
-| 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
-| 💬 **Session Management** | Auto-reset setelah 30 menit idle + watchdog + notifikasi session ended |
-| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text — anti error |
-| 🔑 **Auth Header** | API Key **tidak dikirim** kalo bernilai `***` — aman buat Ollama lokal |
+| Fitur | Lapisan | Keterangan |
+|-------|---------|-----------|
+| 🚫 **Anti-Spam (Telegram)** | `telegram_bot.py` | Rate limit 20 chat/menit — block 5 menit. Trusted user bypass |
+| 🚫 **Anti-Spam (API)** | `security/rate_limiter.py` | Rate limit **5 request/menit** per session — block 5 menit. Silent block setelah warning pertama |
+| ✂️ **Batas Karakter** | `telegram_bot.py` | Maksimal **500 karakter** per chat. Tolak otomatis tanpa proses AI |
+| 🧹 **Input Sanitasi** | `telegram_bot.py` | Hapus karakter kontrol (`\x00-\x1f`) + batasi emoji maks **5 per chat** |
+| 📚 **Batas History** | `security/session.py` | Maks **10 tanya-jawab** terakhir per session — hemat token & biaya |
+| 💬 **Session Timeout** | `security/session.py` | Auto-reset setelah **30 menit idle**. Watchdog scan tiap 15 detik |
+| 🔔 **Notifikasi Session** | `security/session.py` | Kirim pesan otomatis ke Telegram pas session expired (isi jam & durasi) |
+| 🛡️ **Markdown Fallback** | `telegram_bot.py` | Kalo parsing Markdown error, fallback ke **plain text** |
+| 🔑 **Auth Header Safe** | `core/llm.py` | API Key **tidak dikirim** kalo bernilai `***` — aman buat Ollama lokal |
+| 🧠 **Conditional Thinking** | `core/llm.py` | Param `thinking` **hanya dikirim** kalo model mengandung `deepseek` — kompatibel dengan Ollama |
+| 📊 **Provider Logging** | `core/llm.py` | Log ✅ sukses / ❌ gagal tiap provider — tau persis model mana yang dipake |
 
 ---
 
