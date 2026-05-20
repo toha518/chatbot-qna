@@ -51,6 +51,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 📚 **Batas History** | `security/session.py` | Maks **10 tanya-jawab** terakhir per session — hemat token & biaya |
 | 💬 **Session Timeout** | `security/session.py` | Auto-reset setelah **30 menit idle**. Watchdog scan tiap 15 detik |
 | 🔔 **Notifikasi Session** | `security/session.py` | Kirim pesan otomatis ke Telegram pas session expired (isi jam & durasi) |
+| ⏳ **Session Rest 6 Jam** | `server.py` | Kalo session udah **>6 jam**, user di-rest **6 jam** — paksa istirahat. Skip buat trusted user |
 
 ---
 
