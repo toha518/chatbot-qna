@@ -49,6 +49,27 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+# ===================== DAILY CHAT LIMIT =====================
+DAILY_LIMIT = 100  # maks chat per user per hari
+daily_chat_count: dict[str, dict] = {}  # {chat_id: {"date": "2026-05-20", "count": 5}}
+
+def check_daily_limit(cid: str) -> bool:
+    """Cek & increment daily chat count. Return False kalo udah > limit."""
+    today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
+    entry = daily_chat_count.get(cid)
+
+    if not entry or entry["date"] != today:
+        # Reset karena udah ganti hari
+        daily_chat_count[cid] = {"date": today, "count": 0}
+        entry = daily_chat_count[cid]
+
+    if entry["count"] >= DAILY_LIMIT:
+        return False
+
+    entry["count"] += 1
+    return True
+
+
 # ===================== REQUEST MODELS =====================
 class ChatRequest(BaseModel):
     pertanyaan: str
@@ -207,6 +228,15 @@ async def chat(req: ChatRequest):
                 return {"jawaban": "", "skor": 0}
             return {"jawaban": msg, "skor": 0}
         api_rate_limit[cid]["last_active"] = time.time()
+
+    # ===================== DAILY CHAT LIMIT =====================
+    if cid not in TRUSTED_IDS:
+        if not check_daily_limit(cid):
+            sisa = DAILY_LIMIT
+            return {
+                "jawaban": "⚠️ Anda sudah mencapai batas chat harian (100 chat). Silakan coba lagi besok! 🙏",
+                "skor": 0
+            }
 
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
