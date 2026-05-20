@@ -2,9 +2,7 @@
 # Tugas: nerima pesan dari Telegram, kirim ke server API, balasin ke user
 # Ini cuma "jembatan" — logika utama ada di server.py
 
-import asyncio
 import httpx                       # HTTP client buat panggil server API
-import time
 import re
 import os
 import io
@@ -37,17 +35,6 @@ load_dotenv()  # baca .env (kalo ada)
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")  # WAJIB diisi di .env
 CHATBOT_URL = os.getenv("CHATBOT_URL") or "http://localhost:8000/chat"  # aman, URL publik lokal
 
-# ===================== ANTI-SPAM (Bot Layer) =====================
-# Proteksi sebelum request dikirim ke server API
-RATE_LIMIT = 5             # Maks 5 pesan per menit per user
-WINDOW = 60                  # Jendela waktu (detik)
-BLOCK_DURATION = 300         # Durasi block setelah kena limit (5 menit)
-TRUSTED_USERS = {}           # User yg skip anti-spam (kosong = semua kena)
-
-
-user_tracking = {}
-
-
 def normalize(text):
     """Normalisasi teks: lower case, hapus tanda baca, rapihin spasi"""
     text = text.lower().strip()
@@ -56,36 +43,6 @@ def normalize(text):
     return text
 
 
-
-
-def check_rate_limit(chat_id, text=""):
-    """Cek apakah user udah mencapai batas 20 pesan per menit"""
-    now = time.time()
-
-    if chat_id not in user_tracking:
-        user_tracking[chat_id] = {"timestamps": [], "blocked_until": 0,
-                                  "last_active": 0, "block_notified": False}
-
-    entry = user_tracking[chat_id]
-
-    # Masih dalam masa block?
-    if entry["blocked_until"] > now:
-        if not entry["block_notified"]:
-            entry["block_notified"] = True
-            return False, f"⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-        return False, "__SILENT_BLOCK__"  # dah pernah dikasih tau, diem aja
-
-    # Hapus timestamp yang udah lewat 1 menit
-    entry["timestamps"] = [t for t in entry["timestamps"] if now - t < WINDOW]
-
-    # Udah 20 pesan dalam 1 menit?
-    if len(entry["timestamps"]) >= RATE_LIMIT:
-        entry["blocked_until"] = now + BLOCK_DURATION
-        entry["block_notified"] = True
-        return False, f"⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-
-    entry["timestamps"].append(now)
-    return True, ""
 
 
 # ===================== MENU KEYBOARD =====================
@@ -99,20 +56,9 @@ MENU_MARKUP = ReplyKeyboardMarkup(MENU_KEYS, resize_keyboard=True)
 
 # ===================== HANDLER PERINTAH =====================
 
-def is_blocked(chat_id):
-    """Cek apakah user sedang dalam masa block"""
-    entry = user_tracking.get(chat_id)
-    if entry and entry["blocked_until"] > time.time():
-        return True
-    return False
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /start — sambutan pertama kali user chat"""
     chat_id = str(update.effective_chat.id)
-    if is_blocked(chat_id):
-        await update.message.reply_text("⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam 5 menit!")
-        return
 
     # Init session di server — sekalian dapetin footer kalau session baru
     footer = ""
@@ -145,9 +91,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /help"""
     chat_id = str(update.effective_chat.id)
-    if is_blocked(chat_id):
-        await update.message.reply_text("⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam 5 menit!")
-        return
     await update.message.reply_text(
         "Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
         "dari database mengenai SOBAT, GC PBI, GC PLN, FASIH, "
@@ -159,9 +102,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /topics — daftar topik"""
     chat_id = str(update.effective_chat.id)
-    if is_blocked(chat_id):
-        await update.message.reply_text("⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam 5 menit!")
-        return
     await update.message.reply_text(
         "Topik yang saya kuasai:\n"
         "1. SOBAT\n"
@@ -176,12 +116,7 @@ async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /stop — akhiri sesi diskusi"""
     chat_id = str(update.effective_chat.id)
-    if is_blocked(chat_id):
-        await update.message.reply_text("⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam 5 menit!")
-        return
-    # Reset tracking lokal
-    user_tracking.pop(chat_id, None)
-    # Panggil server buat reset session juga
+    # Panggil server buat reset session
     end_msg = "Sesi diskusi telah diakhiri."
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -206,7 +141,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
 
-    user_id = update.effective_user.id
     chat_id = str(update.effective_chat.id)  # ID unik percakapan
     text = update.message.text.strip()
 
@@ -232,26 +166,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.")
         return
 
-    # ===================== ANTI-SPAM =====================
-    init_entry(chat_id)
-    entry = user_tracking[chat_id]
-
-    if user_id not in TRUSTED_USERS:
-
-        allowed, msg = check_rate_limit(chat_id, text)
-        if not allowed:
-            if msg != "__SILENT_BLOCK__":
-                await update.message.reply_text(msg)
-            return
-
-    # Simpan tracking
-    entry["last_active"] = time.time()
-
-    # ===================== TOMBOL MENU (Bahasa Indonesia) =====================
-    # User yg sedang diblokir gak bisa akses menu manapun
-    if is_blocked(chat_id):
-        await update.message.reply_text("⚠️ Kamu terdeteksi melakukan spam. Coba lagi dalam 5 menit!")
-        return
+    # ===================== TOMBOL MENU =====================
     if text in ["🏠 Mulai", "Mulai"]:
         await start(update, context)
         return
@@ -286,11 +201,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Maaf, terjadi error: {str(e)}", reply_markup=MENU_MARKUP)
 
 
-def init_entry(chat_id):
-    """Inisialisasi tracking buat chat_id baru"""
-    if chat_id not in user_tracking:
-        user_tracking[chat_id] = {"timestamps": [], "blocked_until": 0,
-                                  "last_active": 0}
+
 
 
 # ===================== MAIN =====================
