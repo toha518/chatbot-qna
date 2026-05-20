@@ -277,7 +277,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
-        await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+        try:
+            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+        except Exception:
+            # Fallback: kalo markdown error, kirim plain text
+            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
         await update.message.reply_text(f"Maaf, terjadi error: {str(e)}", reply_markup=MENU_MARKUP)
 
@@ -358,7 +362,10 @@ def main():
                 )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
-            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+            try:
+                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+            except Exception:
+                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
 
         except Exception as e:
             await update.message.reply_text(f"⚠️ Gagal memproses gambar: {str(e)}", reply_markup=MENU_MARKUP)
