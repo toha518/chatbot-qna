@@ -120,6 +120,11 @@ async def call_llm(messages: list[dict], timeout: int = 30):
 
                 resp = await client.post(api, json=payload, headers=headers)
                 result = resp.json()
+
+                if "choices" not in result or not result["choices"]:
+                    err_msg = result.get("error", {}).get("message", str(result))
+                    raise Exception(f"API {resp.status_code}: {err_msg}")
+
                 print(f"[LLM] ✅ Provider {i+1} — {model}")
                 return result["choices"][0]["message"]["content"]
 
