@@ -88,19 +88,39 @@ async def call_llm(messages: list[dict], timeout: int = 30):
     """
     for i in range(len(LLM_APIS)):
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.post(
-                    LLM_APIS[i],
-                    json={
-                        "model": LLM_MODELS[i],
-                        "messages": messages,
-                        "max_tokens": 500,
-                        "thinking": {"type": "disabled"}
-                    },
-                    headers={"Authorization": f"Bearer {LLM_KEYS[i]}"}
+            api = LLM_APIS[i]
+            key = LLM_KEYS[i]
+            model = LLM_MODELS[i]
+
+            # Pakai library ollama langsung kalo lokal
+            if "localhost:11434" in api or "127.0.0.1:11434" in api:
+                from ollama import chat
+                response = chat(
+                    model=model,
+                    messages=messages,
                 )
-            result = resp.json()
-            return result["choices"][0]["message"]["content"]
+                return response.message.content
+
+            # API eksternal — pake httpx
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                payload = {
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": 500
+                }
+
+                # Kalo model DeepSeek — disable thinking biar full response
+                if "deepseek" in model.lower():
+                    payload["thinking"] = {"type": "disabled"}
+
+                headers = {}
+                if key and key != "***":
+                    headers["Authorization"] = f"Bearer {key}"
+
+                resp = await client.post(api, json=payload, headers=headers)
+                result = resp.json()
+                return result["choices"][0]["message"]["content"]
+
         except Exception as e:
             print(f"[LLM] Provider {i+1} gagal: {e}")
             continue
