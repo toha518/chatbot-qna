@@ -488,7 +488,7 @@ A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provi
 
 ## 📞 Kontak & Dukungan
 
-Dibuat dan dikelola oleh **Chisiya** 🃏 — Lead Automation Engineer.
+Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
 
 Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
 
