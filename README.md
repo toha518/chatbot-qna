@@ -1,4 +1,4 @@
-# Cici Anova — Chatbot Q&A BPS
+# Cici Anova - Chatbot Q&A BPS
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -16,8 +16,8 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 - [Fitur](#-fitur)
 - [Arsitektur Modular](#-arsitektur-modular)
 - [Replikasi / Custom Bot](#-replikasi--custom-bot)
-- [Panduan Instalasi — Windows](#-panduan-instalasi--windows)
-- [Panduan Instalasi — Linux](#-panduan-instalasi--linux)
+- [Panduan Instalasi - Windows](#-panduan-instalasi--windows)
+- [Panduan Instalasi - Linux](#-panduan-instalasi--linux)
 - [Verifikasi](#-verifikasi)
 - [Manajemen Server](#-manajemen-server)
 - [API Endpoints](#-api-endpoints)
@@ -29,18 +29,18 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 | Fitur | Keterangan |
 |-------|-----------|
-| 🧠 **Semantic Search** | E5-base — retrieval-specialized, lebih akurat dari MiniLM |
-| 🤖 **AI Answering** | LLM — jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
+| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
+| 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
 | 🛡️ **Anti-Spam** | Rate limit (5 chat/menit) + 6 jam session rest + watchdog |
-| ✂️ **Batas Karakter** | Maksimal 500 karakter per chat — tolak otomatis tanpa proses AI |
+| ✂️ **Batas Karakter** | Maksimal 500 karakter per chat - tolak otomatis tanpa proses AI |
 | 🧹 **Input Sanitasi** | Hapus karakter kontrol + batasi emoji maks 5 per chat |
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
-| 📚 **Batas History** | Maks 10 chat terakhir per session — hemat token & biaya |
+| 📚 **Batas History** | Maks 10 chat terakhir per session - hemat token & biaya |
 | 💬 **Session Management** | Auto-reset setelah 30 menit idle + notifikasi session ended |
-| 📜 **Chat History** | Semua chat tersimpan di SQLite — kolom `kendala` & `solusi` |
+| 📜 **Chat History** | Semua chat tersimpan di SQLite - kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
-| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text — anti error |
-| 📊 **Provider Logging** | Log sukses/gagal tiap provider — tau model mana yang dipake |
+| 🛡️ **Markdown Fallback** | Kalo parsing Markdown error, otomatis kirim plain text - anti error |
+| 📊 **Provider Logging** | Log sukses/gagal tiap provider - tau model mana yang dipake |
 | 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
 
 ---
@@ -101,7 +101,7 @@ cd chatbot-qna
 
 #### 2. Ganti identity.json (WAJIB)
 
-File: **`prompts/identity.json`** — ini yang membedakan bot kamu dengan aslinya.
+File: **`prompts/identity.json`** - ini yang membedakan bot kamu dengan aslinya.
 
 ```json
 {
@@ -118,7 +118,7 @@ Apa yang berubah:
 
 #### 3. Ganti aturan menjawab (opsional)
 
-File: **`prompts/system.md`** — aturan cara LLM menjawab pertanyaan.
+File: **`prompts/system.md`** - aturan cara LLM menjawab pertanyaan.
 
 Template yang bisa diisi:
 ```markdown
@@ -128,7 +128,7 @@ Tugasmu membantu menjawab pertanyaan tentang {topics}.
 
 Kamu akan menerima beberapa data referensi beserta kategorinya. Pilih dan gunakan yang PALING RELEVAN dengan pertanyaan user.
 
-PENTING — Cara menjawab:
+PENTING - Cara menjawab:
 1. [Aturan 1]
 2. [Aturan 2]
 ...
@@ -138,7 +138,7 @@ Variabel `{name}`, `{role}`, `{topics}` otomatis diisi dari `identity.json`.
 
 #### 4. Ganti sambutan (opsional)
 
-File: **`prompts/greeting.md`** — template pas user bilang "halo".
+File: **`prompts/greeting.md`** - template pas user bilang "halo".
 
 ```markdown
 Kamu adalah {name}, {role}.
@@ -152,12 +152,12 @@ Pengguna menyapa kamu. Jawab dengan ramah, perkenalkan diri kamu sebagai {name}.
 TELEGRAM_BOT_TOKEN=token_bot_baru
 GSHEET_CSV_URL=url_faq_baru
 
-# Provider 1 — Ollama lokal (gratis, offline)
+# Provider 1 - Ollama lokal (gratis, offline)
 LLM_API_1=http://localhost:11434/v1/chat/completions
 LLM_API_KEY_1=***
 LLM_MODEL_1=gemma3n:e4b
 
-# Provider 2 — DeepSeek API (cadangan)
+# Provider 2 - DeepSeek API (cadangan)
 LLM_API_2=https://api.deepseek.com/chat/completions
 LLM_API_KEY_2=sk-api-key-deepseek
 LLM_MODEL_2=deepseek-chat
@@ -176,7 +176,7 @@ python -m uvicorn server:app --host 0.0.0.0 --port 8000
 python telegram_bot.py
 ```
 
-### Ringkasan — Apa yang Perlu Diubah
+### Ringkasan - Apa yang Perlu Diubah
 
 | File | Wajib? | Fungsi |
 |------|--------|--------|
@@ -185,15 +185,15 @@ python telegram_bot.py
 | `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
 | `.env` | ✅ WAJIB | Token bot, API key, URL FAQ |
 | `materi.csv` | ✅ WAJIB | Data FAQ (Google Sheets CSV) |
-| `server.py` | ❌ Jangan | Kode router — gak perlu disentuh |
-| `telegram_bot.py` | ⬜ Optional | Kode bot — fallback markdown sudah built-in |
+| `server.py` | ❌ Jangan | Kode router - gak perlu disentuh |
+| `telegram_bot.py` | ⬜ Optional | Kode bot - fallback markdown sudah built-in |
 | `core/llm.py` | ⬜ Optional | Sudah auto-detect Ollama & DeepSeek |
 | `core/embedder.py` | ⬜ Optional | Bisa ganti model embedder |
-| `security/*.py` | ❌ Jangan | Pengamanan — gak perlu disentuh |
+| `security/*.py` | ❌ Jangan | Pengamanan - gak perlu disentuh |
 
 ---
 
-## 💻 Panduan Instalasi — Windows
+## 💻 Panduan Instalasi - Windows
 
 ### 📋 Kebutuhan Sistem
 
@@ -249,17 +249,17 @@ TELEGRAM_BOT_TOKEN=isi_token_dari_botfather
 CHATBOT_URL=http://localhost:8000/chat
 GSHEET_CSV_URL=isi_url_csv_google_sheets
 
-# LLM 1 — Ollama Lokal (rekomendasi untuk offline)
+# LLM 1 - Ollama Lokal (rekomendasi untuk offline)
 LLM_API_1=http://localhost:11434/v1/chat/completions
 LLM_API_KEY_1=***
 LLM_MODEL_1=gemma3n:e4b
 
-# LLM 2 — DeepSeek Langsung (cadangan)
+# LLM 2 - DeepSeek Langsung (cadangan)
 LLM_API_2=https://api.deepseek.com/chat/completions
 LLM_API_KEY_2=sk-isi_deepseek
 LLM_MODEL_2=deepseek-chat
 
-# LLM 3 — OpenCode Go (cadangan)
+# LLM 3 - OpenCode Go (cadangan)
 LLM_API_3=https://opencode.ai/zen/go/v1/chat/completions
 LLM_API_KEY_3=sk-isi_opencode
 LLM_MODEL_3=deepseek-v4-flash
@@ -285,9 +285,9 @@ Jika `pip` tidak ditemukan:
 python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr ollama
 ```
 
-> **Catatan:** Library `ollama` opsional — hanya diperlukan jika pakai Ollama lokal. Install Ollama dari [ollama.com/download](https://ollama.com/download).
+> **Catatan:** Library `ollama` opsional - hanya diperlukan jika pakai Ollama lokal. Install Ollama dari [ollama.com/download](https://ollama.com/download).
 
-### 5b. Setup Ollama (Opsional — untuk offline)
+### 5b. Setup Ollama (Opsional - untuk offline)
 
 ```cmd
 # Install Ollama → https://ollama.com/download
@@ -299,9 +299,9 @@ ollama run gemma3n:e4b
 ```
 
 Rekomendasi model gratis tanpa thinking:
-- `gemma3n:e4b` (4B) — recommended
-- `ministral-3:8b` (8B) — alternatif
-- `gemma3:12b` (12B) — lebih kuat
+- `gemma3n:e4b` (4B) - recommended
+- `ministral-3:8b` (8B) - alternatif
+- `gemma3:12b` (12B) - lebih kuat
 
 ### 6. Jalankan Server (CMD 1)
 
@@ -348,7 +348,7 @@ Double-click untuk jalan.
 
 ---
 
-## 🐧 Panduan Instalasi — Linux
+## 🐧 Panduan Instalasi - Linux
 
 ### 📋 Kebutuhan Sistem
 
@@ -414,7 +414,7 @@ source venv/bin/activate
 python telegram_bot.py
 ```
 
-### 8. systemd (Production — auto-start)
+### 8. systemd (Production - auto-start)
 
 #### `/etc/systemd/system/cici-server.service`
 
@@ -503,44 +503,38 @@ Buka Telegram, cari bot Anda, kirim pesan. Bot harus merespon.
 
 ## ❓ FAQ
 
-**Q: Kok jawabannya gak nyambung?**  
+**Q: Kok jawabannya gak nyambung?**
 A: Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
 
-**Q: Error "Address already in use"?**  
+**Q: Error "Address already in use"?**
 A: Port 8000 masih dipakai. Cek:
 ```cmd
 netstat -ano | findstr :8000    # Windows
 sudo lsof -i :8000              # Linux
 ```
 
-**Q: Error "Can't parse entities" di Telegram?**  
-A: Jawaban LLM mengandung karakter Markdown yang gak ditutup. Jangan khawatir — sekarang otomatis fallback ke plain text. ✅
-
-**Q: Bikin bot dengan identitas beda?**  
+**Q: Bikin bot dengan identitas beda?**
 A: Ganti `prompts/identity.json` + `.env` — gak perlu edit kode Python.
 
-**Q: Chat history ilang?**  
+**Q: Chat history ilang?**
 A: History tersimpan di `chatbot.db`. File ini di-*ignore* git, jadi aman.
 
-**Q: Bisa pake LLM model lain?**  
+**Q: Bisa pake LLM model lain?**
 A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider.
 
-**Q: Mau offline pake CPU doang?**  
+**Q: Mau offline pake CPU doang?**
 A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`. Jalan di laptop/PC biasa tanpa GPU. 🖥️
-
-**Q: Kok jawaban kepotong di tengah?**  
-A: Udah dinaikin `max_tokens` dari 500 → 2000. Seharusnya aman sekarang. ✅
 
 ---
 
 ## 📞 Kontak & Dukungan
 
-Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
+Dibuat dan dikelola oleh **Syahrul Toha Saputra** - Pengembang & Arsitek Sistem.
 
 Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
 
 <p align="center">
-  <sub>© 2026 — Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
+  <sub>© 2026 - Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
 </p>
