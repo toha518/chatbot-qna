@@ -33,7 +33,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 | 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
 | 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
 | 🤖 **AI Answering** | LLM - jawab dengan konteks dari database FAQ. Support DeepSeek & Ollama lokal |
-| 🛡️ **Keamanan** | Anti-spam, sanitasi input, session timeout, markdown fallback, dll |
+| 🔒 **Security** | Anti-spam, sanitasi input, session timeout, markdown fallback, dll |
 | 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
 | 📜 **Chat History** | Semua chat tersimpan di SQLite - kolom `kendala` & `solusi` |
 | 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
@@ -42,7 +42,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 ---
 
-## 🛡️ Detail Keamanan
+## 🔒 Security
 
 | Fitur | Keterangan |
 |-------|-----------|
