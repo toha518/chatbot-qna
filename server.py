@@ -23,7 +23,7 @@ from core.llm import (
     build_greeting_prompt, build_system_prompt, call_llm
 )
 from security.rate_limiter import (
-    check_api_rate_limit, init_rate_limit_entry, TRUSTED_IDS, api_rate_limit
+    check_api_rate_limit, init_rate_limit_entry, init_trusted_ids, TRUSTED_IDS, api_rate_limit
 )
 from security.session import (
     cleanup_sessions, init_session, session_watchdog,
@@ -44,6 +44,9 @@ else:
 load_llm_config()
 identity, system_template, greeting_template = load_prompts()
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
+
+# Init trusted IDs dari .env
+init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])

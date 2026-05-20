@@ -7,7 +7,24 @@ import time
 RATE_LIMIT = 5          # Maks 5 pesan per menit
 WINDOW = 60             # Jendela waktu (detik)
 BLOCK_DURATION = 300    # 5 menit block
+# Baca trusted chat IDs dari .env (pisah pake koma)
+# Contoh: TRUSTED_CHAT_IDS=1267972859,987654321
 TRUSTED_IDS: set[str] = set()
+
+# Diisi pas startup dari server.py
+TRUSTED_IDS_INITIALIZED = False
+
+
+def init_trusted_ids(env_value: str):
+    """Isi TRUSTED_IDS dari string .env"""
+    global TRUSTED_IDS
+    if env_value and env_value.strip():
+        ids = [x.strip() for x in env_value.split(",") if x.strip()]
+        TRUSTED_IDS = set(ids)
+        print(f"[SECURITY] Trusted IDs: {TRUSTED_IDS}")
+    else:
+        TRUSTED_IDS = set()
+        print("[SECURITY] Trusted IDs: (kosong)")
 
 # State per chat_id
 # Format: {chat_id: {"timestamps": [], "blocked_until": 0,
