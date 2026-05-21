@@ -1,102 +1,129 @@
-# Cici Anova - Chatbot Q&A BPS
+# Cici Anova — Chatbot Q&A BPS
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://core.telegram.org/bots)
+[![E5-base](https://img.shields.io/badge/Embedding-E5--base-orange)](https://huggingface.co/intfloat/multilingual-e5-base)
 
 Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026**.
 
-> **Stack:** FastAPI + E5-base (semantic search) + LLM (DeepSeek / Ollama) + SQLite (history)
-> **Fitur Baru:** Auto-detect Ollama lokal + fallback markdown Telegram + logging provider
+> **Stack:** FastAPI + E5-base (semantic search) + Multi-LLM failover + SQLite + EasyOCR
+> **Model:** DeepSeek (cloud) → Ollama lokal (offline) — auto failover
 
 ---
 
 ## 📋 Daftar Isi
 
-- [Fitur](#-fitur)
-- [Arsitektur Modular](#-arsitektur-modular)
-- [Replikasi / Custom Bot](#-replikasi--custom-bot)
-- [Panduan Instalasi - Windows](#-panduan-instalasi--windows)
-- [Panduan Instalasi - Linux](#-panduan-instalasi--linux)
-- [Verifikasi](#-verifikasi)
-- [Manajemen Server](#-manajemen-server)
-- [API Endpoints](#-api-endpoints)
-- [FAQ](#-faq)
+- [✨ Fitur](#-fitur)
+- [🔒 Security & Proteksi](#-security--proteksi)
+- [🧠 Arsitektur Modular](#-arsitektur-modular)
+- [🔄 Replikasi / Custom Bot](#-replikasi--custom-bot)
+- [💻 Panduan Instalasi — Windows](#-panduan-instalasi--windows)
+- [🐧 Panduan Instalasi — Linux](#-panduan-instalasi--linux)
+- [🔗 API Endpoints](#-api-endpoints)
+- [❓ FAQ](#-faq)
 
 ---
 
 ## ✨ Fitur
 
-| Fitur | Keterangan |
-|-------|-----------|
-| 🤖 **AI Answering** | LLM - jawab dengan konteks database FAQ. Bisa pakai model lokal (Ollama) maupun cloud |
-| 🧠 **Semantic Search** | E5-base - retrieval-specialized, lebih akurat dari MiniLM |
-| 🛡️ **Security** | Anti-spam, sanitasi input, session timeout, dll |
-| 🖼️ **OCR Gambar** | Screenshot/foto dibaca otomatis pake EasyOCR (lokal) |
-| 📜 **Chat History** | Semua chat tersimpan di SQLite - kolom `kendala` & `solusi` |
-| 📋 **Reply Keyboard** | Tombol menu di bawah chat (Mulai, Bantuan, Topik, Berhenti) |
-| 📊 **FAQ Database** | Auto-download dari Google Sheets tiap startup + reload tiap 10 menit |
+| Fitur | Detail |
+|-------|--------|
+| 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Support DeepSeek, OpenAI-compatible, & Ollama lokal |
+| 🧠 **Semantic Search** | E5-base multilingual — retrieval lebih akurat dari Tfidf/MinilM. Otomatis skip duplikat jawaban & skor rendah |
+| 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR (lokal, GPU opsional). Support Indo + Inggris |
+| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
+| 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom `kendala` (pertanyaan) & `solusi` (jawaban) |
+| ⌨️ **Reply Keyboard** | Tombol permanen: 🏠 Mulai, 📖 Bantuan, 📋 Daftar Topik, ⏹ Berhenti |
+| 📊 **FAQ Database** | Auto-load dari Google Sheets CSV saat startup + reload periodik |
+| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5 per chat, panjang maks 500 karakter |
+| 📝 **Markdown Fallback** | Kirim markdown ke Telegram; auto fallback ke plain text kalau error parsing |
 
 ---
 
-## 🔒 Security
+## 🔒 Security & Proteksi
 
-| Fitur | Lapisan | Keterangan |
-|-------|---------|-----------|
-| 🚫 **Anti-Spam** | `security/rate_limiter.py` | Rate limit **5 request/menit** per session — block 5 menit. Silent block setelah warning pertama |
-| ✂️ **Batas Karakter** | `telegram_bot.py` | Maksimal **500 karakter** per chat. Tolak otomatis tanpa proses AI |
-| 🧹 **Input Sanitasi** | `telegram_bot.py` | Hapus karakter kontrol (`\x00-\x1f`) + batasi emoji maks **5 per chat** |
-| 📚 **Batas History** | `security/session.py` | Maks **10 tanya-jawab** terakhir per session — hemat token & biaya |
-| 💬 **Session Timeout** | `security/session.py` | Auto-reset setelah **30 menit idle**. Watchdog scan tiap 15 detik |
-| 🔔 **Notifikasi Session** | `security/session.py` | Kirim pesan otomatis ke Telegram pas session expired (isi jam & durasi) |
-| ⏳ **Session Rest 6 Jam** | `server.py` | Kalo session udah **>6 jam**, user di-rest **6 jam** — paksa istirahat. Skip buat trusted user |
+Bot ini punya **5 lapis proteksi** untuk cegah penyalahgunaan:
+
+| # | Lapisan | File | Cara Kerja |
+|---|---------|------|------------|
+| 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Peringatan cuma sekali, sisanya silent block |
+| 2 | 📅 **Daily Chat Limit** | `server.py` | **100 chat per hari** per user. Reset otomatis tiap ganti hari (WIB). |
+| 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog scan tiap 15 detik, kirim notif Telegram otomatis pas expired |
+| 4 | ⏳ **Session Rest 6 Jam** | `server.py` | Kalau session udah **>6 jam** sejak mulai, user di-rest **6 jam** — paksa istirahat |
+| 5 | 👑 **Trusted User** | `security/rate_limiter.py` | User tertentu di `.env` **skip semua limit** (anti-spam, daily limit, session rest) |
+
+### Detail Proteksi
+
+| Proteksi | Untuk Siapa | Threshold | Durasi Blokir |
+|----------|-------------|-----------|---------------|
+| Anti-spam | Semua user non-trusted | 5 chat/menit | 5 menit |
+| Daily limit | Semua user non-trusted | 100 chat/hari | Reset besok |
+| Session idle | Semua user (termasuk trusted) | 30 menit | Hapus session |
+| Session 6 jam | Semua user non-trusted | >6 jam sejak mulai | 6 jam rest |
+
+### Trusted User
+
+User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena**:
+- Anti-spam rate limit
+- Daily chat limit
+- Session rest 6 jam
+
+Tapi tetap kena **session idle timeout** — watchdog tetap berjalan.
+
+### Input Sanitasi (Layer Awal)
+
+Lapisan tambahan sebelum masuk ke server:
+
+- **Control characters** (`\x00-\x1f`) — dibuang otomatis
+- **Emoji > 5** — kelebihan dihapus
+- **Karakter > 500** — ditolak dengan peringatan
+- **Pesan kosong** setelah filtering — ditolak
 
 ---
 
 ## 🧠 Arsitektur Modular
 
-Kode chatbot ini dipisah ke modul-modul terpisah biar gampang di-*maintain* dan di-*replikasi*:
-
 ```
 chatbot-qna/
 │
-├── server.py                 ← Router FastAPI (tipis, delegasi ke modul lain)
-├── telegram_bot.py           ← Layer Telegram (OCR, anti-spam, kirim API)
+├── server.py                 ← FastAPI router (tipis — delegasi ke modul lain)
+├── telegram_bot.py           ← Layer Telegram (OCR, sanitasi, kirim API)
 │
-├── core/                     ← 🔧 Mesin utama (jarang diubah)
+├── core/                     ← 🔧 Mesin utama
 │   ├── database.py           ←   SQLite: init, log chat, query history
 │   ├── embedder.py           ←   E5-base: load model, encode, semantic search
-│   └── llm.py                ←   LLM: load config, failover chain, builder prompt
+│   └── llm.py                ←   LLM: load multi-provider, failover chain, build prompt
 │
-├── prompts/                  ← 🎯 IDENTITAS & ATURAN (ganti total utk replikasi)
+├── security/                 ← 🔒 Lapisan pengaman
+│   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user, rest 6 jam
+│   └── session.py            ←   Session: timeout 30 menit, watchdog tiap 15 detik, notif Telegram
+│
+├── prompts/                  ← 🎯 IDENTITAS & ATURAN (ganti untuk replikasi)
 │   ├── identity.json         ←   Nama, peran, topik bot
 │   ├── system.md             ←   Aturan cara menjawab
 │   └── greeting.md           ←   Template sambutan /start
 │
-├── security/                 ← 🔒 Lapisan pengaman
-│   ├── rate_limiter.py       ←   Anti-spam: limit 5 chat/menit, block 5 menit
-│   └── session.py            ←   Session: timeout, watchdog, notif Telegram
-│
-├── .env                      ← Token & API key (tidak di-git)
+├── .env                      ← Token & API key (gitignored)
 ├── .env.example              ← Template env
-└── chatbot.db                ← SQLite history (auto-generate)
+└── chatbot.db                ← SQLite history (auto-generate, gitignored)
 ```
 
-### Detail per Modul
+### Detail Modul
 
-| Module | Isi | Fungsi |
-|--------|-----|--------|
-| `core/database.py` | `init_db()`, `log_chat()`, `get_chat_history()`, `list_sessions()` | Semua interaksi ke SQLite |
-| `core/embedder.py` | `init_embedder()`, `load_from_gsheet()`, `search()` | Load E5-base, encode FAQ, cari pertanyaan relevan |
-| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM + failover chain. Auto-detect Ollama lokal, `thinking` disabled otomatis untuk DeepSeek, max_tokens 2000 |
-| `security/rate_limiter.py` | `check_api_rate_limit()`, `init_rate_limit_entry()` | Proteksi spam, block user kalau 5 chat/menit |
-| `security/session.py` | `init_session()`, `cleanup_sessions()`, `session_watchdog()` | Atur session per user, watchdog expired |
+| Modul | Isi | Fungsi |
+|-------|-----|--------|
+| `core/database.py` | `init_db()`, `log_chat()`, `get_chat_history()`, `list_sessions()` | Semua interaksi SQLite |
+| `core/embedder.py` | `init_embedder()`, `load_from_gsheet()`, `search()` | Load E5-base, encode FAQ, semantic search dengan cosine similarity |
+| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM dengan failover chain. Auto-detect Ollama lokal, `thinking` disabled untuk DeepSeek, max_tokens 2000 |
+| `security/rate_limiter.py` | `check_api_rate_limit()`, `init_rate_limit_entry()`, `init_trusted_ids()` | Anti-spam, block user kalau 5 chat/menit, trusted user skip limit |
+| `security/session.py` | `init_session()`, `cleanup_sessions()`, `session_watchdog()`, `format_durasi()` | Atur session per user, watchdog expired, notif Telegram otomatis |
 
 ---
 
 ## 🔄 Replikasi / Custom Bot
 
-Mau bikin bot serupa tapi dengan identitas & topik berbeda? **Gak perlu edit kode Python sama sekali.** Cukup ganti file di folder `prompts/` + `.env`.
+Mau bikin bot serupa tapi dengan identitas & topik berbeda? **Gak perlu edit Python sama sekali.** Cukup ganti file di `prompts/` + `.env`.
 
 ### Langkah Replikasi
 
@@ -109,7 +136,7 @@ cd chatbot-qna
 
 #### 2. Ganti identity.json (WAJIB)
 
-File: **`prompts/identity.json`** - ini yang membedakan bot kamu dengan aslinya.
+**`prompts/identity.json`** — ini yang membedakan bot kamu.
 
 ```json
 {
@@ -119,89 +146,63 @@ File: **`prompts/identity.json`** - ini yang membedakan bot kamu dengan aslinya.
 }
 ```
 
-Apa yang berubah:
-- `name` → Nama bot (dipakai di greeting & perkenalan)
-- `role` → Deskripsi peran (dipakai di system prompt)
-- `topics` → Daftar topik (dipakai di greeting & system prompt)
-
 #### 3. Ganti aturan menjawab (opsional)
 
-File: **`prompts/system.md`** - aturan cara LLM menjawab pertanyaan.
-
-Template yang bisa diisi:
-```markdown
-Kamu adalah {name}, {role}.
-
-Tugasmu membantu menjawab pertanyaan tentang {topics}.
-
-Kamu akan menerima beberapa data referensi beserta kategorinya. Pilih dan gunakan yang PALING RELEVAN dengan pertanyaan user.
-
-PENTING - Cara menjawab:
-1. [Aturan 1]
-2. [Aturan 2]
-...
-```
-
-Variabel `{name}`, `{role}`, `{topics}` otomatis diisi dari `identity.json`.
+**`prompts/system.md`** — aturan cara LLM menjawab. Variabel `{name}`, `{role}`, `{topics}` otomatis diisi dari `identity.json`.
 
 #### 4. Ganti sambutan (opsional)
 
-File: **`prompts/greeting.md`** - template pas user bilang "halo".
+**`prompts/greeting.md`** — template pas user menyapa.
 
-```markdown
-Kamu adalah {name}, {role}.
+#### 5. Isi .env
 
-Pengguna menyapa kamu. Jawab dengan ramah, perkenalkan diri kamu sebagai {name}...
-```
-
-#### 5. Isi .env dengan data kamu
+Copy `.env.example` ke `.env` dan isi:
 
 ```ini
-TELEGRAM_BOT_TOKEN=token_bot_baru
-GSHEET_CSV_URL=url_faq_baru
+TELEGRAM_BOT_TOKEN=token_dari_botfather
+GSHEET_CSV_URL=url_csv_google_sheets
 
-# Provider 1 - Ollama lokal (gratis, offline)
-LLM_API_1=http://localhost:11434/v1/chat/completions
-LLM_API_KEY_1=***
-LLM_MODEL_1=gemma3n:e4b
+# LLM Provider 1 (utama)
+LLM_API_1=https://api.deepseek.com/chat/completions
+LLM_API_KEY_1=sk-deepseek-anda
+LLM_MODEL_1=deepseek-chat
 
-# Provider 2 - DeepSeek API (cadangan)
-LLM_API_2=https://api.deepseek.com/chat/completions
-LLM_API_KEY_2=sk-api-key-deepseek
-LLM_MODEL_2=deepseek-chat
+# LLM Provider 2 (cadangan)
+LLM_API_2=http://localhost:11434/v1/chat/completions
+LLM_API_KEY_2=***
+LLM_MODEL_2=gemma3n:e4b
+
+# Trusted user (opsional, pisah koma)
+TRUSTED_CHAT_IDS=1267972859
 ```
 
-#### 6. Selesai! Jalankan server & bot
+#### 6. Jalankan
 
 ```bash
-# Windows
+# Terminal 1 — Server API
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
-python telegram_bot.py
 
-# Linux
-source venv/bin/activate
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
+# Terminal 2 — Bot Telegram
 python telegram_bot.py
 ```
 
-### Ringkasan - Apa yang Perlu Diubah
+### Yang Perlu Diubah vs Jangan Disentuh
 
 | File | Wajib? | Fungsi |
 |------|--------|--------|
 | `prompts/identity.json` | ✅ WAJIB | Nama, peran, topik bot |
 | `prompts/system.md` | ⬜ Opsional | Aturan cara menjawab |
 | `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
-| `.env` | ✅ WAJIB | Token bot, API key, URL FAQ |
-| `materi.csv` | ✅ WAJIB | Data FAQ (Google Sheets CSV) |
-| `server.py` | ❌ Jangan | Kode router - gak perlu disentuh |
-| `telegram_bot.py` | ⬜ Optional | Kode bot - fallback markdown sudah built-in |
-| `core/llm.py` | ⬜ Optional | Sudah auto-detect Ollama & DeepSeek |
-| `core/embedder.py` | ⬜ Optional | Bisa ganti model embedder |
-| `security/*.py` | ❌ Jangan | Pengamanan - gak perlu disentuh |
+| `.env` | ✅ WAJIB | Token, API key, URL FAQ |
+| `server.py` | ❌ **Jangan** | Kode router — tidak perlu disentuh |
+| `telegram_bot.py` | ⬜ Opsional | Kode bot — fallback markdown & OCR built-in |
+| `core/llm.py` | ⬜ Opsional | Auto-detect Ollama & API, failover chain |
+| `core/embedder.py` | ⬜ Opsional | Bisa ganti model embedder |
+| `security/*.py` | ❌ **Jangan** | Pengamanan — proteksi built-in |
 
 ---
 
-## 💻 Panduan Instalasi - Windows
+## 💻 Panduan Instalasi — Windows
 
 ### 📋 Kebutuhan Sistem
 
@@ -209,140 +210,62 @@ python telegram_bot.py
 |----------|-------------|
 | **OS** | Windows 10/11 (64-bit) |
 | **Python** | 3.11 atau 3.12 |
-| **RAM** | Minimal 4GB |
+| **RAM** | Minimal 4GB (8GB untuk OCR + E5) |
 | **Koneksi** | Internet (download model & akses LLM API) |
-
----
 
 ### 1. Install Python
 
 1. Buka [python.org/downloads](https://www.python.org/downloads/release/python-3119/)
-2. Scroll ke bawah, download **Windows installer (64-bit)**
-3. Jalankan installer
-4. ✅ **WAJIB centang** `Add Python to PATH`
-5. Klik **Install Now**
-6. Verifikasi:
-
-```cmd
-python --version
-```
-
-Output:
-```
-Python 3.11.9
-```
+2. Download **Windows installer (64-bit)**
+3. ✅ Centang **Add Python to PATH** → Install Now
+4. Verifikasi: `python --version`
 
 ### 2. Install Git
 
-Download dari [git-scm.com](https://git-scm.com/download/win), install dengan default setting.
+Download dari [git-scm.com](https://git-scm.com/download/win).
 
-### 3. Clone Repository
+### 3. Clone & Setup
 
 ```cmd
 cd C:\
 git clone https://github.com/toha518/chatbot-qna.git
 cd chatbot-qna
-```
-
-### 4. Setup Token (.env)
-
-```cmd
+copy .env.example .env
 notepad .env
 ```
 
-Isi dengan:
+Isi `.env` lalu simpan.
 
-```ini
-TELEGRAM_BOT_TOKEN=isi_token_dari_botfather
-CHATBOT_URL=http://localhost:8000/chat
-GSHEET_CSV_URL=isi_url_csv_google_sheets
-
-# LLM 1 - Ollama Lokal (rekomendasi untuk offline)
-LLM_API_1=http://localhost:11434/v1/chat/completions
-LLM_API_KEY_1=***
-LLM_MODEL_1=gemma3n:e4b
-
-# LLM 2 - DeepSeek Langsung (cadangan)
-LLM_API_2=https://api.deepseek.com/chat/completions
-LLM_API_KEY_2=sk-isi_deepseek
-LLM_MODEL_2=deepseek-chat
-
-# LLM 3 - OpenCode Go (cadangan)
-LLM_API_3=https://opencode.ai/zen/go/v1/chat/completions
-LLM_API_KEY_3=sk-isi_opencode
-LLM_MODEL_3=deepseek-v4-flash
-```
-
-Simpan (**Ctrl+S**) dan tutup.
-
-> **Dapatkan token:**
-> - Telegram → [@BotFather](https://t.me/botfather)
-> - LLM API → daftar di DeepSeek, OpenRouter, atau provider lain
-> - Google Sheets CSV URL → File → Share → Publish to web → CSV
-
-### 5. Install Dependencies
-
-Buka **CMD** atau **PowerShell** di folder proyek:
+### 4. Install Dependencies
 
 ```powershell
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr ollama
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
-Jika `pip` tidak ditemukan:
-```powershell
-python -m pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr ollama
-```
+> **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.  
+> **Opsional (Ollama):** Install dari [ollama.com/download](https://ollama.com/download), lalu `ollama pull gemma3n:e4b`.
 
-> **Catatan:** Library `ollama` opsional - hanya diperlukan jika pakai Ollama lokal. Install Ollama dari [ollama.com/download](https://ollama.com/download).
+### 5. Jalankan
 
-### 5b. Setup Ollama (Opsional - untuk offline)
-
-```cmd
-# Install Ollama → https://ollama.com/download
-# Pull model gemma3n (ringan, tanpa thinking)
-ollama pull gemma3n:e4b
-
-# Test
-ollama run gemma3n:e4b
-```
-
-Rekomendasi model gratis tanpa thinking:
-- `gemma3n:e4b` (4B) - recommended
-- `ministral-3:8b` (8B) - alternatif
-- `gemma3:12b` (12B) - lebih kuat
-
-### 6. Jalankan Server (CMD 1)
-
+**Terminal 1 — Server:**
 ```cmd
 cd C:\chatbot-qna
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-Tunggu sampai muncul:
-```
-Application startup complete.
-Uvicorn running on http://0.0.0.0:8000
-```
-
-### 7. Jalankan Bot (CMD 2)
-
+**Terminal 2 — Bot:**
 ```cmd
 cd C:\chatbot-qna
 python telegram_bot.py
 ```
 
-Output:
-```
-Bot started!
-```
-
-### 8. Auto-Start (Opsional)
+### 6. Auto-Start (Opsional)
 
 Buat `C:\chatbot-qna\start_chatbot.bat`:
 
 ```batch
 @echo off
-title Chatbot
+title Cici Anova
 cd /d C:\chatbot-qna
 start "Server" cmd /c "python -m uvicorn server:app --host 0.0.0.0 --port 8000"
 timeout /t 15 /nobreak >nul
@@ -350,13 +273,9 @@ start "Bot" cmd /c "python telegram_bot.py"
 exit
 ```
 
-Double-click untuk jalan.
-
-**Auto-start saat boot:** `Win+R` → `shell:startup` → buat shortcut `.bat` di situ.
-
 ---
 
-## 🐧 Panduan Instalasi - Linux
+## 🐧 Panduan Instalasi — Linux
 
 ### 📋 Kebutuhan Sistem
 
@@ -367,8 +286,6 @@ Double-click untuk jalan.
 | **RAM** | Minimal 4GB |
 | **Koneksi** | Internet (download model & akses LLM API) |
 
----
-
 ### 1. Install Python & Tools
 
 ```bash
@@ -376,56 +293,43 @@ sudo apt update
 sudo apt install -y python3 python3-pip python3-venv git
 ```
 
-### 2. Clone Repository
+### 2. Clone & Setup
 
 ```bash
 cd /home
 git clone https://github.com/toha518/chatbot-qna.git
 cd chatbot-qna
-```
-
-### 3. Virtual Environment (Rekomendasi)
-
-```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-### 4. Setup Token (.env)
-
-```bash
+cp .env.example .env
 nano .env
 ```
 
-Isi (sama seperti Windows), simpan `Ctrl+X` → `Y` → `Enter`.
-
-### 5. Install Dependencies
+### 3. Install Dependencies
 
 ```bash
-source venv/bin/activate   # skip kalo gak pake venv
 pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
 ```
 
-### 6. Jalankan Server (Terminal 1)
+### 4. Jalankan
 
+**Terminal 1 — Server:**
 ```bash
 cd /home/chatbot-qna
 source venv/bin/activate
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-### 7. Jalankan Bot (Terminal 2)
-
+**Terminal 2 — Bot:**
 ```bash
 cd /home/chatbot-qna
 source venv/bin/activate
 python telegram_bot.py
 ```
 
-### 8. systemd (Production - auto-start)
+### 5. systemd (Production)
 
-#### `/etc/systemd/system/cici-server.service`
-
+**`/etc/systemd/system/cici-server.service`:**
 ```ini
 [Unit]
 Description=Chatbot API Server
@@ -443,8 +347,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-#### `/etc/systemd/system/cici-bot.service`
-
+**`/etc/systemd/system/cici-bot.service`:**
 ```ini
 [Unit]
 Description=Chatbot Telegram Bot
@@ -464,7 +367,6 @@ WantedBy=multi-user.target
 ```
 
 Aktifkan:
-
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable cici-server cici-bot
@@ -476,8 +378,8 @@ sudo systemctl start cici-server cici-bot
 ## ✅ Verifikasi
 
 ### Cek server:
-```
-http://localhost:8000/health
+```bash
+curl http://localhost:8000/health
 ```
 
 Output:
@@ -486,12 +388,13 @@ Output:
   "status": "ok",
   "total_qna": 74,
   "engine": "E5-base",
+  "source": "Google Sheets",
   "active_sessions": 0
 }
 ```
 
 ### Cek bot:
-Buka Telegram, cari bot Anda, kirim pesan. Bot harus merespon.
+Buka Telegram, cari bot Anda, kirim pesan. Bot harus merespon dengan reply keyboard.
 
 ---
 
@@ -499,13 +402,29 @@ Buka Telegram, cari bot Anda, kirim pesan. Bot harus merespon.
 
 | Endpoint | Method | Fungsi |
 |----------|--------|--------|
-| `/health` | GET | Cek status server |
-| `/chat` | POST | Kirim pertanyaan ke bot |
-| `/stop` | POST | Akhiri sesi chat |
-| `/start` | POST | Inisialisasi sesi baru |
-| `/reload` | POST | Reload FAQ dari Google Sheets |
+| `/health` | GET | Cek status server, total Q&A, active sessions |
+| `/chat` | POST | Kirim pertanyaan → dapat jawaban dari AI |
+| `/start` | POST | Inisialisasi sesi baru untuk user |
+| `/stop` | POST | Akhiri sesi chat (dapat durasi) |
+| `/reload` | POST | Reload FAQ dari Google Sheets manual |
 | `/history` | GET | Daftar semua sesi chat |
 | `/history/{chat_id}` | GET | Detail chat per user |
+
+### Contoh `/chat`
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"pertanyaan": "Cara daftar SOBAT", "chat_id": "12345"}'
+```
+
+Response:
+```json
+{
+  "jawaban": "Untuk mendaftar SOBAT...",
+  "skor": 0.89
+}
+```
 
 ---
 
@@ -522,27 +441,33 @@ sudo lsof -i :8000              # Linux
 ```
 
 **Q: Bikin bot dengan identitas beda?**
-A: Ganti `prompts/identity.json` + `.env` — gak perlu edit kode Python.
+A: Ganti `prompts/identity.json` + `.env` — gak perlu edit Python sama sekali.
 
 **Q: Chat history ilang?**
-A: History tersimpan di `chatbot.db`. File ini di-*ignore* git, jadi aman.
+A: History tersimpan di `chatbot.db`. File ini di-ignore git, aman.
 
 **Q: Bisa pake LLM model lain?**
-A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env` sesuai provider.
+A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`. Support semua OpenAI-compatible endpoint (DeepSeek, OpenRouter, OpenCode, dll).
 
 **Q: Mau offline pake CPU doang?**
-A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`. Jalan di laptop/PC biasa tanpa GPU. 🖥️
+A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`. Jalan di laptop biasa tanpa GPU. 🖥️
+
+**Q: Cara reset daily limit?**
+A: Otomatis reset tiap ganti hari (berdasarkan WIB). Restart server juga reset semua counter.
+
+**Q: Siapa trusted user?**
+A: User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam, daily limit, dan session rest 6 jam. Format: `TRUSTED_CHAT_IDS=1267972859,987654321`
 
 ---
 
 ## 📞 Kontak & Dukungan
 
-Dibuat dan dikelola oleh **Syahrul Toha Saputra** - Pengembang & Arsitek Sistem.
+Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
 
 Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
 
 <p align="center">
-  <sub>© 2026 - Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
+  <sub>© 2026 — Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
 </p>
