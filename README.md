@@ -8,7 +8,7 @@
 Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026**.
 
 > **Stack:** FastAPI + E5-base (semantic search) + Multi-LLM failover + SQLite + EasyOCR
-> **Model:** DeepSeek (priority) → Gemini Flash (free) → Ollama (offline) — auto failover
+> **Model:** Cloud (OpenAI-compatible) → Ollama lokal — auto failover
 
 ---
 
@@ -29,7 +29,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 | Fitur | Detail |
 |-------|--------|
-| 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Support DeepSeek, OpenAI-compatible, & Ollama lokal |
+| 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Support cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Semantic Search** | E5-base multilingual — retrieval lebih akurat dari Tfidf/MinilM. Otomatis skip duplikat jawaban & skor rendah |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR (lokal, GPU opsional). Support Indo + Inggris |
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
@@ -113,7 +113,7 @@ chatbot-qna/
 |-------|-----|--------|
 | `core/database.py` | `init_db()`, `log_chat()`, `get_chat_history()`, `list_sessions()` | Semua interaksi SQLite |
 | `core/embedder.py` | `init_embedder()`, `load_from_gsheet()`, `search()` | Load E5-base, encode FAQ, semantic search dengan cosine similarity |
-| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM dengan failover chain. Auto-detect Ollama lokal, `thinking` disabled untuk DeepSeek, max_tokens 2000 |
+| `core/llm.py` | `load_llm_config()`, `load_prompts()`, `build_greeting_prompt()`, `build_system_prompt()`, `call_llm()` | Panggil LLM dengan failover chain. Auto-detect Ollama lokal, max_tokens 2000 |
 | `security/rate_limiter.py` | `check_api_rate_limit()`, `init_rate_limit_entry()`, `init_trusted_ids()` | Anti-spam, block user kalau 5 chat/menit, trusted user skip limit |
 | `security/session.py` | `init_session()`, `cleanup_sessions()`, `session_watchdog()`, `format_durasi()` | Atur session per user, watchdog expired, notif Telegram otomatis |
 
@@ -157,30 +157,24 @@ cd chatbot-qna
 Copy `.env.example` ke `.env` dan isi:
 
 ```ini
-TELEGRAM_BOT_TOKEN=token_dari_botfather
+TELEGRAM_BOT_TOKEN=***
 GSHEET_CSV_URL=url_csv_google_sheets
 
-# LLM Provider 1 — Utama (OpenCode / OpenRouter)
-LLM_API_1=https://opencode.ai/zen/go/v1/chat/completions
+# LLM Provider 1 — Cloud API (OpenAI-compatible)
+# Contoh: DeepSeek, OpenRouter, Gemini, dll.
+LLM_API_1=https://api.deepseek.com/chat/completions
 LLM_API_KEY_1=***
-LLM_MODEL_1=deepseek-v4-flash
+LLM_MODEL_1=deepseek-chat
 
-# LLM Provider 2 — Gemini Flash (GRATIS!)
-# Ambil API key di https://aistudio.google.com/apikey
-LLM_API_2=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
-LLM_API_KEY_2=AIza...
-LLM_MODEL_2=gemini-2.5-flash
-
-# LLM Provider 3 — DeepSeek (cadangan)
-LLM_API_3=https://api.deepseek.com/chat/completions
-LLM_API_KEY_3=***
-LLM_MODEL_3=deepseek-chat
+# LLM Provider 2 — Ollama lokal (opsional)
+# Contoh: gemma3n:e4b, qwen2.5:1.5b, dll.
+# LLM_API_2=http://localhost:11434/v1/chat/completions
+# LLM_API_KEY_2=***
+# LLM_MODEL_2=gemma3n:e4b
 
 # Trusted user (opsional, pisah koma)
 TRUSTED_CHAT_IDS=1267972859
 ```
-
-> 💡 **Gemini Flash gratis** — 1.500 request/hari di free tier. Cocok banget buat failover tanpa biaya tambahan.
 
 #### 6. Jalankan
 
@@ -202,7 +196,7 @@ python telegram_bot.py
 | `.env` | ✅ WAJIB | Token, API key, URL FAQ |
 | `server.py` | ❌ **Jangan** | Kode router — tidak perlu disentuh |
 | `telegram_bot.py` | ⬜ Opsional | Kode bot — fallback markdown & OCR built-in |
-| `core/llm.py` | ⬜ Opsional | Auto-detect Ollama & API, failover chain |
+| `core/llm.py` | ⬜ Opsional | Auto-detect Ollama & cloud API, failover chain |
 | `core/embedder.py` | ⬜ Opsional | Bisa ganti model embedder |
 | `security/*.py` | ❌ **Jangan** | Pengamanan — proteksi built-in |
 
@@ -453,9 +447,9 @@ A: Ganti `prompts/identity.json` + `.env` — gak perlu edit Python sama sekali.
 A: History tersimpan di `chatbot.db`. File ini di-ignore git, aman.
 
 **Q: Bisa pake LLM model lain?**
-A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`. Support semua OpenAI-compatible endpoint (DeepSeek, OpenRouter, OpenCode, dll).
+A: Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`. Support semua OpenAI-compatible endpoint.
 
-**Q: Mau offline pake CPU doang?**
+**Q: Mau offline pake CPU doang?
 A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`. Jalan di laptop biasa tanpa GPU. 🖥️
 
 **Q: Cara reset daily limit?**
