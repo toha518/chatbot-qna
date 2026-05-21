@@ -48,7 +48,7 @@ Bot ini punya **4 lapis proteksi** untuk cegah penyalahgunaan:
 | # | Lapisan | File | Cara Kerja |
 |---|---------|------|------------|
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Peringatan cuma sekali, sisanya silent block |
-| 2 | 📅 **Daily Chat Limit** | `server.py` | **100 chat per hari** per user. Reset otomatis tiap ganti hari (WIB). |
+| 2 | 📅 **Daily Chat Limit** | `server.py` | **50 chat per hari** per user. Reset otomatis tiap ganti hari (WIB). |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog scan tiap 15 detik, kirim notif Telegram otomatis pas expired |
 | 4 | 👑 **Trusted User** | `security/rate_limiter.py` | User tertentu di `.env` **skip anti-spam & daily limit** |
 
@@ -57,7 +57,7 @@ Bot ini punya **4 lapis proteksi** untuk cegah penyalahgunaan:
 | Proteksi | Untuk Siapa | Threshold | Durasi Blokir |
 |----------|-------------|-----------|---------------|
 | Anti-spam | Semua user non-trusted | 5 chat/menit | 5 menit |
-| Daily limit | Semua user non-trusted | 100 chat/hari | Reset besok |
+| Daily limit | Semua user non-trusted | 50 chat/hari | Reset besok |
 | Session idle | Semua user (termasuk trusted) | 30 menit | Hapus session |
 
 

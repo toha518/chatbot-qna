@@ -53,7 +53,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 
 # ===================== DAILY CHAT LIMIT =====================
-DAILY_LIMIT = 100  # maks chat per user per hari
+DAILY_LIMIT = 50  # maks chat per user per hari
 daily_chat_count: dict[str, dict] = {}  # {chat_id: {"date": "2026-05-20", "count": 5}}
 
 def check_daily_limit(cid: str) -> bool:
@@ -237,7 +237,7 @@ async def chat(req: ChatRequest):
         if not check_daily_limit(cid):
             sisa = DAILY_LIMIT
             return {
-                "jawaban": "⚠️ Anda sudah mencapai batas chat harian (100 chat). Silakan coba lagi besok! 🙏",
+                "jawaban": "⚠️ Anda sudah mencapai batas chat harian (50 chat). Silakan coba lagi besok! 🙏",
                 "skor": 0
             }
 
