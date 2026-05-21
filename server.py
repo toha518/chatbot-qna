@@ -244,36 +244,6 @@ async def chat(req: ChatRequest):
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
 
-    # ===================== LONG SESSION REST (6 JAM) =====================
-    if cid not in TRUSTED_IDS:
-        now_rest = time.time()
-        entry_rest = api_rate_limit.get(cid)
-        rest_until = entry_rest.get("rest_until", 0) if entry_rest else 0
-
-        if rest_until > now_rest:
-            sisa_menit = int((rest_until - now_rest) / 60)
-            return {
-                "jawaban": (
-                    f"⛔ Anda terlalu lama mengobrol dengan Cici Anova, "
-                    f"silakan istirahat {sisa_menit} menit lagi!"
-                ),
-                "skor": 0
-            }
-
-        start_ts = session_start_times.get(cid)
-        if start_ts and (now_rest - start_ts) > 21600:  # 6 jam
-            api_rate_limit[cid]["rest_until"] = now_rest + 21600  # rest 6 jam
-            sessions.pop(cid, None)
-            session_activity.pop(cid, None)
-            session_start_times.pop(cid, None)
-            return {
-                "jawaban": (
-                    "⛔ Anda terlalu lama mengobrol dengan Cici Anova, "
-                    "silakan istirahat selama 6 jam!"
-                ),
-                "skor": 0
-            }
-
     # ===================== GREETING DETECTION =====================
     greeting_set = {
         "halo", "hai", "hey", "hi", "pagi", "siang", "sore", "malam",

@@ -43,15 +43,14 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaa
 
 ## 🔒 Security & Proteksi
 
-Bot ini punya **5 lapis proteksi** untuk cegah penyalahgunaan:
+Bot ini punya **4 lapis proteksi** untuk cegah penyalahgunaan:
 
 | # | Lapisan | File | Cara Kerja |
 |---|---------|------|------------|
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Peringatan cuma sekali, sisanya silent block |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **100 chat per hari** per user. Reset otomatis tiap ganti hari (WIB). |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog scan tiap 15 detik, kirim notif Telegram otomatis pas expired |
-| 4 | ⏳ **Session Rest 6 Jam** | `server.py` | Kalau session udah **>6 jam** sejak mulai, user di-rest **6 jam** — paksa istirahat |
-| 5 | 👑 **Trusted User** | `security/rate_limiter.py` | User tertentu di `.env` **skip semua limit** (anti-spam, daily limit, session rest) |
+| 4 | 👑 **Trusted User** | `security/rate_limiter.py` | User tertentu di `.env` **skip anti-spam & daily limit** |
 
 ### Detail Proteksi
 
@@ -60,14 +59,13 @@ Bot ini punya **5 lapis proteksi** untuk cegah penyalahgunaan:
 | Anti-spam | Semua user non-trusted | 5 chat/menit | 5 menit |
 | Daily limit | Semua user non-trusted | 100 chat/hari | Reset besok |
 | Session idle | Semua user (termasuk trusted) | 30 menit | Hapus session |
-| Session 6 jam | Semua user non-trusted | >6 jam sejak mulai | 6 jam rest |
+
 
 ### Trusted User
 
 User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena**:
 - Anti-spam rate limit
 - Daily chat limit
-- Session rest 6 jam
 
 Tapi tetap kena **session idle timeout** — watchdog tetap berjalan.
 
@@ -96,7 +94,7 @@ chatbot-qna/
 │   └── llm.py                ←   LLM: load multi-provider, failover chain, build prompt
 │
 ├── security/                 ← 🔒 Lapisan pengaman
-│   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user, rest 6 jam
+│   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user
 │   └── session.py            ←   Session: timeout 30 menit, watchdog tiap 15 detik, notif Telegram
 │
 ├── prompts/                  ← 🎯 IDENTITAS & ATURAN (ganti untuk replikasi)
@@ -456,7 +454,7 @@ A: Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1
 A: Otomatis reset tiap ganti hari (berdasarkan WIB). Restart server juga reset semua counter.
 
 **Q: Siapa trusted user?**
-A: User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam, daily limit, dan session rest 6 jam. Format: `TRUSTED_CHAT_IDS=1267972859,987654321`
+A: User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam & daily limit. Format: `TRUSTED_CHAT_IDS=1267972859,987654321`
 
 ---
 

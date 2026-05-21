@@ -28,7 +28,7 @@ def init_trusted_ids(env_value: str):
 
 # State per chat_id
 # Format: {chat_id: {"timestamps": [], "blocked_until": 0,
-#                    "rest_until": 0, "last_active": 0,
+#                    "last_active": 0,
 #                    "block_notified": False}}
 api_rate_limit: dict = {}
 
@@ -47,7 +47,6 @@ def init_rate_limit_entry(chat_id: str):
         api_rate_limit[chat_id] = {
             "timestamps": [],
             "blocked_until": 0,
-            "rest_until": 0,
             "last_active": 0,
             "block_notified": False
         }
