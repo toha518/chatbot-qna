@@ -18,6 +18,12 @@ qna_index.pkl
 *.log
 *.log.*
 
+# === Dev scripts ===
+fix_error_handling.py
+index.py
+materi.csv
+test_antispam.py
+
 # === OS ===
 .DS_Store
 Thumbs.db
