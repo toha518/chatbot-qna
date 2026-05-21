@@ -8,7 +8,7 @@
 Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Menjawab pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026**.
 
 > **Stack:** FastAPI + E5-base (semantic search) + Multi-LLM failover + SQLite + EasyOCR
-> **Model:** DeepSeek (cloud) → Ollama lokal (offline) — auto failover
+> **Model:** DeepSeek (priority) → Gemini Flash (free) → Ollama (offline) — auto failover
 
 ---
 
@@ -160,19 +160,27 @@ Copy `.env.example` ke `.env` dan isi:
 TELEGRAM_BOT_TOKEN=token_dari_botfather
 GSHEET_CSV_URL=url_csv_google_sheets
 
-# LLM Provider 1 (utama)
-LLM_API_1=https://api.deepseek.com/chat/completions
-LLM_API_KEY_1=sk-deepseek-anda
-LLM_MODEL_1=deepseek-chat
+# LLM Provider 1 — Utama (OpenCode / OpenRouter)
+LLM_API_1=https://opencode.ai/zen/go/v1/chat/completions
+LLM_API_KEY_1=***
+LLM_MODEL_1=deepseek-v4-flash
 
-# LLM Provider 2 (cadangan)
-LLM_API_2=http://localhost:11434/v1/chat/completions
-LLM_API_KEY_2=***
-LLM_MODEL_2=gemma3n:e4b
+# LLM Provider 2 — Gemini Flash (GRATIS!)
+# Ambil API key di https://aistudio.google.com/apikey
+LLM_API_2=https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+LLM_API_KEY_2=AIza...
+LLM_MODEL_2=gemini-2.5-flash
+
+# LLM Provider 3 — DeepSeek (cadangan)
+LLM_API_3=https://api.deepseek.com/chat/completions
+LLM_API_KEY_3=***
+LLM_MODEL_3=deepseek-chat
 
 # Trusted user (opsional, pisah koma)
 TRUSTED_CHAT_IDS=1267972859
 ```
+
+> 💡 **Gemini Flash gratis** — 1.500 request/hari di free tier. Cocok banget buat failover tanpa biaya tambahan.
 
 #### 6. Jalankan
 
