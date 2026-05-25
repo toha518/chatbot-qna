@@ -64,6 +64,10 @@ client.on('message', async (msg) => {
         const sender = msg.from;
         const text = msg.body.trim();
 
+        // Kirim typing indicator biar user tau bot lagi proses
+        const chat = await msg.getChat();
+        await chat.sendStateTyping();
+
         console.log(`[WA IN] Dari ${sender}: ${text.substring(0, 100)}`);
 
         // ===================== OCR UNTUK GAMBAR =====================
@@ -97,6 +101,7 @@ client.on('message', async (msg) => {
         console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
 
         // ===================== BALAS PESAN =====================
+        await chat.clearState();
         await client.sendMessage(sender, reply);
 
     } catch (err) {
