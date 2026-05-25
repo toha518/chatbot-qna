@@ -329,6 +329,26 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": top_score}
     # ===================== LLM ANSWER =====================
+    # Single question — cek E5 score dulu, tolak kalo terlalu rendah
+    if top_score < 0.82:
+        print(f"[QUERY] E5 score terlalu rendah ({top_score:.3f}) — tolak")
+        jawaban = (
+            "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
+            "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
+            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
+        )
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                  bm25_status="ACCEPT", top_score=top_score,
+                  top_faq=best_q, dijawab=False, jawaban=jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": top_score}
+
     system_prompt = build_system_prompt(system_template, identity)
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
