@@ -99,8 +99,10 @@ def wa_message():
 
     # ===================== PANGGIL SERVER API =====================
     try:
+        # CHATBOT_URL udah include /chat, jadi jangan ditambahin lagi
+        api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
         resp = requests.post(
-            f"{SERVER_URL}/chat",
+            api_url,
             json={"pertanyaan": pertanyaan, "chat_id": sender},
             timeout=120
         )
