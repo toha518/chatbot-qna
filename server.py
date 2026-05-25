@@ -340,13 +340,14 @@ async def chat(req: ChatRequest):
         return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
 
     # ===================== LLM ANSWER =====================
-    # Single question — kalo context kosong, tolak
-    if not context.strip():
+    # Single question — cek skor retrieval, tolak kalo terlalu rendah
+    top_score = float(scores[0]) if len(scores) > 0 else 0
+    if top_score < 0.30:
         jawaban = (
             "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
             "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
         )
-        print(f"[QUERY] Tidak ada data relevan (top_score={scores[0]:.3f})")
+        print(f"[QUERY] Tidak ada data relevan (top_score={top_score:.3f})")
     else:
         system_prompt = build_system_prompt(system_template, identity)
         messages = [{"role": "system", "content": system_prompt}]

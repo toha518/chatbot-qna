@@ -105,7 +105,7 @@ def init_data(csv_url: str) -> int:
     return total
 
 
-def classify_domain(query: str, threshold: float = 0.20) -> tuple[bool, float]:
+def classify_domain(query: str, threshold: float = 0.30) -> tuple[bool, float]:
     """
     Cek apakah pertanyaan masih relevan dengan domain FAQ BPS.
     Returns (in_domain, confidence_score).
