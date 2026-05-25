@@ -97,7 +97,7 @@ client.on('message', async (msg) => {
         console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
 
         // ===================== BALAS PESAN =====================
-        await msg.reply(reply);
+        await client.sendMessage(sender, reply);
 
     } catch (err) {
         if (err.code === 'ECONNREFUSED') {
