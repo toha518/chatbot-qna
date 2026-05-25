@@ -18,7 +18,7 @@ load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions
 from core.embedder import init_data, load_from_gsheet, search, questions
-from core.bm25 import check_domain, build_bm25, get_bm25_score
+from core.bm25 import check_domain, get_bm25_score
 from core.query_logger import log_query, get_stats
 from core.llm import (
     load_llm_config, load_prompts,
@@ -39,7 +39,6 @@ init_db()
 GSHEET_CSV_URL = os.getenv("GSHEET_CSV_URL")
 if GSHEET_CSV_URL:
     total_qna = init_data(GSHEET_CSV_URL)
-    build_bm25(questions)
 else:
     print("[BOOT] ⚠️ GSHEET_CSV_URL tidak di-set!")
     total_qna = 0
