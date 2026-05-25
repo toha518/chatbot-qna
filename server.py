@@ -18,6 +18,7 @@ load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions
 from core.embedder import init_data, load_from_gsheet, search, questions
+from core.bm25 import check_domain, build_bm25
 from core.llm import (
     load_llm_config, load_prompts,
     build_greeting_prompt, build_system_prompt, call_llm
@@ -37,6 +38,7 @@ init_db()
 GSHEET_CSV_URL = os.getenv("GSHEET_CSV_URL")
 if GSHEET_CSV_URL:
     total_qna = init_data(GSHEET_CSV_URL)
+    build_bm25(questions)
 else:
     print("[BOOT] ⚠️ GSHEET_CSV_URL tidak di-set!")
     total_qna = 0
@@ -311,13 +313,11 @@ async def chat(req: ChatRequest):
 
     print(f"[QUERY] top_score={top_score:.3f}")
 
-    # ===================== DOMAIN CHECK =====================
-    # E5 multilingual gak bisa bedain domain secara native.
-    # Tapi skor cosine similarity FAQ in-domain biasanya >= 0.83,
-    # sedangkan out-of-domain (presiden, harga minyak, dll) <= 0.81.
-    # Threshold 0.82 dipilih berdasarkan test dengan 79 FAQ.
-    if top_score < 0.82:
-        print(f"[QUERY] Luar domain BPS — tolak (score={top_score:.3f})")
+    # ===================== DOMAIN CHECK (BM25) =====================
+    # BM25 based on keyword overlap. Out-of-domain questions like "presiden"
+    # have ZERO keyword overlap with BPS FAQ → BM25 score ~0.
+    if not check_domain(req.pertanyaan):
+        print(f"[QUERY] Luar domain BPS — tolak (BM25)")
         jawaban = (
             "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
             "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
@@ -339,11 +339,10 @@ async def chat(req: ChatRequest):
     if len(parts) > 1:
         relevant_answers = []
         for part in parts:
-            p_ctx, p_scores = search(part, top_k=1)
-            p_score = float(p_scores[0]) if len(p_scores) > 0 else 0
-            if p_score < 0.82:
-                print(f"[QUERY] Part '{part[:30]}...' skip (score={p_score:.3f})")
+            if not check_domain(part):
+                print(f"[QUERY] Part '{part[:30]}...' skip (BM25)")
                 continue
+            p_ctx, p_scores = search(part, top_k=1)
             for line in p_ctx.split('\n'):
                 if line.startswith('JAWABAN:'):
                     relevant_answers.append(line.replace('JAWABAN: ', '').strip())

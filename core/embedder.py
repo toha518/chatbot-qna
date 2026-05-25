@@ -78,6 +78,7 @@ def load_from_gsheet(csv_url: str) -> int:
             }, f)
 
         print(f"[RELOAD] {len(questions)} Q&A loaded from Google Sheets")
+        from core.bm25 import build_bm25; build_bm25(questions)
         return len(questions)
 
     except Exception as e:
@@ -93,6 +94,7 @@ def load_from_gsheet(csv_url: str) -> int:
                 ["passage: " + q for q in questions],
                 show_progress_bar=False
             )
+        from core.bm25 import build_bm25; build_bm25(questions)
         return len(questions)
 
 
