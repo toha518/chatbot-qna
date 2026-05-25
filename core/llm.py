@@ -107,7 +107,8 @@ async def call_llm(messages: list[dict], timeout: int = 30):
                 payload = {
                     "model": model,
                     "messages": messages,
-                    "max_tokens": 2000
+                    "max_tokens": 2000,
+                    "temperature": 0.1
                 }
 
                 # Kalo model DeepSeek — disable thinking biar full response
