@@ -353,9 +353,11 @@ async def chat(req: ChatRequest):
 
     if len(parts) > 1:
         relevant_answers = []
+        skipped_parts = []
         for part in parts:
             if not check_domain(part):
                 print(f"[QUERY] Part '{part[:30]}...' skip (BM25)")
+                skipped_parts.append(part)
                 continue
             p_ctx, p_scores = search(part, top_k=1)
             for line in p_ctx.split('\n'):
@@ -365,6 +367,8 @@ async def chat(req: ChatRequest):
 
         if relevant_answers:
             jawaban = '\n\n'.join(relevant_answers)
+            if skipped_parts:
+                jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
             jawaban = (
