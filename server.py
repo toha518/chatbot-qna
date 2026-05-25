@@ -265,7 +265,7 @@ async def chat(req: ChatRequest):
                   jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
     # ===================== E5 RETRIEVAL =====================
-    context, scores, best_q = search(req.pertanyaan, top_k=3)
+    context, scores, best_q = search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
     print(f"[QUERY] top_score={top_score:.3f}")
     # ===================== DOMAIN CHECK (BM25) =====================
