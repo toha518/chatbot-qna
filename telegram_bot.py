@@ -231,6 +231,10 @@ def main():
             elif update.message.document and update.message.document.mime_type.startswith('image/'):
                 file_id = update.message.document.file_id
             else:
+                try:
+                    await msg_processing.delete()
+                except Exception:
+                    pass
                 await update.message.reply_text("⚠️ Format tidak didukung. Kirim screenshot atau foto.")
                 return
 

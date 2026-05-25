@@ -188,4 +188,4 @@ def search(query: str, top_k: int = 3):
                 f"JAWABAN: {answers[idx0]}\n\n"
             )
 
-    return context, scores[best_idx]
+    return context, scores[best_idx], questions[best_idx[0]] if len(best_idx) > 0 else ""
