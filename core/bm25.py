@@ -22,7 +22,12 @@ waktu tanggal jam malam siang sore besok kemarin sekarang nanti
 pernah menjadi merupakan sebuah terhadap tersebut sendiri yaitu
 yakni dimana melalui tanpa maupun bahwa hingga mana pun atau
 bisa bisakah dapat tolong dimohon
+cara daftar medaftar mendaftar pendaftaran
+terbaru versi update info informasi pengumuman
 '''.strip().split())
+
+# Regex angka doang (tahun, nomor) — minimal harus ada huruf
+_ANGKA_ONLY = _re.compile(r'^[0-9]+$')
 
 K1 = 1.2
 B = 0.75
@@ -32,7 +37,7 @@ _THRESHOLD = 0.5
 def _tokenize(text: str) -> list[str]:
     """Tokenize: lowercasing, remove non-alnum, stopwords, min 2 chars"""
     tokens = _re.sub(r'[^a-z0-9\s]', '', text.lower()).split()
-    return [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
+    return [t for t in tokens if t not in _STOPWORDS and len(t) > 1 and not _ANGKA_ONLY.match(t)]
 
 
 class BM25DomainChecker:
