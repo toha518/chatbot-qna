@@ -33,15 +33,15 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaa
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Hybrid Search (BM25 + E5)** | Keyword overlap (BM25) untuk filter domain, semantic search (E5) untuk retrieval jawaban |
-| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
-| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing |
+| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
+| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom `kendala` & `solusi` |
 | 📊 **Query Logging** | Semua pertanyaan dicatat ke `query_log.jsonl` — BM25 score, status, jawaban |
 | 🧠 **Multi-Part Split** | Pertanyaan dengan "dan", "serta", "lalu" dipisah otomatis. Bagian di luar BPS di-skip |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, panjang maks 500 karakter |
-| 📝 **Markdown Fallback** | Kirim markdown ke Telegram; auto fallback ke plain text kalau error parsing |
+| 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting biar bersih |
 
 ---
 
@@ -79,6 +79,19 @@ User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena** anti-spam & daily limit.
 - Control characters (`\x00-\x1f`) — dibuang
 - Emoji > 5 — kelebihan dihapus
 - Karakter > 500 — ditolak
+
+### Perbedaan Format Pesan Telegram vs WhatsApp
+
+| Fitur | Telegram | WhatsApp |
+|-------|----------|----------|
+| **Bold** | `**bold**` tampil tebal ✅ | `**bold**` → teks biasa (strip) |
+| *Italic* | `*italic*` tampil miring ✅ | `*italic*` → teks biasa (strip) |
+| `Code` | `` `code` `` tampil monospace ✅ | `` `code` `` → teks biasa (strip) |
+| Gambar + OCR | "⏳ Memproses gambar..." → hapus → jawaban ✅ | typing indicator → jawaban ✅ |
+| Image caption | Gabung caption + OCR text auto ✅ | Sama ✅ |
+| Kirim pesan | `reply_text()` — balas ke pesan tertentu | `sendMessage()` — kirim pesan biasa (bukan reply) |
+| Typing indicator | `send_action("typing")` | `chat.sendStateTyping()` → `chat.clearState()` |
+| Session watchdog | 30 menit idle → notif Telegram | 30 menit idle → session dihapus (skip notif) |
 - Pesan kosong setelah filtering — ditolak
 
 ---
@@ -132,31 +145,37 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 3. GREETING? ──────────────────────────────┐
+┌─ 3. TYPING INDICATOR ──────────────────────┐
+│  Telegram: bot.send_action("typing")       │
+│  WhatsApp: chat.sendStateTyping()           │
+└───────────────────────────────────────────────┘
+         │
+         ▼
+┌─ 4. GREETING? ──────────────────────────────┐
 │  "halo", "pagi" → langsung LLM, no search   │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 4. BM25 DOMAIN CHECK ──────────────────────┐
+┌─ 5. BM25 DOMAIN CHECK ──────────────────────┐
 │  Keyword overlap vs 79 FAQ                  │
 │  Score < 0.5? → TOLAK (gak lanjut ke LLM)   │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 5. MULTI-PART SPLIT ───────────────────────┐
+┌─ 6. MULTI-PART SPLIT ───────────────────────┐
 │  Pisah "dan", "serta", "lalu"               │
 │  Tiap bagian dicek BM25 + E5 independen     │
 │  Bagian di luar domain → di-skip            │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 6. E5 SEMANTIC SEARCH ─────────────────────┐
+┌─ 7. E5 SEMANTIC SEARCH ─────────────────────┐
 │  Cosine similarity, top-3 FAQ               │
 │  Score < 0.82? → dianggap gak relevan       │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 7. LLM ANSWER ─────────────────────────────┐
+┌─ 8. LLM ANSWER ─────────────────────────────┐
 │  System prompt + context referensi          │
 │  3 provider backup chain                    │
 └───────────────────────────────────────────────┘
