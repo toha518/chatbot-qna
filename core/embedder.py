@@ -107,28 +107,6 @@ def init_data(csv_url: str) -> int:
     return total
 
 
-def classify_domain(query: str, threshold: float = 0.30) -> tuple[bool, float]:
-    """
-    Cek apakah pertanyaan masih relevan dengan domain FAQ BPS.
-    Returns (in_domain, confidence_score).
-    - in_domain = True kalau skor >= threshold
-    - in_domain = False kalau terlalu beda dari semua FAQ
-    """
-    global question_vecs, questions
-
-    if len(questions) == 0 or question_vecs is None:
-        return True, 1.0  # fallback: izinin aja
-
-    query_vec = embedder.encode(["query: " + query])
-    scores = cosine_similarity(query_vec, question_vecs).flatten()
-    best_score = float(scores.max())
-
-    if best_score >= threshold:
-        return True, best_score
-    else:
-        return False, best_score
-
-
 def search(query: str, top_k: int = 3):
     """
     Cari pertanyaan paling relevan di database.
