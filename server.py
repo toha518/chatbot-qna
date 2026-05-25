@@ -17,7 +17,7 @@ load_dotenv()
 
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions
-from core.embedder import init_data, load_from_gsheet, search, classify_domain, questions
+from core.embedder import init_data, load_from_gsheet, search, questions
 from core.llm import (
     load_llm_config, load_prompts,
     build_greeting_prompt, build_system_prompt, call_llm
@@ -77,6 +77,7 @@ def check_daily_limit(cid: str) -> bool:
 class ChatRequest(BaseModel):
     pertanyaan: str
     chat_id: str = "default"
+    image_path: str = ""  # path file gambar buat OCR (dari WA bridge)
 
 
 class StopRequest(BaseModel):
@@ -202,9 +203,11 @@ async def chat(req: ChatRequest):
       2. Anti-spam
       3. Cek greeting → langsung LLM (tanpa retrieval)
       4. E5 retrieval: cari data relevan
-      5. LLM: tulis jawaban dari konteks
-      6. Simpan history
-      7. Return jawaban
+      5. Cek top score — tolak kalo di luar domain BPS
+      6. Multi-part split kalo perlu
+      7. LLM: tulis jawaban dari konteks
+      8. Simpan history
+      9. Return jawaban
     """
     cleanup_sessions()
     cid = req.chat_id
@@ -221,6 +224,32 @@ async def chat(req: ChatRequest):
         return {"jawaban": "⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.", "skor": 0}
     if len(req.pertanyaan.strip()) == 0:
         return {"jawaban": "⚠️ Pesan kosong setelah penyaringan.", "skor": 0}
+
+    # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
+    if req.image_path:
+        try:
+            import sys
+            # Lazy load EasyOCR khusus pas ada gambar (mirip telegram_bot.py)
+            if '_ocr_reader' not in globals() or globals()['_ocr_reader'] is None:
+                print("[OCR] Loading EasyOCR model (~500MB)...")
+                import easyocr
+                globals()['_ocr_reader'] = easyocr.Reader(['id', 'en'], gpu=False)
+                print("[OCR] Ready!")
+
+            result = globals()['_ocr_reader'].readtext(req.image_path)
+            ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
+
+            caption = req.pertanyaan if req.pertanyaan != "[Gambar]" else ""
+            if caption and ocr_text:
+                req.pertanyaan = f"{caption}\n\n[Gambar: {ocr_text}]"
+            elif ocr_text:
+                req.pertanyaan = f"[Gambar: {ocr_text}]"
+            # kalo gak ada ocr_text, pertanyaan tetap caption
+
+            print(f"[OCR] Image processed: {len(ocr_text)} chars extracted")
+        except Exception as e:
+            print(f"[OCR] Error processing image: {e}")
+            # Fallback — proceed with original question
 
     # ===================== ANTI-SPAM =====================
     init_rate_limit_entry(cid)
@@ -278,15 +307,20 @@ async def chat(req: ChatRequest):
 
     # ===================== E5 RETRIEVAL =====================
     context, scores = search(req.pertanyaan, top_k=3)
+    top_score = float(scores[0]) if len(scores) > 0 else 0
+
+    print(f"[QUERY] top_score={top_score:.3f}")
 
     # ===================== DOMAIN CHECK =====================
-    in_domain, domain_conf = classify_domain(req.pertanyaan)
-    print(f"[QUERY] domain_check: in_domain={in_domain}, confidence={domain_conf:.3f}, top_score={scores[0]:.3f}")
-
-    if not in_domain:
-        print(f"[QUERY] Pertanyaan di luar domain BPS — tolak")
+    # E5 multilingual gak bisa bedain domain secara native.
+    # Tapi skor cosine similarity FAQ in-domain biasanya >= 0.83,
+    # sedangkan out-of-domain (presiden, harga minyak, dll) <= 0.81.
+    # Threshold 0.82 dipilih berdasarkan test dengan 79 FAQ.
+    if top_score < 0.82:
+        print(f"[QUERY] Luar domain BPS — tolak (score={top_score:.3f})")
         jawaban = (
-            "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
+            "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
+            "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
             "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
         )
         history.append({"role": "user", "content": req.pertanyaan})
@@ -296,39 +330,34 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
+        return {"jawaban": jawaban, "skor": top_score}
 
-    # ===================== SPLIT & CLASSIFY =====================
-    # Split pertanyaan multi-bagian (pake "dan", koma), cek tiap bagian pake E5 classifier
+    # ===================== MULTI-PART SPLIT =====================
     parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
     parts = [p.strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
-        # Multi-part: process each part independently
         relevant_answers = []
         for part in parts:
-            part_in_domain, part_conf = classify_domain(part)
-            print(f"[QUERY] Part: '{part[:40]}' — in_domain={part_in_domain}, conf={part_conf:.3f}")
-            if not part_in_domain:
-                continue  # skip bagian ini
-            # Cari FAQ buat bagian ini
             p_ctx, p_scores = search(part, top_k=1)
-            if p_ctx.strip():
-                # Ekstrak jawaban doang
-                for line in p_ctx.split('\n'):
-                    if line.startswith('JAWABAN:'):
-                        relevant_answers.append(line.replace('JAWABAN: ', '').strip())
-                        break
+            p_score = float(p_scores[0]) if len(p_scores) > 0 else 0
+            if p_score < 0.82:
+                print(f"[QUERY] Part '{part[:30]}...' skip (score={p_score:.3f})")
+                continue
+            for line in p_ctx.split('\n'):
+                if line.startswith('JAWABAN:'):
+                    relevant_answers.append(line.replace('JAWABAN: ', '').strip())
+                    break
 
         if relevant_answers:
             jawaban = '\n\n'.join(relevant_answers)
-            print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian relevan")
+            print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
             jawaban = (
-                "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
+                "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
+                "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
                 "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
             )
-            print(f"[QUERY] Multi-part: tidak ada bagian yang relevan")
 
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
@@ -337,30 +366,21 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
+        return {"jawaban": jawaban, "skor": top_score}
 
     # ===================== LLM ANSWER =====================
-    # Single question — cek skor retrieval, tolak kalo terlalu rendah
-    top_score = float(scores[0]) if len(scores) > 0 else 0
-    if top_score < 0.30:
-        jawaban = (
-            "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
-            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
-        )
-        print(f"[QUERY] Tidak ada data relevan (top_score={top_score:.3f})")
-    else:
-        system_prompt = build_system_prompt(system_template, identity)
-        messages = [{"role": "system", "content": system_prompt}]
-        messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
+    system_prompt = build_system_prompt(system_template, identity)
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
 
-        for msg in history:
-            messages.append(msg)
+    for msg in history:
+        messages.append(msg)
 
-        messages.append({"role": "user", "content": req.pertanyaan})
+    messages.append({"role": "user", "content": req.pertanyaan})
 
-        jawaban = await call_llm(messages, timeout=30)
-        if not jawaban:
-            jawaban = "Maaf, terjadi error. Silakan coba lagi."
+    jawaban = await call_llm(messages, timeout=30)
+    if not jawaban:
+        jawaban = "Maaf, terjadi error. Silakan coba lagi."
 
     # ===================== SAVE =====================
     history.append({"role": "user", "content": req.pertanyaan})
@@ -372,5 +392,4 @@ async def chat(req: ChatRequest):
         now = datetime.now(wib).strftime("%H:%M")
         jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
 
-    skor = float(scores[0]) if len(scores) > 0 else 0
-    return {"jawaban": jawaban, "skor": skor}
+    return {"jawaban": jawaban, "skor": top_score}
