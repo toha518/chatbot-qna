@@ -62,7 +62,7 @@ client.on('message', async (msg) => {
         if (msg.from === client.info.wid.user + '@c.us') return;
 
         const sender = msg.from;
-        const text = msg.body.trim();
+        const text = msg.body ? msg.body.trim() : '';
 
         // Kirim typing indicator biar user tau bot lagi proses
         const chat = await msg.getChat();
@@ -72,16 +72,24 @@ client.on('message', async (msg) => {
 
         // ===================== OCR UNTUK GAMBAR =====================
         let pertanyaan = text;
+        let is_image = false;
 
-        if (msg.hasMedia) {
-            const media = await msg.downloadMedia();
-            if (media && media.mimetype.startsWith('image/')) {
-                // Base64 encode gambar — dikirim ke Flask buat OCR
-                pertanyaan = JSON.stringify({
-                    text: text,
-                    image_base64: media.data,
-                    mimetype: media.mimetype
-                });
+        // Cek kalo ada gambar
+        const isImageType = msg.type === 'image' || (msg.type === 'document' && msg.mimetype && msg.mimetype.startsWith('image/'));
+        if (msg.hasMedia || isImageType) {
+            try {
+                const media = await msg.downloadMedia();
+                if (media && media.mimetype && media.mimetype.startsWith('image/')) {
+                    pertanyaan = JSON.stringify({
+                        text: text || '[Gambar]',
+                        image_base64: media.data,
+                        mimetype: media.mimetype
+                    });
+                    is_image = true;
+                    console.log(`[WA IMAGE] Dari ${sender}: ${(text || '(no caption)').substring(0, 50)}`);
+                }
+            } catch (e) {
+                console.log(`[WA MEDIA ERROR] ${e.message}`);
             }
         }
 
@@ -94,7 +102,7 @@ client.on('message', async (msg) => {
         const resp = await axios.post(`${FLASK_URL}/wa-message`, {
             sender: sender,
             message: pertanyaan,
-            is_image: msg.hasMedia && msg.type === 'image'
+            is_image: is_image
         }, { timeout: 120000 });
 
         const reply = resp.data?.jawaban || resp.data?.message || 'Maaf, terjadi error.';
