@@ -17,7 +17,7 @@ load_dotenv()
 
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions
-from core.embedder import init_data, load_from_gsheet, search, questions
+from core.embedder import init_data, load_from_gsheet, search, classify_domain, questions
 from core.llm import (
     load_llm_config, load_prompts,
     build_greeting_prompt, build_system_prompt, call_llm
@@ -278,6 +278,25 @@ async def chat(req: ChatRequest):
 
     # ===================== E5 RETRIEVAL =====================
     context, scores = search(req.pertanyaan, top_k=3)
+
+    # ===================== DOMAIN CHECK =====================
+    in_domain, domain_conf = classify_domain(req.pertanyaan)
+    print(f"[QUERY] domain_check: in_domain={in_domain}, confidence={domain_conf:.3f}, top_score={scores[0]:.3f}")
+
+    if not in_domain:
+        print(f"[QUERY] Pertanyaan di luar domain BPS — tolak")
+        jawaban = (
+            "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
+            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
+        )
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
 
     # ===================== LLM ANSWER =====================
     system_prompt = build_system_prompt(system_template, identity)
