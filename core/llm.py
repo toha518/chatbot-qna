@@ -44,13 +44,13 @@ def load_prompts():
     """
     base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
-    with open(os.path.join(base, "identity.json"), "r") as f:
+    with open(os.path.join(base, "identity.json"), "r", encoding="utf-8") as f:
         identity = json.load(f)
 
-    with open(os.path.join(base, "system.md"), "r") as f:
+    with open(os.path.join(base, "system.md"), "r", encoding="utf-8") as f:
         system_template = f.read()
 
-    with open(os.path.join(base, "greeting.md"), "r") as f:
+    with open(os.path.join(base, "greeting.md"), "r", encoding="utf-8") as f:
         greeting_template = f.read()
 
     return identity, system_template, greeting_template
