@@ -298,19 +298,68 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
 
+    # ===================== SPLIT & CLASSIFY =====================
+    # Split pertanyaan multi-bagian (pake "dan", koma), cek tiap bagian pake E5 classifier
+    parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
+    parts = [p.strip() for p in parts if p.strip()]
+
+    if len(parts) > 1:
+        # Multi-part: process each part independently
+        relevant_answers = []
+        for part in parts:
+            part_in_domain, part_conf = classify_domain(part)
+            print(f"[QUERY] Part: '{part[:40]}' — in_domain={part_in_domain}, conf={part_conf:.3f}")
+            if not part_in_domain:
+                continue  # skip bagian ini
+            # Cari FAQ buat bagian ini
+            p_ctx, p_scores = search(part, top_k=1)
+            if p_ctx.strip():
+                # Ekstrak jawaban doang
+                for line in p_ctx.split('\n'):
+                    if line.startswith('JAWABAN:'):
+                        relevant_answers.append(line.replace('JAWABAN: ', '').strip())
+                        break
+
+        if relevant_answers:
+            jawaban = '\n\n'.join(relevant_answers)
+            print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian relevan")
+        else:
+            jawaban = (
+                "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
+                "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
+            )
+            print(f"[QUERY] Multi-part: tidak ada bagian yang relevan")
+
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": float(scores[0]) if len(scores) > 0 else 0}
+
     # ===================== LLM ANSWER =====================
-    system_prompt = build_system_prompt(system_template, identity)
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
+    # Single question — kalo context kosong, tolak
+    if not context.strip():
+        jawaban = (
+            "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. "
+            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
+        )
+        print(f"[QUERY] Tidak ada data relevan (top_score={scores[0]:.3f})")
+    else:
+        system_prompt = build_system_prompt(system_template, identity)
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
 
-    for msg in history:
-        messages.append(msg)
+        for msg in history:
+            messages.append(msg)
 
-    messages.append({"role": "user", "content": req.pertanyaan})
+        messages.append({"role": "user", "content": req.pertanyaan})
 
-    jawaban = await call_llm(messages, timeout=30)
-    if not jawaban:
-        jawaban = "Maaf, terjadi error. Silakan coba lagi."
+        jawaban = await call_llm(messages, timeout=30)
+        if not jawaban:
+            jawaban = "Maaf, terjadi error. Silakan coba lagi."
 
     # ===================== SAVE =====================
     history.append({"role": "user", "content": req.pertanyaan})
