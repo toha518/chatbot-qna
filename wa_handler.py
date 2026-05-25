@@ -14,6 +14,21 @@ import base64
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
+
+def _strip_markdown(text: str) -> str:
+    """Hapus formatting markdown biar bersih di WhatsApp"""
+    # Hapus bold **text** → text
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # Hapus italic *text* → text (tapi jangan kena asterisk biasa)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)
+    # Hapus inline code `text`
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    # Hapus strikethrough ~~text~~
+    text = re.sub(r'~~(.+?)~~', r'\1', text)
+    # Hapus heading ### → 
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    return text.strip()
+
 # ===================== OCR ENGINE (EasyOCR) =====================
 _ocr_reader = None
 
@@ -108,7 +123,8 @@ def wa_message():
         )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
-        return jsonify({"jawaban": jawaban})
+        # Strip markdown — WA gak support formatting
+        return jsonify({"jawaban": _strip_markdown(jawaban)})
 
     except requests.exceptions.ConnectionError:
         return jsonify({
