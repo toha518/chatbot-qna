@@ -64,8 +64,10 @@ def load_from_gsheet(csv_url: str) -> int:
         categories = cats
 
         print(f"[RELOAD] Encoding {len(questions)} pertanyaan...")
+        # Include kategori di embedding biar search lebih akurat
+        passage_texts = [f"passage: {c}: {q}" if c else f"passage: {q}" for q, c in zip(questions, categories)]
         question_vecs = embedder.encode(
-            ["passage: " + q for q in questions],
+            passage_texts,
             show_progress_bar=False
         )
 
@@ -90,8 +92,9 @@ def load_from_gsheet(csv_url: str) -> int:
             questions = data["questions"]
             answers = data["answers"]
             categories = data.get("categories", [""] * len(questions))
+            passage_texts = [f"passage: {c}: {q}" if c else f"passage: {q}" for q, c in zip(questions, categories)]
             question_vecs = embedder.encode(
-                ["passage: " + q for q in questions],
+                passage_texts,
                 show_progress_bar=False
             )
         from core.bm25 import build_bm25; build_bm25(questions)
