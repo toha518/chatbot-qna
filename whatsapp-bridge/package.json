@@ -1,0 +1,15 @@
+{
+  "name": "cici-anova-wa-bridge",
+  "version": "1.0.0",
+  "description": "WhatsApp Bridge untuk Cici Anova — pakai whatsapp-web.js",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "whatsapp-web.js": "^1.26.0",
+    "express": "^4.21.0",
+    "axios": "^1.7.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

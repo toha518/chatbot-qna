@@ -24,6 +24,11 @@ index.py
 materi.csv
 test_antispam.py
 
+# === WhatsApp Bridge ===
+whatsapp-bridge/auth/
+whatsapp-bridge/node_modules/
+whatsapp-bridge/.npm/
+
 # === OS ===
 .DS_Store
 Thumbs.db
