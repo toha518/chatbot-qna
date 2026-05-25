@@ -221,8 +221,8 @@ def main():
         """Handler gambar: download → OCR → gabung caption → kirim ke server"""
         chat_id = str(update.effective_chat.id)
 
-        # Kasih tau user bot lagi proses
-        await update.message.chat.send_action("typing")
+        # Kirim pesan sementara biar user tau lg diproses
+        msg_processing = await update.message.reply_text("⏳ Memproses gambar...", reply_markup=MENU_MARKUP)
 
         try:
             # Ambil foto resolusi tertinggi
@@ -273,12 +273,22 @@ def main():
                 )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
+            # Hapus pesan "Memproses gambar..."
+            try:
+                await msg_processing.delete()
+            except Exception:
+                pass
             try:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
 
+
         except Exception as e:
+            try:
+                await msg_processing.delete()
+            except Exception:
+                pass
             await update.message.reply_text(f"⚠️ Gagal memproses gambar: {str(e)}", reply_markup=MENU_MARKUP)
             print(f"[IMAGE ERROR] {e}")
 
