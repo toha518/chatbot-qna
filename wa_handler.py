@@ -16,14 +16,12 @@ from flask import Flask, request, jsonify
 
 
 def _strip_markdown(text: str) -> str:
-    """Hapus formatting markdown biar bersih di WhatsApp"""
-    # Hapus bold **text** → text
+    """Bersihin formatting Telegram — WhatsApp punya format sendiri"""
+    # Hapus bold Telegram **text** → biarkan *text* buat WA bold
     text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
-    # Hapus italic *text* → text (tapi jangan kena asterisk biasa)
-    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)
     # Hapus inline code `text`
     text = re.sub(r'`([^`]+)`', r'\1', text)
-    # Hapus strikethrough ~~text~~
+    # Hapus strikethrough ~~text~~ (WA juga pake ~text~)
     text = re.sub(r'~~(.+?)~~', r'\1', text)
     # Hapus heading ### → 
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
