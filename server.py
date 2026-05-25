@@ -18,7 +18,8 @@ load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions
 from core.embedder import init_data, load_from_gsheet, search, questions
-from core.bm25 import check_domain, build_bm25
+from core.bm25 import check_domain, build_bm25, get_bm25_score
+from core.query_logger import log_query, get_stats
 from core.llm import (
     load_llm_config, load_prompts,
     build_greeting_prompt, build_system_prompt, call_llm
@@ -115,13 +116,21 @@ async def auto_reload_gsheet():
 
 @app.get("/health")
 def health():
+    stats = get_stats()
     return {
         "status": "ok",
         "total_qna": len(questions),
         "engine": "E5-base",
         "source": "Google Sheets" if GSHEET_CSV_URL else "pickle",
-        "active_sessions": len(sessions)
+        "active_sessions": len(sessions),
+        "query_stats": stats
     }
+
+
+@app.get("/log-stats")
+async def query_stats():
+    """Return query log statistics"""
+    return get_stats()
 
 
 @app.post("/reload")
@@ -305,6 +314,9 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
 
         log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=get_bm25_score(req.pertanyaan),
+                  bm25_status="GREETING", dijawab=True, greeting=True,
+                  jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # ===================== E5 RETRIEVAL =====================
@@ -316,8 +328,10 @@ async def chat(req: ChatRequest):
     # ===================== DOMAIN CHECK (BM25) =====================
     # BM25 based on keyword overlap. Out-of-domain questions like "presiden"
     # have ZERO keyword overlap with BPS FAQ → BM25 score ~0.
+    # ===================== DOMAIN CHECK (BM25) =====================
+    bm25_score = get_bm25_score(req.pertanyaan)
     if not check_domain(req.pertanyaan):
-        print(f"[QUERY] Luar domain BPS — tolak (BM25)")
+        print(f"[QUERY] Luar domain BPS — tolak (BM25={bm25_score:.2f})")
         jawaban = (
             "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
             "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
@@ -326,6 +340,8 @@ async def chat(req: ChatRequest):
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                  bm25_status="REJECT", dijawab=False)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
@@ -361,6 +377,10 @@ async def chat(req: ChatRequest):
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                  bm25_status="ACCEPT", top_score=top_score,
+                  top_faq="", dijawab=bool(relevant_answers),
+                  multi_part=True, jawaban=jawaban)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
@@ -385,6 +405,12 @@ async def chat(req: ChatRequest):
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     log_chat(cid, req.pertanyaan, jawaban)
+
+    # Log query — ambil top FAQ dari scores
+    top_faq = questions[scores.argmax()] if len(scores) > 0 and len(questions) > 0 else ""
+    log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+              bm25_status="ACCEPT", top_score=top_score,
+              top_faq=top_faq, dijawab=True, jawaban=jawaban)
 
     if session_baru:
         wib = timezone(timedelta(hours=7))

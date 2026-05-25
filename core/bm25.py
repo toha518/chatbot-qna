@@ -105,3 +105,8 @@ def build_bm25(questions: list[str]):
 
 def check_domain(query: str) -> bool:
     return _checker.check(query)
+
+
+def get_bm25_score(query: str) -> float:
+    """Kembalikan raw BM25 score"""
+    return _checker.score(query)
