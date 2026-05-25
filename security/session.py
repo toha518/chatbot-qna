@@ -116,7 +116,8 @@ async def session_watchdog():
                 session_start_times.pop(cid, None)
                 session_notified.discard(cid)
 
-                if TELEGRAM_API:
+                # Kirim notif cuma kalo ini Telegram chat_id (numeric, bukan WA)
+                if TELEGRAM_API and cid.lstrip('-').isdigit():
                     try:
                         async with httpx.AsyncClient(timeout=10) as client:
                             await client.post(
@@ -126,11 +127,13 @@ async def session_watchdog():
                         print(f"[WATCHDOG] Notif session ended → {cid}")
                     except Exception as e:
                         print(f"[WATCHDOG] Gagal kirim ke {cid}: {e}")
+                elif not cid.lstrip('-').isdigit():
+                    print(f"[WATCHDOG] Skip notif WA: {cid}")
 
             # Proses antrian dari cleanup_sessions()
             while session_expired_queue:
                 cid = session_expired_queue.pop(0)
-                if cid not in expired and TELEGRAM_API:
+                if cid not in expired and TELEGRAM_API and cid.lstrip('-').isdigit():
                     try:
                         async with httpx.AsyncClient(timeout=10) as client:
                             await client.post(
