@@ -245,133 +245,79 @@ pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scik
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.  
 > **Opsional (Ollama):** Install dari [ollama.com/download](https://ollama.com/download), lalu `ollama pull gemma3n:e4b`.
 
-### 5. Jalankan
+### 5. Jalankan (4 Terminal)
 
-**Terminal 1 — Server:**
+Skema arsitektur:
+```
+Telegram ──> telegram_bot.py ──┐
+                              ├──> server.py:8000 (E5 + LLM)
+WhatsApp ──> wa_handler.py:3001 ─┘
+                ^
+                │
+         bridge.js:3000 (Chrome)
+```
+
+**Terminal 1 — Server API (port 8000):**
 ```cmd
-cd C:\chatbot-qna
+cd C:\Proyek\chatbot-qna
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-**Terminal 2 — Bot:**
+**Terminal 2 — WhatsApp Handler (port 3001):**
 ```cmd
-cd C:\chatbot-qna
+cd C:\Proyek\chatbot-qna
+pip install requests
+python wa_handler.py
+```
+
+**Terminal 3 — WhatsApp Bridge (port 3000):**
+```cmd
+cd C:\Proyek\chatbot-qna\whatsapp-bridge
+npm install
+npx puppeteer browsers install chrome
+node bridge.js
+```
+QR code muncul → scan pake WhatsApp > Linked Devices.
+
+**Terminal 4 — Telegram Bot:**
+```cmd
+cd C:\Proyek\chatbot-qna
 python telegram_bot.py
 ```
 
-### 6. Auto-Start (Opsional)
+### 6. Start All (1 Klik)
 
-Buat `C:\chatbot-qna\start_chatbot.bat`:
-
-```batch
-@echo off
-title Cici Anova
-cd /d C:\chatbot-qna
-start "Server" cmd /c "python -m uvicorn server:app --host 0.0.0.0 --port 8000"
-timeout /t 15 /nobreak >nul
-start "Bot" cmd /c "python telegram_bot.py"
-exit
+Double-click `start-all.bat` — langsung buka 4 terminal:
+```cmd
+cd C:\Proyek\chatbot-qna
+start-all.bat
 ```
+
+### 7. Pindah ke PC Baru
+
+**Clone + install dependencies (sekali doang):**
+```cmd
+git clone https://github.com/toha518/chatbot-qna.git
+cd chatbot-qna\whatsapp-bridge
+npm install
+npx puppeteer browsers install chrome
+```
+
+**Buat file `.env` isi in:**
+```env
+TELEGRAM_BOT_TOKEN=isi_token_telegram
+CHATBOT_URL=http://localhost:8000/chat
+GSHEET_CSV_URL=https://docs.google.com/spreadsheets/d/.../pub?...&output=csv
+LLM_API_1=https://opencode.ai/zen/go/v1/chat/completions
+LLM_API_KEY_1=sk-...
+LLM_MODEL_1=deepseek-v4-flash
+```
+
+**Terus double-click `start-all.bat`.** Selesai. Chrome 146 otomatis download dari puppeteer.
 
 ---
 
 ## 🐧 Panduan Instalasi — Linux
-
-### 📋 Kebutuhan Sistem
-
-| Komponen | Spesifikasi |
-|----------|-------------|
-| **OS** | Ubuntu 22.04+ / Debian 11+ |
-| **Python** | 3.11 atau 3.12 |
-| **RAM** | Minimal 4GB |
-| **Koneksi** | Internet (download model & akses LLM API) |
-
-### 1. Install Python & Tools
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git
-```
-
-### 2. Clone & Setup
-
-```bash
-cd /home
-git clone https://github.com/toha518/chatbot-qna.git
-cd chatbot-qna
-python3 -m venv venv
-source venv/bin/activate
-cp .env.example .env
-nano .env
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr
-```
-
-### 4. Jalankan
-
-**Terminal 1 — Server:**
-```bash
-cd /home/chatbot-qna
-source venv/bin/activate
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
-```
-
-**Terminal 2 — Bot:**
-```bash
-cd /home/chatbot-qna
-source venv/bin/activate
-python telegram_bot.py
-```
-
-### 5. systemd (Production)
-
-**`/etc/systemd/system/cici-server.service`:**
-```ini
-[Unit]
-Description=Chatbot API Server
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/home/chatbot-qna
-ExecStart=/home/chatbot-qna/venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8000
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**`/etc/systemd/system/cici-bot.service`:**
-```ini
-[Unit]
-Description=Chatbot Telegram Bot
-After=network.target cici-server.service
-Requires=cici-server.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/home/chatbot-qna
-ExecStart=/home/chatbot-qna/venv/bin/python telegram_bot.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Aktifkan:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable cici-server cici-bot
-sudo systemctl start cici-server cici-bot
-```
 
 ---
 
