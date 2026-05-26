@@ -16,14 +16,14 @@ from flask import Flask, request, jsonify
 
 
 def _strip_markdown(text: str) -> str:
-    """Bersihin formatting Telegram — WhatsApp punya format sendiri"""
-    # Hapus bold Telegram **text** → biarkan *text* buat WA bold
-    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
-    # Hapus inline code `text`
+    """Konversi formatting Telegram → WhatsApp"""
+    # Bold Telegram **text** → *text* (WA bold)
+    text = re.sub(r'\*\*(.+?)\*\*', r'*\1*', text)
+    # Inline code `text` → text biasa
     text = re.sub(r'`([^`]+)`', r'\1', text)
-    # Hapus strikethrough ~~text~~ (WA juga pake ~text~)
-    text = re.sub(r'~~(.+?)~~', r'\1', text)
-    # Hapus heading ### → 
+    # Strikethrough ~~text~~ → ~text~ (WA juga pake ~text~)
+    text = re.sub(r'~~(.+?)~~', r'~\1~', text)
+    # Heading ### → 
     text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
     return text.strip()
 
@@ -95,6 +95,53 @@ def wa_message():
             pertanyaan = message
     else:
         pertanyaan = message
+
+    # ===================== COMMAND HANDLER (seperti /start di Telegram) =====================
+    cmd = pertanyaan.strip().lower()
+    if cmd == '/start':
+        return jsonify({
+            "jawaban": (
+                "Halo! Saya Cici Anova, asisten Q&A BPS Provinsi Kepulauan Bangka Belitung.\n\n"
+                "Saya bisa bantu menjawab pertanyaan seputar:\n"
+                "1. SOBAT\n"
+                "2. GC PBI\n"
+                "3. GC PLN\n"
+                "4. FASIH\n"
+                "5. Pengolahan SE2026\n\n"
+                "Silakan ketik pertanyaan Anda!"
+            )
+        })
+    if cmd == '/help':
+        return jsonify({
+            "jawaban": (
+                "Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
+                "dari database mengenai SOBAT, GC PBI, GC PLN, FASIH, "
+                "dan Pengolahan SE2026."
+            )
+        })
+    if cmd == '/topics':
+        return jsonify({
+            "jawaban": (
+                "Topik yang saya kuasai:\n"
+                "1. SOBAT\n"
+                "2. GC PBI\n"
+                "3. GC PLN\n"
+                "4. FASIH\n"
+                "5. Pengolahan SE2026"
+            )
+        })
+    if cmd == '/stop':
+        # Ambil base URL (strip /chat kalau ada)
+        base_url = SERVER_URL.replace('/chat', '')
+        try:
+            resp = requests.post(f"{base_url}/stop", json={"chat_id": sender}, timeout=10)
+            data = resp.json()
+            end_msg = data.get("message", "Sesi diskusi telah diakhiri.")
+        except Exception:
+            end_msg = "Sesi diskusi telah diakhiri."
+        return jsonify({
+            "jawaban": f"{end_msg}\n\nSilakan kirim /start untuk memulai lagi."
+        })
 
     # ===================== INPUT SANITASI =====================
     pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', pertanyaan)
