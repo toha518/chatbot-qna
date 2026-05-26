@@ -1,4 +1,9 @@
-# Cici Anova — Chatbot Q&A BPS
+# NARA — Chatbot Permasalahan IT BPS
+
+> **N**extGen → Teknologi modern dan inovatif
+> **A**I → Kecerdasan buatan sebagai mesin utama
+> **R**esponse → Fokus menjawab dan merespons kebutuhan pengguna
+> **A**gent → Asisten digital yang bertindak atas nama layanan
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com)
