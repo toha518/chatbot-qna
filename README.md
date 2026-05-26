@@ -43,12 +43,8 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ## 📸 Tangkapan Layar
 
-> _Screenshot menyusul — kirim gambar via Telegram/WhatsApp lalu upload ke folder `screenshots/`._
-
-<!--
-![Telegram Chat](screenshots/telegram-chat.png)
-![WhatsApp Chat](screenshots/whatsapp-chat.png)
--->
+![Telegram — Nara menjawab pertanyaan](screenshots/telegram-chat.jpg)
+![WhatsApp — Nara menjawab pertanyaan](screenshots/whatsapp-chat.jpg)
 
 ---
 
