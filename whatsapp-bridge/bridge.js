@@ -75,10 +75,11 @@ client.on('message', async (msg) => {
         let is_image = false;
 
         // Cek kalo ada gambar
+        let processingMsg = null;
         const isImageType = msg.type === 'image' || (msg.type === 'document' && msg.mimetype && msg.mimetype.startsWith('image/'));
         if (msg.hasMedia || isImageType) {
             // Kirim pesan sementara biar user tau lagi diproses
-            await client.sendMessage(sender, '⏳ *Memproses gambar...*');
+            processingMsg = await client.sendMessage(sender, '⏳ *Memproses gambar...*');
             try {
                 const media = await msg.downloadMedia();
                 if (media && media.mimetype && media.mimetype.startsWith('image/')) {
@@ -112,9 +113,17 @@ client.on('message', async (msg) => {
 
         // ===================== BALAS PESAN =====================
         await chat.clearState();
+        // Hapus pesan "Memproses gambar..." kalo ada
+        if (processingMsg) {
+            try { await processingMsg.delete(true); } catch (e) { /* ignore */ }
+        }
         await client.sendMessage(sender, reply);
 
     } catch (err) {
+        // Hapus pesan "Memproses gambar..." kalo ada error
+        if (processingMsg) {
+            try { await processingMsg.delete(true); } catch (e) { /* ignore */ }
+        }
         if (err.code === 'ECONNREFUSED') {
             console.error('[ERROR] Flask handler gak jalan! Jalankan: python wa_handler.py');
         } else if (err.response) {
