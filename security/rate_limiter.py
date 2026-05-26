@@ -47,8 +47,7 @@ def init_rate_limit_entry(chat_id: str):
         api_rate_limit[chat_id] = {
             "timestamps": [],
             "blocked_until": 0,
-            "last_active": 0,
-            "block_notified": False
+            "last_active": 0
         }
 
 
@@ -63,27 +62,17 @@ def check_api_rate_limit(chat_id: str):
     init_rate_limit_entry(chat_id)
     entry = api_rate_limit[chat_id]
 
-    # Lagi diblokir?
+    # Lagi diblokir? — silent total, tanpa notif
     if entry["blocked_until"] > now:
-        if not entry["block_notified"]:
-            entry["block_notified"] = True
-            return False, (
-                f"⚠️ Kamu terdeteksi melakukan spam. "
-                f"Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-            )
         return False, "__SILENT_BLOCK__"
 
     # Hapus timestamp expired (> 1 menit)
     entry["timestamps"] = [t for t in entry["timestamps"] if now - t < WINDOW]
 
-    # Udah 5? Block!
+    # Udah 5? Block! — silent total
     if len(entry["timestamps"]) >= RATE_LIMIT:
         entry["blocked_until"] = now + BLOCK_DURATION
-        entry["block_notified"] = True
-        return False, (
-            f"⚠️ Kamu terdeteksi melakukan spam. "
-            f"Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-        )
+        return False, "__SILENT_BLOCK__"
 
     entry["timestamps"].append(now)
     return True, ""

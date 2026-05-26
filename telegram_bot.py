@@ -192,6 +192,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
+        if not jawaban:
+            # Silent block — gak kirim apapun
+            return
         try:
             await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
         except Exception:
@@ -282,6 +285,9 @@ def main():
                 await msg_processing.delete()
             except Exception:
                 pass
+            if not jawaban:
+                # Silent block — jangan kirim apapun
+                return
             try:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
             except Exception:

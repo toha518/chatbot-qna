@@ -127,7 +127,11 @@ client.on('message', async (msg) => {
             is_image: is_image
         }, { timeout: 120000 });
 
-        const reply = resp.data?.jawaban || resp.data?.message || 'Maaf, terjadi error.';
+        const reply = resp.data?.jawaban || resp.data?.message || '';
+        if (!reply) {
+            console.log(`[WA OUT] Silent block — ${sender} gak dikirimi apapun`);
+            return;
+        }
         console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
 
         // ===================== BALAS PESAN =====================
