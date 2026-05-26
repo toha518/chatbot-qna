@@ -145,14 +145,17 @@ app.post('/send', async (req, res) => {
         if (!to || !message) {
             return res.status(400).json({ error: 'Parameter "to" dan "message" wajib' });
         }
-        const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
-        console.log(`[API SEND] Ke ${chatId}: ${message.substring(0, 60)}...`);
+        // Chat ID dari session watchdog udah format lengkap (62xxx@c.us / 28xxx@lid@c.us)
+        // Jangan diubah — langsung kirim apa adanya
+        const chatId = to;
+        console.log(`[API SEND] Ke ${chatId}: ${message.substring(0, 80)}...`);
         const sent = await client.sendMessage(chatId, message);
         console.log(`[API SEND] ✅ Berhasil (id: ${sent.id.id})`);
         res.json({ status: 'ok', id: sent.id.id });
     } catch (err) {
-        console.error(`[API SEND] ❌ Gagal: ${err.message}`);
-        res.status(500).json({ error: err.message });
+        const errDetail = err.stack ? err.stack.substring(0, 300) : JSON.stringify(err);
+        console.error(`[API SEND] ❌ Gagal ke ${req.body?.to || '?'}: ${errDetail}`);
+        res.status(500).json({ error: err.message, stack: err.stack?.substring(0, 200) });
     }
 });
 
