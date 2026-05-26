@@ -31,6 +31,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaa
 - [🔗 API Endpoints](#-api-endpoints)
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
 - [❓ FAQ](#-faq)
+- [📜 Riwayat Versi](#-riwayat-versi)
 
 ---
 
@@ -709,8 +710,10 @@ Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Ke
 
 ---
 
+### 📜 Riwayat Versi
+
 <details>
-<summary><b>📜 Riwayat Versi</b></summary>
+<summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
 ### v1.2.0 — 2026-05-26
 **✨ Fitur Baru**
