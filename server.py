@@ -250,10 +250,9 @@ async def chat(req: ChatRequest):
         "how are you", "apa kabar", "kabar", "lagi apa",
         "perkenalkan", "kenalan", "kenalin",
     ]
-    intro_kw = ["bisa", "kemampuan", "fungsi", "peran", "tugas", "kamu"]
     words_lower = req.pertanyaan.lower().strip().split()
     query_lower = req.pertanyaan.lower().strip()
-    
+
     is_greeting = (
         bool(greeting_set & set(words_lower)) or
         any(g in query_lower for g in multi_greetings)
@@ -261,7 +260,7 @@ async def chat(req: ChatRequest):
     is_intro = (
         any(p in query_lower for p in intro_patterns)
     )
-    
+
     if (is_greeting and len(words_lower) <= 3) or is_intro:
         messages = build_greeting_prompt(
             greeting_template, identity, req.pertanyaan
