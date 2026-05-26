@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 load_dotenv()
 # ===================== MODULES =====================
-from core.database import init_db, log_chat, get_chat_history, list_sessions
+from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, search, questions
 from core.bm25 import check_domain, get_bm25_score
 from core.query_logger import log_query, get_stats
@@ -46,18 +46,19 @@ app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # ===================== DAILY CHAT LIMIT =====================
 DAILY_LIMIT = 25  # maks chat per user per hari
-daily_chat_count: dict[str, dict] = {}  # {chat_id: {"date": "2026-05-20", "count": 5}}
+
 def check_daily_limit(cid: str) -> bool:
-    """Cek & increment daily chat count. Return False kalo udah > limit."""
+    """
+    Cek & increment daily chat count di SQLite (persistent).
+    Return False kalo udah > limit.
+    """
     today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
-    entry = daily_chat_count.get(cid)
-    if not entry or entry["date"] != today:
-        # Reset karena udah ganti hari
-        daily_chat_count[cid] = {"date": today, "count": 0}
-        entry = daily_chat_count[cid]
-    if entry["count"] >= DAILY_LIMIT:
+    # Normalisasi: WA pake @lid/@c.us → ambil angka aja
+    clean_cid = cid.split('@')[0] if cid and '@' in cid else cid
+    count = get_daily_count(clean_cid, today)
+    if count >= DAILY_LIMIT:
         return False
-    entry["count"] += 1
+    increment_daily_count(clean_cid, today)
     return True
 # ===================== REQUEST MODELS =====================
 class ChatRequest(BaseModel):
