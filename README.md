@@ -31,7 +31,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaa
 - [🔗 API Endpoints](#-api-endpoints)
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
 - [❓ FAQ](#-faq)
-- [📜 Riwayat Versi](#-riwayat-versi)
+- [📞 Kontak & Dukungan](#kontak-dukungan)
 
 ---
 
@@ -210,6 +210,9 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 
 ## 💻 Panduan Instalasi — Windows
 
+<details>
+<summary><b>Klik untuk lihat panduan Windows</b></summary>
+
 ### 📋 Kebutuhan Sistem
 
 | Komponen | Spesifikasi |
@@ -338,9 +341,14 @@ npx puppeteer browsers install chrome
 
 Buat `.env`, terus `start-all.bat`. Selesai.
 
+</details>
+
 ---
 
 ## 🐧 Panduan Instalasi — Linux
+
+<details>
+<summary><b>Klik untuk lihat panduan Linux</b></summary>
 
 ### 📋 Kebutuhan Sistem
 
@@ -511,6 +519,8 @@ npx puppeteer browsers install chrome
 
 Buat `.env`, terus `./start.sh`. Selesai.
 
+</details>
+
 ---
 
 ## ✅ Verifikasi
@@ -620,6 +630,9 @@ File log dirotate saat mencapai ~500KB (~2500 query). File lama diberi timestamp
 
 ## ❓ FAQ
 
+<details>
+<summary><b>Klik untuk lihat FAQ</b></summary>
+
 **Q:** Kok jawabannya gak nyambung?
 
 **A:** Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
@@ -700,17 +713,10 @@ sudo lsof -i :8000              # Linux
 
 **A:** Cek terminal server — apakah ada log `[BM25]`? Kalo tidak ada → BM25 gagal build (restart). Kalo score 999 → sama. Kalo score 0 tapi masih tembus → laporkan.
 
----
+</details>
 
-## 📞 Kontak & Dukungan
-
-Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
-
-Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
-
----
-
-### 📜 Riwayat Versi
+<details>
+<summary><b>📜 Riwayat Versi</b></summary>
 
 > Proyek ini mengikuti [Semantic Versioning](https://semver.org/)
 > `MAJOR.MINOR.PATCH` — MAJOR = breaking change, MINOR = fitur baru, PATCH = bug fix
@@ -849,6 +855,16 @@ Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Ke
 - Input sanitasi + media filter
 - Chat history limit: 20→10
 - `.gitignore` + CLEANED history (token aman)
+
+</details>
+
+---
+
+## 📞 Kontak & Dukungan
+
+Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
+
+Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
 
