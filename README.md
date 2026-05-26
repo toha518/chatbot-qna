@@ -43,8 +43,16 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ## 📸 Tangkapan Layar
 
-![Telegram — Nara menjawab pertanyaan](screenshots/telegram-chat.jpg)
-![WhatsApp — Nara menjawab pertanyaan](screenshots/whatsapp-chat.jpg)
+<table>
+  <tr>
+    <td><img src="screenshots/telegram-chat.jpg" alt="Telegram — Nara menjawab pertanyaan" width="300"></td>
+    <td><img src="screenshots/whatsapp-chat.jpg" alt="WhatsApp — Nara menjawab pertanyaan" width="300"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Telegram</sub></td>
+    <td align="center"><sub>WhatsApp</sub></td>
+  </tr>
+</table>
 
 ---
 
