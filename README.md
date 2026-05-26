@@ -216,7 +216,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 | **OS** | Windows 10/11 (64-bit) |
 | **Python** | 3.11 atau 3.12 |
 | **Node.js** | v20 LTS (v24 mungkin bermasalah dengan puppeteer) |
-| **RAM** | Minimal 4GB (8GB untuk OCR + E5) |
+| **RAM** | **Minimal 8GB** (disarankan 16GB kalau mau + Ollama lokal) |
 
 ### 1. Install Python
 
@@ -340,6 +340,15 @@ Buat `.env`, terus `start-all.bat`. Selesai.
 ---
 
 ## 🐧 Panduan Instalasi — Linux
+
+### Spesifikasi Minimal
+
+| Kebutuhan | Detail |
+|-----------|--------|
+| **OS** | Ubuntu 22.04+ / Debian 12+ (64-bit) |
+| **Python** | 3.11 atau 3.12 |
+| **Node.js** | v20 LTS |
+| **RAM** | **Minimal 8GB** (disarankan 16GB kalau mau + Ollama lokal) |
 
 > **Catatan:** WhatsApp Bridge (`whatsapp-web.js`) membutuhkan Chrome/Chromium. Di Linux server tanpa GUI, jalankan:
 > ```bash
