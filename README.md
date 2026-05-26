@@ -12,17 +12,47 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**.
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://core.telegram.org/bots)
 [![WhatsApp](https://img.shields.io/badge/WhatsApp-Bridge-25D366?logo=whatsapp)](https://whatsapp.com)
 [![E5-base](https://img.shields.io/badge/Embedding-E5--base-orange)](https://huggingface.co/intfloat/multilingual-e5-base)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
-Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026** via Telegram & WhatsApp.
+Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026** via Telegram & WhatsApp.
 
 > **Stack:** FastAPI + E5-base (semantic search) + BM25 (domain filter) + Multi-LLM failover + SQLite + EasyOCR
 > **Model:** Cloud (OpenAI-compatible) → Ollama lokal — auto failover
 
 ---
 
+## 📸 Tangkapan Layar
+
+> _Screenshot menyusul — kirim gambar via Telegram/WhatsApp lalu upload ke folder `screenshots/`._
+
+<!--
+![Telegram Chat](screenshots/telegram-chat.png)
+![WhatsApp Chat](screenshots/whatsapp-chat.png)
+-->
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Teknologi |
+|-------|-----------|
+| **API Server** | FastAPI (Python) |
+| **Semantic Search** | intfloat/multilingual-e5-base (768d) |
+| **Domain Filter** | BM25 (custom Python, zero-dependency) |
+| **LLM Gateway** | OpenCode Go / DeepSeek / Ollama — auto failover |
+| **Database** | Google Sheets (FAQ) + SQLite (chat history) |
+| **Telegram** | python-telegram-bot (Polling) |
+| **WhatsApp** | whatsapp-web.js (Node.js bridge) |
+| **OCR** | EasyOCR (Indonesia + Inggris) |
+| **Bahasa** | Python 3.11+ / Node.js v20 LTS
+
+---
+
 ## 📋 Daftar Isi
 
 - [✨ Fitur](#-fitur)
+- [📸 Tangkapan Layar](#tangkapan-layar)
+- [🛠️ Tech Stack](#tech-stack)
 - [🔒 Security & Proteksi](#-security--proteksi)
 - [🧠 Arsitektur Modular](#-arsitektur-modular)
 - [🔄 Replikasi / Custom Bot](#-replikasi--custom-bot)
@@ -32,6 +62,7 @@ Asisten Q&A resmi **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaa
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
 - [❓ FAQ](#-faq)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
+- [📄 Lisensi](#-lisensi)
 
 ---
 
@@ -865,6 +896,12 @@ sudo lsof -i :8000              # Linux
 Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
 
 Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
+
+---
+
+## 📄 Lisensi
+
+Proyek ini didistribusikan di bawah lisensi **Apache 2.0**. Lihat file [LICENSE](LICENSE) untuk detail.
 
 ---
 
