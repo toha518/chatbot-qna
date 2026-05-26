@@ -483,48 +483,85 @@ File log dirotate saat mencapai ~500KB (~2500 query). File lama diberi timestamp
 
 ## ❓ FAQ
 
-### Kok jawabannya gak nyambung?
-Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
+**Q:** Kok jawabannya gak nyambung?
 
-### Error "Address already in use"?
-Port 8000 masih dipakai. Cek:
+**A:** Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
+
+---
+
+**Q:** Error "Address already in use"?
+
+**A:** Port 8000 masih dipakai. Cek:
 ```cmd
 netstat -ano | findstr :8000    # Windows
 sudo lsof -i :8000              # Linux
 ```
 
-### Bikin bot dengan identitas beda?
-Ganti `prompts/identity.json` + `.env` — gak perlu edit Python.
+---
 
-### Chat history ilang?
-History di `chatbot.db`. Di-ignore git, aman.
+**Q:** Bikin bot dengan identitas beda?
 
-### Bisa pake LLM model lain?
-Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`.
+**A:** Ganti `prompts/identity.json` + `.env` — gak perlu edit Python.
 
-### WhatsApp bridge-nya gak muncul QR?
-Pastikan `node bridge.js` jalan dari folder `whatsapp-bridge/`. Cek log — harus ada `[BM25]` waktu ada chat. Kalo score selalu 999 → restart server.
+---
 
-### BM25 score kok 999?
-BM25 gagal di-build. Restart server (`python -m uvicorn server:app ...`). Cek log startup — harus ada `[RELOAD] 79 Q&A loaded` + BM25 index kebangun otomatis.
+**Q:** Chat history ilang?
 
-### Error "Browser was not found at the configured executablePath"?
-Chrome 146 belum terdownload. Jalanin: `npx puppeteer browsers install chrome` di folder `whatsapp-bridge/`.
+**A:** History di `chatbot.db`. Di-ignore git, aman.
 
-### Mau offline pake CPU doang?
-Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`.
+---
 
-### Cara reset daily limit?
-Otomatis reset tiap ganti hari (WIB). Restart server juga reset.
+**Q:** Bisa pake LLM model lain?
 
-### Siapa trusted user?
-User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam & daily limit.
+**A:** Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`.
 
-### Bot WA error "tidak ada jawaban"?
-Cek terminal wa_handler. Biasanya karena `requests` belum diinstall (`pip install requests`) atau URL double path (`/chat/chat`). Pull terbaru + restart.
+---
 
-### Pertanyaan di luar BPS masih tembus?
-Cek terminal server — apakah ada log `[BM25]`? Kalo tidak ada → BM25 gagal build (restart). Kalo score 999 → sama. Kalo score 0 tapi masih tembus → laporkan.
+**Q:** WhatsApp bridge-nya gak muncul QR?
+
+**A:** Pastikan `node bridge.js` jalan dari folder `whatsapp-bridge/`. Cek log — harus ada `[BM25]` waktu ada chat. Kalo score selalu 999 → restart server.
+
+---
+
+**Q:** BM25 score kok 999?
+
+**A:** BM25 gagal di-build. Restart server (`python -m uvicorn server:app ...`). Cek log startup — harus ada `[RELOAD] 79 Q&A loaded` + BM25 index kebangun otomatis.
+
+---
+
+**Q:** Error "Browser was not found at the configured executablePath"?
+
+**A:** Chrome 146 belum terdownload. Jalanin: `npx puppeteer browsers install chrome` di folder `whatsapp-bridge/`.
+
+---
+
+**Q:** Mau offline pake CPU doang?
+
+**A:** Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`.
+
+---
+
+**Q:** Cara reset daily limit?
+
+**A:** Otomatis reset tiap ganti hari (WIB). Restart server juga reset.
+
+---
+
+**Q:** Siapa trusted user?
+
+**A:** User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam & daily limit.
+
+---
+
+**Q:** Bot WA error "tidak ada jawaban"?
+
+**A:** Cek terminal wa_handler. Biasanya karena `requests` belum diinstall (`pip install requests`) atau URL double path (`/chat/chat`). Pull terbaru + restart.
+
+---
+
+**Q:** Pertanyaan di luar BPS masih tembus?
+
+**A:** Cek terminal server — apakah ada log `[BM25]`? Kalo tidak ada → BM25 gagal build (restart). Kalo score 999 → sama. Kalo score 0 tapi masih tembus → laporkan.
 
 ---
 
