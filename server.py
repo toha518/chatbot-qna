@@ -228,10 +228,7 @@ async def chat(req: ChatRequest):
     # ===================== DAILY CHAT LIMIT =====================
     if cid not in TRUSTED_IDS:
         if not check_daily_limit(cid):
-            return {
-                "jawaban": f"⚠️ Anda sudah mencapai batas chat harian ({DAILY_LIMIT} chat). Silakan coba lagi besok! 🙏",
-                "skor": 0
-            }
+            return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
     # ===================== GREETING & INTRO DETECTION =====================
