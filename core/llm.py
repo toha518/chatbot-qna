@@ -13,7 +13,7 @@ LLM_MODELS: list[str] = []
 def load_llm_config() -> int:
     """
     Baca LLM config dari .env.
-    Format: LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1 (dst sampai 9)
+    Format: LLM_API_1, LLM_API_KEY_1, LLM_MODEL_1 (dst sampai 50)
     """
     global LLM_APIS, LLM_KEYS, LLM_MODELS
     LLM_APIS = []
