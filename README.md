@@ -341,47 +341,174 @@ Buat `.env`, terus `start-all.bat`. Selesai.
 
 ## 🐧 Panduan Instalasi — Linux
 
-### Spesifikasi Minimal
+### 📋 Kebutuhan Sistem
 
-| Kebutuhan | Detail |
-|-----------|--------|
+| Komponen | Spesifikasi |
+|----------|-------------|
 | **OS** | Ubuntu 22.04+ / Debian 12+ (64-bit) |
 | **Python** | 3.11 atau 3.12 |
 | **Node.js** | v20 LTS |
 | **RAM** | **Minimal 8GB** (disarankan 16GB kalau mau + Ollama lokal) |
 
-> **Catatan:** WhatsApp Bridge (`whatsapp-web.js`) membutuhkan Chrome/Chromium. Di Linux server tanpa GUI, jalankan:
-> ```bash
-> npx puppeteer browsers install chrome
-> ```
-> Namun untuk production, disarankan hanya menggunakan Telegram Bot (tanpa WhatsApp bridge) di Linux.
+> **Catatan WhatsApp Bridge:** `whatsapp-web.js` butuh Chrome/Chromium. Di Linux server tanpa GUI, jalanin `npx puppeteer browsers install chrome` setelah npm install.
+> Untuk production, disarankan **Telegram Bot saja** tanpa WA bridge di Linux.
 
-### 1. Install Dependencies
+### 1. Install Python 3.11
 
 ```bash
+# Ubuntu 22.04+
+sudo add-apt-repository ppa:deadsnakes/ppa -y
 sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git nodejs npm
+sudo apt install -y python3.11 python3.11-venv python3.11-pip
 ```
 
-### 2. Clone & Setup
+Verifikasi:
+```bash
+python3.11 --version   # harus Python 3.11.x
+```
+
+### 2. Install Node.js v20
 
 ```bash
+# Pake NodeSource
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+Verifikasi:
+```bash
+node --version   # harus v20.x.x
+npm --version
+```
+
+### 3. Install Git & Clone
+
+```bash
+sudo apt install -y git
 git clone https://github.com/toha518/chatbot-qna.git
 cd chatbot-qna
-python3 -m venv venv
+```
+
+### 4. Buat file `.env`
+
+```env
+TELEGRAM_BOT_TOKEN=isi_token_telegram
+CHATBOT_URL=http://localhost:8000/chat
+GSHEET_CSV_URL=https://docs.google.com/spreadsheets/d/.../pub?...&output=csv
+
+# LLM 1 — Utama
+LLM_API_1=https://opencode.ai/zen/go/v1/chat/completions
+LLM_API_KEY_1=sk-...
+LLM_MODEL_1=deepseek-v4-flash
+
+# LLM 2 — Cadangan
+LLM_API_2=https://api.deepseek.com/chat/completions
+LLM_API_KEY_2=sk-...
+LLM_MODEL_2=deepseek-chat
+
+# LLM 3 — Cadangan akhir (Ollama lokal)
+LLM_API_3=http://localhost:11434/v1/chat/completions
+LLM_API_KEY_3=***
+LLM_MODEL_3=qwen2.5:1.5b
+
+# Admin — skip anti-spam & daily limit
+TRUSTED_CHAT_IDS=1267972859
+```
+
+### 5. Install Python Dependencies
+
+```bash
+python3.11 -m venv venv
 source venv/bin/activate
 pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
 ```
 
-### 3. Jalankan (Server + Telegram saja)
+> **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
+
+### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
 ```bash
-# Terminal 1 — Server
-python -m uvicorn server:app --host 0.0.0.0 --port 8000
+cd whatsapp-bridge
+npm install
+npx puppeteer browsers install chrome
+cd ..
+```
 
-# Terminal 2 — Telegram Bot
+### 7. Jalankan (4 Terminal)
+
+**Skema arsitektur:**
+```
+Telegram ──> telegram_bot.py ──┐
+                              ├──> server.py:8000 (E5 + BM25 + LLM)
+WhatsApp ──> wa_handler.py:3001 ─┘
+                ^
+                │
+         bridge.js:3000 (Chrome/WA Web)
+```
+
+**Terminal 1 — Server API (port 8000):**
+```bash
+cd chatbot-qna
+source venv/bin/activate
+python -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
+
+**Terminal 2 — WhatsApp Handler (port 3001):**
+```bash
+cd chatbot-qna
+source venv/bin/activate
+python wa_handler.py
+```
+
+**Terminal 3 — WhatsApp Bridge (port 3000):**
+```bash
+cd chatbot-qna/whatsapp-bridge
+node bridge.js
+```
+QR code muncul → scan pake WhatsApp > Perangkat Tertaut.
+
+**Terminal 4 — Telegram Bot:**
+```bash
+cd chatbot-qna
+source venv/bin/activate
 python telegram_bot.py
 ```
+
+### 8. Start All (1 Script)
+
+Buat file `start.sh`:
+```bash
+#!/bin/bash
+echo "=== Starting NARA Services ==="
+cd "$(dirname "$0")"
+source venv/bin/activate
+
+# Terminal via gnome-terminal (kalo pake GUI)
+gnome-terminal -- bash -c "python -m uvicorn server:app --host 0.0.0.0 --port 8000; exec bash"
+gnome-terminal -- bash -c "source venv/bin/activate && python wa_handler.py; exec bash"
+gnome-terminal -- bash -c "cd whatsapp-bridge && node bridge.js; exec bash"
+gnome-terminal -- bash -c "source venv/bin/activate && python telegram_bot.py; exec bash"
+```
+
+Kasih izin:
+```bash
+chmod +x start.sh
+```
+
+### 9. Pindah ke Server Baru
+
+```bash
+git clone https://github.com/toha518/chatbot-qna.git
+cd chatbot-qna
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cd whatsapp-bridge
+npm install
+npx puppeteer browsers install chrome
+```
+
+Buat `.env`, terus `./start.sh`. Selesai.
 
 ---
 
