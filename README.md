@@ -709,6 +709,64 @@ Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Ke
 
 ---
 
+<details>
+<summary><b>📜 Riwayat Versi</b></summary>
+
+### v1.2.0 — 2026-05-26
+**✨ Fitur Baru**
+- Intro detection: `"kamu bisa apa?"`, `"siapa kamu?"` langsung pake greeting prompt ✅
+- Akronim/referensi `prompts/acronyms.md` — kepanjangan SOBAT, GC, BPS dll ✅
+- Greeting detection pake prefix matching — `"haloo"`, `"pagii"`, `"helo"` tetap kena ✅
+
+**🔧 Perbaikan**
+- Akronim sebagai referensi, bukan daftar topik utama ✅
+- Korupsi server.py setelah edit bertubi-tubi ✅
+
+**📚 Dokumentasi**
+- Tabel spesifikasi RAM minimal 8GB (Win & Linux) ✅
+- Panduan Linux selengkap Windows — langkah per langkah, .env, 4 terminal, start.sh ✅
+- FAQ format Q: / A: rapi dengan separator ✅
+- NARA backronym di README title ✅
+
+---
+
+### v1.1.0 — 2026-05-26
+**✨ Fitur Baru**
+- Rebrand total: Cici Anova → **NARA (NextGen AI Response Agent)** ✅
+- Personality system di `system.md` (Nara si IT Support sabar) ✅
+- Command handler WhatsApp: `/start`, `/help`, `/topics`, `/stop` ✅
+- WA watchdog notifikasi session expired via bridge `/send` ✅
+- WA image processing indicator "⏳ Memproses gambar..." ✅
+- Foto + caption di Telegram diarahkan ke handler gambar (bukan teks) ✅
+
+**🔧 Perbaikan**
+- WA bold: `**text**` → `*text*` (sekarang bold beneran di WA) ✅
+- Pesan "Memproses gambar..." di WA dibiarkan (gak dihapus, hindari notif "pesan dihapus") ✅
+- Semua sisa "Cici Anova" di 10 file dihapus total ✅
+- Emoji rule relax — bebas emoji biar hidup ✅
+
+---
+
+### v1.0.0 — 2026-05-25
+**🎉 Rilis Perdana NARA (sebelumnya Cici Anova)**
+
+**✨ Fitur Utama**
+- Hybrid Search: BM25 (domain filter) + E5-base (semantic retrieval) ✅
+- Multi-LLM failover chain (Cloud → Ollama lokal) ✅
+- Multi-part query split (pertanyaan dengan "dan", "serta" dipisah) ✅
+- 6-layer security: sanitasi input, anti-spam, daily limit, BM25 filter, E5 threshold, session watchdog ✅
+- DAILY_LIMIT = 25 chat/user/hari (trusted user skip) ✅
+- Session watchdog: 30 menit idle → hapus + notif ✅
+- OCR gambar via EasyOCR (Telegram + WhatsApp) ✅
+- WhatsApp integration via whatsapp-web.js bridge ✅
+- SQLite chat history + JSONL query logging ✅
+- Auto-reload FAQ dari Google Sheets tiap 10 menit ✅
+- Telegram: Reply keyboard, typing indicator, ParseMode.MARKDOWN ✅
+
+</details>
+
+---
+
 <p align="center">
   <sub>© 2026 — Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
 </p>
