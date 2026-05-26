@@ -1,4 +1,4 @@
-# NARA
+# NARA (NextGen AI Response Agent)
 
 Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**.
 
