@@ -63,7 +63,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | **API Server** | FastAPI (Python) |
 | **Semantic Search** | intfloat/multilingual-e5-base (768d) |
 | **Domain Filter** | BM25 (custom Python, zero-dependency) |
-| **LLM Gateway** | OpenCode Go / DeepSeek / Ollama — auto failover |
+| **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
 | **Telegram** | python-telegram-bot (Polling) |
 | **WhatsApp** | whatsapp-web.js (Node.js bridge) |
