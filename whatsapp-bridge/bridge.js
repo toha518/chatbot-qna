@@ -84,8 +84,9 @@ client.on('message', async (msg) => {
             }
         }
 
-        // Simpan chat object buat nanti — tapi jangan kirim typing dulu
+        // Langsung typing biar user tau bot lagi proses
         const chat = await msg.getChat();
+        await chat.sendStateTyping();
 
         console.log(`[WA IN] Dari ${sender}: ${text.substring(0, 100)}`);
 
@@ -136,7 +137,6 @@ client.on('message', async (msg) => {
 
         // ===================== BALAS PESAN =====================
         await chat.clearState();
-        await chat.sendStateTyping();
         await client.sendMessage(sender, reply);
 
     } catch (err) {
