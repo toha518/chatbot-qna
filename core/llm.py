@@ -40,7 +40,7 @@ def load_llm_config() -> int:
 def load_prompts():
     """
     Baca file prompts dari folder prompts/.
-    Returns (identity_dict, system_template_str, greeting_template_str).
+    Returns (identity_dict, system_template_str, greeting_template_str, acronyms_str).
     """
     base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
 
@@ -53,16 +53,24 @@ def load_prompts():
     with open(os.path.join(base, "greeting.md"), "r", encoding="utf-8") as f:
         greeting_template = f.read()
 
-    return identity, system_template, greeting_template
+    # Load acronyms file kalo ada
+    acronyms = ""
+    acr_path = os.path.join(base, "acronyms.md")
+    if os.path.exists(acr_path):
+        with open(acr_path, "r", encoding="utf-8") as f:
+            acronyms = f.read()
+
+    return identity, system_template, greeting_template, acronyms
 
 
-def build_greeting_prompt(greeting_template: str, identity: dict, user_query: str) -> list[dict]:
+def build_greeting_prompt(greeting_template: str, identity: dict, user_query: str, acronyms: str = "") -> list[dict]:
     """Buat messages list untuk greeting"""
     topics_str = ", ".join(identity["topics"])
     system_content = greeting_template.format(
         name=identity["name"],
         role=identity["role"],
-        topics=topics_str
+        topics=topics_str,
+        acronyms=acronyms
     )
     return [
         {"role": "system", "content": system_content},
@@ -70,13 +78,14 @@ def build_greeting_prompt(greeting_template: str, identity: dict, user_query: st
     ]
 
 
-def build_system_prompt(system_template: str, identity: dict) -> str:
+def build_system_prompt(system_template: str, identity: dict, acronyms: str = "") -> str:
     """Render system prompt dengan identitas bot"""
     topics_str = ", ".join(identity["topics"])
     return system_template.format(
         name=identity["name"],
         role=identity["role"],
-        topics=topics_str
+        topics=topics_str,
+        acronyms=acronyms
     )
 
 

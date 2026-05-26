@@ -38,7 +38,7 @@ else:
     print("[BOOT] ⚠️ GSHEET_CSV_URL tidak di-set!")
     total_qna = 0
 load_llm_config()
-identity, system_template, greeting_template = load_prompts()
+identity, system_template, greeting_template, acronyms = load_prompts()
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
@@ -263,7 +263,7 @@ async def chat(req: ChatRequest):
 
     if (is_greeting and len(words_lower) <= 3) or is_intro:
         messages = build_greeting_prompt(
-            greeting_template, identity, req.pertanyaan
+            greeting_template, identity, req.pertanyaan, acronyms
         )
         jawaban = await call_llm(messages, timeout=30)
         if not jawaban:
@@ -363,7 +363,7 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": top_score}
 
-    system_prompt = build_system_prompt(system_template, identity)
+    system_prompt = build_system_prompt(system_template, identity, acronyms)
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
     for msg in history:
