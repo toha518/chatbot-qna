@@ -234,10 +234,8 @@ async def chat(req: ChatRequest):
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
     # ===================== GREETING & INTRO DETECTION =====================
-    greeting_set = {
-        "halo", "hai", "hey", "hi", "pagi", "siang", "sore", "malam",
-        "assalamualaikum", "assalamu'alaikum", "hello", "hallo", "helo"
-    }
+    # Greeting roots — cocokkan prefix biar "haloo", "pagi2" tetap kena
+    greeting_roots = {"halo", "hai", "hey", "hi", "helo", "hell", "hello", "hallo", "pagi", "siang", "sore", "malam", "assalamu"}
     multi_greetings = [
         "selamat pagi", "selamat siang",
         "selamat sore", "selamat malam"
@@ -253,10 +251,10 @@ async def chat(req: ChatRequest):
     words_lower = req.pertanyaan.lower().strip().split()
     query_lower = req.pertanyaan.lower().strip()
 
-    is_greeting = (
-        bool(greeting_set & set(words_lower)) or
-        any(g in query_lower for g in multi_greetings)
-    )
+    is_greeting = any(
+        any(w.startswith(r) for r in greeting_roots)
+        for w in words_lower
+    ) or any(g in query_lower for g in multi_greetings)
     is_intro = (
         any(p in query_lower for p in intro_patterns)
     )
