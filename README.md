@@ -483,88 +483,48 @@ File log dirotate saat mencapai ~500KB (~2500 query). File lama diberi timestamp
 
 ## ❓ FAQ
 
-<details>
-<summary><b>Kok jawabannya gak nyambung?</b></summary>
+### Kok jawabannya gak nyambung?
+Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke `/reload`.
 
-Bisa jadi FAQ database belum mencakup topik tersebut. Update Google Sheets lalu POST ke <code>/reload</code>.
-</details>
-
-<details>
-<summary><b>Error "Address already in use"?</b></summary>
-
+### Error "Address already in use"?
 Port 8000 masih dipakai. Cek:
-
 ```cmd
 netstat -ano | findstr :8000    # Windows
 sudo lsof -i :8000              # Linux
 ```
-</details>
 
-<details>
-<summary><b>Bikin bot dengan identitas beda?</b></summary>
+### Bikin bot dengan identitas beda?
+Ganti `prompts/identity.json` + `.env` — gak perlu edit Python.
 
-Ganti <code>prompts/identity.json</code> + <code>.env</code> — gak perlu edit Python.
-</details>
+### Chat history ilang?
+History di `chatbot.db`. Di-ignore git, aman.
 
-<details>
-<summary><b>Chat history ilang?</b></summary>
+### Bisa pake LLM model lain?
+Bisa. Atur `LLM_API_1`, `LLM_API_KEY_1`, `LLM_MODEL_1` di `.env`.
 
-History di <code>chatbot.db</code>. Di-ignore git, aman.
-</details>
+### WhatsApp bridge-nya gak muncul QR?
+Pastikan `node bridge.js` jalan dari folder `whatsapp-bridge/`. Cek log — harus ada `[BM25]` waktu ada chat. Kalo score selalu 999 → restart server.
 
-<details>
-<summary><b>Bisa pake LLM model lain?</b></summary>
+### BM25 score kok 999?
+BM25 gagal di-build. Restart server (`python -m uvicorn server:app ...`). Cek log startup — harus ada `[RELOAD] 79 Q&A loaded` + BM25 index kebangun otomatis.
 
-Bisa. Atur <code>LLM_API_1</code>, <code>LLM_API_KEY_1</code>, <code>LLM_MODEL_1</code> di <code>.env</code>.
-</details>
+### Error "Browser was not found at the configured executablePath"?
+Chrome 146 belum terdownload. Jalanin: `npx puppeteer browsers install chrome` di folder `whatsapp-bridge/`.
 
-<details>
-<summary><b>WhatsApp bridge-nya gak muncul QR?</b></summary>
+### Mau offline pake CPU doang?
+Install Ollama, pull `gemma3n:e4b`, ubah `.env` ke `http://localhost:11434/v1/chat/completions`.
 
-Pastikan <code>node bridge.js</code> jalan dari folder <code>whatsapp-bridge/</code>. Cek log — harus ada <code>[BM25]</code> waktu ada chat. Kalo score selalu 999 → restart server.
-</details>
-
-<details>
-<summary><b>BM25 score kok 999?</b></summary>
-
-BM25 gagal di-build. Restart server (<code>python -m uvicorn server:app ...</code>). Cek log startup — harus ada <code>[RELOAD] 79 Q&A loaded</code> + BM25 index kebangun otomatis.
-</details>
-
-<details>
-<summary><b>Error "Browser was not found at the configured executablePath"?</b></summary>
-
-Chrome 146 belum terdownload. Jalanin: <code>npx puppeteer browsers install chrome</code> di folder <code>whatsapp-bridge/</code>.
-</details>
-
-<details>
-<summary><b>Mau offline pake CPU doang?</b></summary>
-
-Install Ollama, pull <code>gemma3n:e4b</code>, ubah <code>.env</code> ke <code>http://localhost:11434/v1/chat/completions</code>.
-</details>
-
-<details>
-<summary><b>Cara reset daily limit?</b></summary>
-
+### Cara reset daily limit?
 Otomatis reset tiap ganti hari (WIB). Restart server juga reset.
-</details>
 
-<details>
-<summary><b>Siapa trusted user?</b></summary>
+### Siapa trusted user?
+User di `TRUSTED_CHAT_IDS` di `.env` — skip anti-spam & daily limit.
 
-User di <code>TRUSTED_CHAT_IDS</code> di <code>.env</code> — skip anti-spam & daily limit.
-</details>
+### Bot WA error "tidak ada jawaban"?
+Cek terminal wa_handler. Biasanya karena `requests` belum diinstall (`pip install requests`) atau URL double path (`/chat/chat`). Pull terbaru + restart.
 
-<details>
-<summary><b>Bot WA error "tidak ada jawaban"?</b></summary>
-
-Cek terminal wa_handler. Biasanya karena <code>requests</code> belum diinstall (<code>pip install requests</code>) atau URL double path (<code>/chat/chat</code>). Pull terbaru + restart.
-</details>
-
-<details>
-<summary><b>Pertanyaan di luar BPS masih tembus?</b></summary>
-
-Cek terminal server — apakah ada log <code>[BM25]</code>? Kalo tidak ada → BM25 gagal build (restart). Kalo score 999 → sama. Kalo score 0 tapi masih tembus → laporkan.
-</details>
+### Pertanyaan di luar BPS masih tembus?
+Cek terminal server — apakah ada log `[BM25]`? Kalo tidak ada → BM25 gagal build (restart). Kalo score 999 → sama. Kalo score 0 tapi masih tembus → laporkan.
 
 ---
 
