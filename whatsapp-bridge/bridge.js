@@ -77,6 +77,8 @@ client.on('message', async (msg) => {
         // Cek kalo ada gambar
         const isImageType = msg.type === 'image' || (msg.type === 'document' && msg.mimetype && msg.mimetype.startsWith('image/'));
         if (msg.hasMedia || isImageType) {
+            // Kirim pesan sementara biar user tau lagi diproses
+            await client.sendMessage(sender, '⏳ *Memproses gambar...*');
             try {
                 const media = await msg.downloadMedia();
                 if (media && media.mimetype && media.mimetype.startsWith('image/')) {

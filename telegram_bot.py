@@ -215,7 +215,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("topics", topics_command))
     app.add_handler(CommandHandler("stop", stop_command))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.PHOTO, handle_message))
     # Tolak sticker, gambar, voice dll
     async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler gambar: download → OCR → gabung caption → kirim ke server"""
