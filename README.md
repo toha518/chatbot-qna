@@ -21,6 +21,25 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ---
 
+## 📋 Daftar Isi
+
+- [✨ Fitur](#-fitur)
+- [📸 Tangkapan Layar](#tangkapan-layar)
+- [🛠️ Tech Stack](#tech-stack)
+- [🔒 Security & Proteksi](#-security--proteksi)
+- [🧠 Arsitektur Modular](#-arsitektur-modular)
+- [🔄 Replikasi / Custom Bot](#-replikasi--custom-bot)
+- [💻 Panduan Instalasi — Windows](#-panduan-instalasi--windows)
+- [🐧 Panduan Instalasi — Linux](#-panduan-instalasi--linux)
+- [🔗 API Endpoints](#-api-endpoints)
+- [📊 Logging & Evaluasi](#-logging--evaluasi)
+- [❓ FAQ](#-faq)
+- [📞 Kontak & Dukungan](#kontak-dukungan)
+- [📄 Lisensi](#lisensi)
+- [📄 Lisensi](#-lisensi)
+
+---
+
 ## 📸 Tangkapan Layar
 
 > _Screenshot menyusul — kirim gambar via Telegram/WhatsApp lalu upload ke folder `screenshots/`._
@@ -45,24 +64,6 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | **WhatsApp** | whatsapp-web.js (Node.js bridge) |
 | **OCR** | EasyOCR (Indonesia + Inggris) |
 | **Bahasa** | Python 3.11+ / Node.js v20 LTS
-
----
-
-## 📋 Daftar Isi
-
-- [✨ Fitur](#-fitur)
-- [📸 Tangkapan Layar](#tangkapan-layar)
-- [🛠️ Tech Stack](#tech-stack)
-- [🔒 Security & Proteksi](#-security--proteksi)
-- [🧠 Arsitektur Modular](#-arsitektur-modular)
-- [🔄 Replikasi / Custom Bot](#-replikasi--custom-bot)
-- [💻 Panduan Instalasi — Windows](#-panduan-instalasi--windows)
-- [🐧 Panduan Instalasi — Linux](#-panduan-instalasi--linux)
-- [🔗 API Endpoints](#-api-endpoints)
-- [📊 Logging & Evaluasi](#-logging--evaluasi)
-- [❓ FAQ](#-faq)
-- [📞 Kontak & Dukungan](#kontak-dukungan)
-- [📄 Lisensi](#-lisensi)
 
 ---
 
