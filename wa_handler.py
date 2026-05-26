@@ -101,7 +101,7 @@ def wa_message():
     if cmd == '/start':
         return jsonify({
             "jawaban": (
-                "Halo! Saya Cici Anova, asisten Q&A BPS Provinsi Kepulauan Bangka Belitung.\n\n"
+                "Halo! Saya Nara, asisten permasalahan IT dari BPS Provinsi Kepulauan Bangka Belitung.\n\n"
                 "Saya bisa bantu menjawab pertanyaan seputar:\n"
                 "1. SOBAT\n"
                 "2. GC PBI\n"
@@ -114,7 +114,7 @@ def wa_message():
     if cmd == '/help':
         return jsonify({
             "jawaban": (
-                "Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
+                "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya "
                 "dari database mengenai SOBAT, GC PBI, GC PLN, FASIH, "
                 "dan Pengolahan SE2026."
             )
@@ -122,7 +122,7 @@ def wa_message():
     if cmd == '/topics':
         return jsonify({
             "jawaban": (
-                "Topik yang saya kuasai:\n"
+                "Topik permasalahan IT yang saya kuasai:\n"
                 "1. SOBAT\n"
                 "2. GC PBI\n"
                 "3. GC PLN\n"

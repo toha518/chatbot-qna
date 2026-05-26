@@ -75,7 +75,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
     await update.message.reply_text(
-        "Halo! Saya Cici Anova, asisten Q&A BPS Provinsi Kepulauan Bangka Belitung.\n\n"
+        "Halo! Saya Nara, asisten permasalahan IT dari BPS Provinsi Kepulauan Bangka Belitung.\n\n"
         "Saya bisa bantu menjawab pertanyaan seputar:\n"
         "1. SOBAT\n"
         "2. GC PBI\n"
