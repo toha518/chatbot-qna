@@ -34,6 +34,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 - [🔗 API Endpoints](#-api-endpoints)
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
 - [❓ FAQ](#-faq)
+- [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
 - [📄 Lisensi](#lisensi)
 - [📄 Lisensi](#-lisensi)
@@ -747,8 +748,10 @@ sudo lsof -i :8000              # Linux
 
 </details>
 
+## 📜 Riwayat Versi
+
 <details>
-<summary><b>📜 Riwayat Versi</b></summary>
+<summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
 > Proyek ini mengikuti [Semantic Versioning](https://semver.org/)
 > `MAJOR.MINOR.PATCH` — MAJOR = breaking change, MINOR = fitur baru, PATCH = bug fix
