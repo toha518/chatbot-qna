@@ -45,12 +45,12 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 <table>
   <tr>
-    <td><img src="screenshots/telegram-chat.jpg" alt="Telegram — Nara menjawab pertanyaan" width="300"></td>
-    <td><img src="screenshots/whatsapp-chat.jpg" alt="WhatsApp — Nara menjawab pertanyaan" width="300"></td>
+    <td><img src="screenshots/wa-chat.jpg" alt="WhatsApp — Nara menjawab pertanyaan" width="300"></td>
+    <td><img src="screenshots/tg-chat.jpg" alt="Telegram — Nara menjawab pertanyaan" width="300"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Telegram</sub></td>
     <td align="center"><sub>WhatsApp</sub></td>
+    <td align="center"><sub>Telegram</sub></td>
   </tr>
 </table>
 
