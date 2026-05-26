@@ -139,39 +139,27 @@ app.get('/status', (req, res) => {
 });
 
 // Kirim pesan via API
+// PAKE getChatById() instead of sendMessage() — support @c.us dan @lid@c.us
 app.post('/send', async (req, res) => {
     try {
         const { to, message } = req.body;
         if (!to || !message) {
             return res.status(400).json({ error: 'Parameter "to" dan "message" wajib' });
         }
-        const chatId = to;
-        console.log(`[API SEND] Ke ${chatId}: ${message.substring(0, 80)}...`);
 
-        // Coba kirim langsung — whatsapp-web.js handle @lid@c.us dan @c.us
-        const sent = await client.sendMessage(chatId, message);
+        console.log(`[API SEND] Ke ${to}: ${message.substring(0, 80)}...`);
+
+        // getChatById resolve chat object dari ID apapun formatnya (@c.us / @lid@c.us)
+        const chat = await client.getChatById(to);
+        const sent = await chat.sendMessage(message);
+
         console.log(`[API SEND] ✅ Berhasil (id: ${sent.id.id})`);
         res.json({ status: 'ok', id: sent.id.id });
 
     } catch (err) {
-        const errStr = err.stack || err.message || JSON.stringify(err);
-        console.error(`[API SEND] ❌ Gagal ke ${req.body?.to || '?'}: ${errStr.substring(0, 500)}`);
-
-        // Coba fallback: pake getChatById dulu
-        try {
-            const fbTo = req.body?.to;
-            if (fbTo) {
-                console.log(`[API SEND] 🔄 Coba fallback getChatById...`);
-                const chat = await client.getChatById(fbTo);
-                await chat.sendMessage(req.body.message);
-                console.log(`[API SEND] ✅ Berhasil via fallback`);
-                return res.json({ status: 'ok' });
-            }
-        } catch (fallbackErr) {
-            console.error(`[API SEND] ❌ Fallback juga gagal: ${fallbackErr.message}`);
-        }
-
-        res.status(500).json({ error: err.message, detail: errStr.substring(0, 200) });
+        const errStr = err.stack ? err.stack.substring(0, 500) : (err.message || JSON.stringify(err));
+        console.error(`[API SEND] ❌ Gagal ke ${req.body?.to || '?'}: ${errStr}`);
+        res.status(500).json({ error: err.message, stack: err.stack?.substring(0, 300) });
     }
 });
 
