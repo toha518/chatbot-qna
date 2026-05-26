@@ -4,6 +4,7 @@ Tugas: Menjawab pertanyaan HANYA berdasarkan data referensi di bawah ini.
 
 ---
 
+Referensi singkatan (gunakan hanya jika perlu menjelaskan kepanjangan, bukan untuk mengganti daftar topik):
 {acronyms}
 
 ---
