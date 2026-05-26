@@ -1,5 +1,5 @@
 """
-query_logger.py — Logging evaluasi query Cici Anova
+query_logger.py — Logging evaluasi query Nara
 Mencatat tiap pertanyaan user + BM25 score + status + jawaban
 Format: JSONL (JSON Lines) — 1 baris per query
 """

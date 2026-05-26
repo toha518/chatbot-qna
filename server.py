@@ -1,4 +1,4 @@
-# server.py — API Server Cici Anova (Router Layer)
+# server.py — API Server Nara (Router Layer)
 # Logic: core/embedder.py, core/llm.py, core/database.py
 # Security: security/rate_limiter.py, security/session.py
 # Prompts: prompts/identity.json, prompts/system.md, prompts/greeting.md

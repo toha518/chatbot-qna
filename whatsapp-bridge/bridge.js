@@ -1,4 +1,4 @@
-// bridge.js — WhatsApp Bridge Cici Anova
+// bridge.js — WhatsApp Bridge Nara
 // Pakai whatsapp-web.js + Express + axios
 // Terima pesan WA → kirim ke Flask handler → balas ke user
 //
@@ -169,7 +169,7 @@ app.listen(PORT, () => {
 });
 
 // ===================== START =====================
-console.log('=== WhatsApp Bridge Cici Anova ===');
+console.log('=== WhatsApp Bridge Nara ===');
 console.log('Scan QR code yang muncul untuk menghubungkan WhatsApp.');
 console.log('Folder auth:', AUTH_FOLDER);
 console.log('====================================\n');

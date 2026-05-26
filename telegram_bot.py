@@ -1,4 +1,4 @@
-# telegram_bot.py — Layer Telegram Bot Cici Anova
+# telegram_bot.py — Layer Telegram Bot Nara
 # Tugas: nerima pesan dari Telegram, kirim ke server API, balasin ke user
 # Ini cuma "jembatan" — logika utama ada di server.py
 
@@ -307,7 +307,7 @@ def main():
     try:
         httpx.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/setMyCommands", json={
             "commands": [
-                {"command": "start", "description": "Mulai percakapan dengan Cici Anova"},
+                {"command": "start", "description": "Mulai percakapan dengan Nara"},
                 {"command": "help",  "description": "Panduan cara menggunakan bot"},
                 {"command": "topics", "description": "Topik yang saya kuasai"},
                 {"command": "stop",   "description": "Akhiri sesi diskusi"},

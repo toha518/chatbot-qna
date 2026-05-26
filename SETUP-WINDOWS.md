@@ -1,4 +1,4 @@
-# Setup WhatsApp untuk Cici Anova — PC Windows
+# Setup WhatsApp untuk Nara — PC Windows
 
 ## 📦 Yang Perlu Diinstall
 
@@ -91,7 +91,7 @@ Atau kalau pake **start-all.bat**, tutup jendela cmd-nya.
 
 ## ✅ Cek Semuanya Jalan
 
-Kirim pesan ke nomor WhatsApp lo. Harusnya dibales sama Cici Anova kayak di Telegram.
+Kirim pesan ke nomor WhatsApp lo. Harusnya dibales sama Nara kayak di Telegram.
 
 Kalau error:
 - **"Server tidak merespon"** → Terminal 1 (server.py) belum jalan

@@ -1,5 +1,5 @@
 """
-BM25 domain checker — Cici Anova
+BM25 domain checker — Nara
 Membedakan pertanyaan BPS vs non-BPS pake keyword overlap.
 """
 

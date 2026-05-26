@@ -1,7 +1,7 @@
 {
-  "name": "cici-anova-wa-bridge",
+  "name": "nara-wa-bridge",
   "version": "1.0.0",
-  "description": "WhatsApp Bridge untuk Cici Anova — pakai whatsapp-web.js",
+  "description": "WhatsApp Bridge untuk Nara — pakai whatsapp-web.js",
   "main": "bridge.js",
   "scripts": {
     "start": "node bridge.js"

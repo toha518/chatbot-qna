@@ -1,7 +1,7 @@
 @echo off
-title Cici Anova — Starting All Services
+title Nara — Starting All Services
 echo ===========================================
-echo   Cici Anova — Membuka 4 Terminal Service
+echo   Nara — Membuka 4 Terminal Service
 echo ===========================================
 echo.
 

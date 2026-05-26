@@ -1,4 +1,4 @@
-# wa_handler.py — Layer WhatsApp Cici Anova
+# wa_handler.py — Layer WhatsApp Nara
 # Tugas: nerima pesan dari WhatsApp Bridge (Node.js), kirim ke server API, balasin
 # Ini cuma "jembatan" WhatsApp — logika utama tetap di server.py
 #
@@ -173,7 +173,7 @@ def wa_message():
 
     except requests.exceptions.ConnectionError:
         return jsonify({
-            "jawaban": "⚠️ Server Cici Anova (server.py) tidak merespon. Pastikan sudah dijalankan."
+            "jawaban": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan."
         }), 503
     except Exception as e:
         print(f"[WA ERROR] Panggil server.py gagal: {e}")
@@ -188,7 +188,7 @@ def health():
 
 # ===================== MAIN =====================
 if __name__ == "__main__":
-    print(f"[BOOT] WhatsApp Handler Cici Anova")
+    print(f"[BOOT] WhatsApp Handler Nara")
     print(f"[BOOT] Server API: {SERVER_URL}")
     print(f"[BOOT] Flask port: {FLASK_PORT}")
     print(f"[BOOT] Jalanin 3 terminal:")
