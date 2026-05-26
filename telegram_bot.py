@@ -180,10 +180,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await stop_command(update, context)
         return
 
-    # Kirim typing indicator biar user tau bot lagi mikir
-    await update.message.chat.send_action("typing")
-
-    # ===================== PANGGIL SERVER API =====================
+    # ===================== PANGGIL SERVER API (tanpa typing dulu) =====================
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(
@@ -193,8 +190,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
         if not jawaban:
-            # Silent block — gak kirim apapun
+            # Silent block — gak kirim apapun, gak perlu typing
             return
+        # Kirim typing bentar baru jawab — biar user tau bot lagi ngetik
+        await update.message.chat.send_action("typing")
         try:
             await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
         except Exception:

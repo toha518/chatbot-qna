@@ -84,9 +84,8 @@ client.on('message', async (msg) => {
             }
         }
 
-        // Kirim typing indicator biar user tau bot lagi proses
+        // Simpan chat object buat nanti — tapi jangan kirim typing dulu
         const chat = await msg.getChat();
-        await chat.sendStateTyping();
 
         console.log(`[WA IN] Dari ${sender}: ${text.substring(0, 100)}`);
 
@@ -130,12 +129,14 @@ client.on('message', async (msg) => {
         const reply = resp.data?.jawaban || resp.data?.message || '';
         if (!reply) {
             console.log(`[WA OUT] Silent block — ${sender} gak dikirimi apapun`);
+            await chat.clearState();
             return;
         }
         console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
 
         // ===================== BALAS PESAN =====================
         await chat.clearState();
+        await chat.sendStateTyping();
         await client.sendMessage(sender, reply);
 
     } catch (err) {
