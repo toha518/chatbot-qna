@@ -146,9 +146,12 @@ app.post('/send', async (req, res) => {
             return res.status(400).json({ error: 'Parameter "to" dan "message" wajib' });
         }
         const chatId = to.includes('@c.us') ? to : `${to}@c.us`;
+        console.log(`[API SEND] Ke ${chatId}: ${message.substring(0, 60)}...`);
         const sent = await client.sendMessage(chatId, message);
+        console.log(`[API SEND] ✅ Berhasil (id: ${sent.id.id})`);
         res.json({ status: 'ok', id: sent.id.id });
     } catch (err) {
+        console.error(`[API SEND] ❌ Gagal: ${err.message}`);
         res.status(500).json({ error: err.message });
     }
 });

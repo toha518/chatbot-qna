@@ -135,11 +135,14 @@ async def session_watchdog():
                     # WhatsApp — kirim via bridge /send
                     try:
                         async with httpx.AsyncClient(timeout=10) as client:
-                            await client.post(
+                            resp = await client.post(
                                 f"{WA_BRIDGE_URL}/send",
                                 json={"to": cid, "message": end_msg}
                             )
-                        print(f"[WATCHDOG] Notif session ended → {cid} (WA)")
+                        if resp.status_code == 200:
+                            print(f"[WATCHDOG] Notif session ended → {cid} (WA)")
+                        else:
+                            print(f"[WATCHDOG] Gagal kirim WA {cid}: HTTP {resp.status_code} — {resp.text[:200]}")
                     except Exception as e:
                         print(f"[WATCHDOG] Gagal kirim WA {cid}: {e}")
 
@@ -165,11 +168,14 @@ async def session_watchdog():
                     # WhatsApp
                     try:
                         async with httpx.AsyncClient(timeout=10) as client:
-                            await client.post(
+                            resp = await client.post(
                                 f"{WA_BRIDGE_URL}/send",
                                 json={"to": cid, "message": end_msg}
                             )
-                        print(f"[WATCHDOG] Queue notif WA → {cid}")
+                        if resp.status_code == 200:
+                            print(f"[WATCHDOG] Queue notif WA → {cid}")
+                        else:
+                            print(f"[WATCHDOG] Gagal kirim WA {cid}: HTTP {resp.status_code} — {resp.text[:200]}")
                     except Exception as e:
                         print(f"[WATCHDOG] Gagal queue kirim WA {cid}: {e}")
 
