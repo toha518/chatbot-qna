@@ -757,12 +757,6 @@ sudo lsof -i :8000              # Linux
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
-> Proyek ini mengikuti [Semantic Versioning](https://semver.org/)
-> `MAJOR.MINOR.PATCH` — MAJOR = breaking change, MINOR = fitur baru, PATCH = bug fix
-
-#### Unreleased
-
-- Belum ada perubahan yang belum dirilis.
 
 ---
 
