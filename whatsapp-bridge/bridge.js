@@ -67,13 +67,16 @@ client.on('message', async (msg) => {
         const sender = msg.from;
         const text = msg.body ? msg.body.trim() : '';
 
-        // Kalo format LID (@lid@c.us), ambil nomor asli dari chat
-        if (sender.endsWith('@lid@c.us') && !lidToCus.has(sender)) {
+        // Kalo format LID (@lid), ambil nomor asli lewat getChat()
+        const isLid = sender.endsWith('@lid') || sender.endsWith('@lid@c.us');
+        if (isLid && !lidToCus.has(sender)) {
             try {
                 const chat = await msg.getChat();
+                // chat.id._serialized usually returns the format that works
                 const serialized = chat.id._serialized;
-                if (serialized.endsWith('@c.us')) {
+                if (serialized && serialized.includes('@c.us')) {
                     lidToCus.set(sender, serialized);
+                    lidToCus.set(sender.replace('@lid@c.us', '@lid'), serialized);
                     console.log(`[LID MAP] ${sender} → ${serialized}`);
                 }
             } catch (e) {
@@ -163,46 +166,54 @@ app.post('/send', async (req, res) => {
             return res.status(400).json({ error: 'Parameter "to" dan "message" wajib' });
         }
 
-        // Cek LID cache dulu — kalo ada mapping @c.us, pake itu
+        // Normalisasi: @lid@c.us → @lid (soalnya msg.from pake @lid biar work)
         let targetId = to;
-        if (to.endsWith('@lid@c.us') && lidToCus.has(to)) {
-            targetId = lidToCus.get(to);
-            console.log(`[API SEND] ${to} → ${targetId}: ${message.substring(0, 80)}...`);
-        } else {
-            console.log(`[API SEND] ${to}: ${message.substring(0, 80)}...`);
+        if (to.endsWith('@lid@c.us')) {
+            targetId = to.replace('@lid@c.us', '@lid');
+            console.log(`[API SEND] ${to} → ${targetId} (normalized)`);
         }
 
-        // Primary: sendMessage langsung — ini yang reliable buat chat aktif
+        // Cek LID cache
+        if (lidToCus.has(targetId)) {
+            const cached = lidToCus.get(targetId);
+            if (cached.includes('@c.us')) {
+                targetId = cached;
+                console.log(`[API SEND] Cache hit: ${to} → ${targetId}`);
+            }
+        }
+
+        console.log(`[API SEND] ${targetId}: ${message.substring(0, 80)}...`);
         const sent = await client.sendMessage(targetId, message);
         console.log(`[API SEND] ✅ Berhasil (id: ${sent.id.id})`);
         return res.json({ status: 'ok', id: sent.id.id });
 
     } catch (err) {
-        const errStr = err.stack || err.message || JSON.stringify(err);
-        console.error(`[API SEND] ❌ Gagal: ${errStr.substring(0, 500)}`);
+        const errStr = err.stack ? err.stack.substring(0, 500) : (err.message || JSON.stringify(err));
+        console.error(`[API SEND] ❌ Gagal: ${errStr}`);
 
-        // Fallback: kalo masih LID dan gagal, coba sendMessage ke LID asli
-        const fbTo = req.body?.to;
-        if (fbTo && fbTo.endsWith('@lid@c.us') && targetId !== fbTo) {
-            try {
-                console.log(`[API SEND] 🔄 Fallback: coba LID asli ${fbTo}...`);
-                const sent = await client.sendMessage(fbTo, req.body.message);
-                console.log(`[API SEND] ✅ Berhasil via LID fallback`);
+        // Fallback 1: coba @lid kalo tadi pake @lid@c.us
+        try {
+            const fbTo = req.body?.to;
+            const altId = fbTo.endsWith('@lid@c.us') ? fbTo.replace('@lid@c.us', '@lid') : null;
+            if (altId && altId !== targetId) {
+                console.log(`[API SEND] 🔄 Fallback @lid: ${fbTo} → ${altId}...`);
+                const sent = await client.sendMessage(altId, req.body.message);
+                console.log(`[API SEND] ✅ via @lid fallback`);
                 return res.json({ status: 'ok', id: sent.id.id });
-            } catch (fbErr) {
-                console.error(`[API SEND] ❌ Fallback LID juga gagal: ${fbErr.message}`);
             }
-        } else {
-            // Coba getChatById + chat.sendMessage
-            try {
-                console.log(`[API SEND] 🔄 Fallback: getChatById...`);
-                const chat = await client.getChatById(fbTo);
-                const sent = await chat.sendMessage(req.body.message);
-                console.log(`[API SEND] ✅ Berhasil via getChatById`);
-                return res.json({ status: 'ok', id: sent.id.id });
-            } catch (fbErr) {
-                console.error(`[API SEND] ❌ Fallback juga gagal: ${fbErr.message}`);
-            }
+        } catch (fbErr) {
+            console.error(`[API SEND] ❌ @lid fallback: ${fbErr.message}`);
+        }
+
+        // Fallback 2: getChatById + chat.sendMessage
+        try {
+            console.log(`[API SEND] 🔄 Fallback getChatById...`);
+            const chat = await client.getChatById(req.body.to);
+            const sent = await chat.sendMessage(req.body.message);
+            console.log(`[API SEND] ✅ via getChatById`);
+            return res.json({ status: 'ok', id: sent.id.id });
+        } catch (fbErr) {
+            console.error(`[API SEND] ❌ getChatById: ${fbErr.message}`);
         }
 
         res.status(500).json({ error: err.message, stack: err.stack?.substring(0, 300) });
