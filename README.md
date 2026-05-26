@@ -712,138 +712,131 @@ Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Ke
 
 ### 📜 Riwayat Versi
 
-<details>
-<summary><b>Klik untuk lihat riwayat lengkap</b></summary>
+> Proyek ini mengikuti [Semantic Versioning](https://semver.org/) dan format [Keep a Changelog](https://keepachangelog.com/).
 
-### v1.2.0 — 2026-05-26
-**✨ Fitur Baru**
-- Intro detection: `"kamu bisa apa?"`, `"siapa kamu?"` langsung pake greeting prompt ✅
-- File referensi akronim `prompts/acronyms.md` — kepanjangan SOBAT, GC, BPS dll ✅
-- Greeting detection pake prefix matching — `"haloo"`, `"pagii"`, `"helo"` tetap kena ✅
-
-**🔧 Perbaikan**
-- Akronim jadi referensi, bukan daftar topik utama ✅
+#### Unreleased — Belum ada perubahan yang belum dirilis
 
 ---
 
-### v1.1.0 — 2026-05-26
-**✨ Fitur Baru**
-- Rebrand total: Cici Anova → **NARA (NextGen AI Response Agent)** ✅
-- Personality system di `system.md` (Nara si IT Support sabar) ✅
-- Command handler WhatsApp: `/start`, `/help`, `/topics`, `/stop` ✅
-- WA watchdog notifikasi session expired via bridge `/send` ✅
-- WA image processing indicator "⏳ Memproses gambar..." ✅
-- Foto + caption di Telegram diarahkan ke handler gambar (bukan teks) ✅
+#### v1.2.0 — 2026-05-26
 
-**🔧 Perbaikan**
-- WA bold: `**text**` → `*text*` (bold beneran di WA) ✅
-- Semua sisa "Cici Anova" di 10 file dihapus total ✅
-- Emoji rule relax — bebas emoji biar hidup ✅
+**Added**
+- Intro detection: `"kamu bisa apa?"`, `"siapa kamu?"` langsung greeting prompt (skip E5/BM25)
+- File referensi akronim `prompts/acronyms.md`
+- Greeting detection pake prefix matching — `"haloo"`, `"pagii"`, `"helo"` tetap kena
 
-**📚 Dokumentasi**
-- NARA backronym di README title ✅
-- FAQ format Q: / A: rapi dengan separator ✅
-- Spesifikasi RAM minimal 8GB (Win & Linux) ✅
-- Panduan Linux selengkap Windows ✅
+**Changed**
+- Akronim dipisah jadi referensi, bukan daftar topik utama
 
 ---
 
-### v1.0.0 — 2026-05-26
-**✨ Fitur Baru**
-- BM25 hybrid domain filter — keyword overlap, zero-dependency ✅
-- E5-base semantic search + kategori di embedding ✅
-- Evaluasi logging (`query_log.jsonl`) — BM25 score, status, jawaban tiap query ✅
-- Multi-part query split — pertanyaan dengan "dan", "serta" dipisah otomatis ✅
-- WA typing indicator (`sendStateTyping`) ✅
-- WA image support — detect + OCR via EasyOCR ✅
-- Telegram image — "⏳ Memproses gambar..." + auto-hapus ✅
-- WA watchdog kirim notif ke WA via bridge ✅
+#### v1.1.0 — 2026-05-26
 
-**🔧 Perbaikan**
-- Python import trap — `build_bm25()` pake list kosong ✅
-- WA handler double path bug (`/chat/chat`) ✅
-- WA bridge kirim pesan biasa, bukan reply ✅
-- top_k tuning: 3→5→3 setelah embedding kategori ✅
-- BM25 stopwords tuning — filter angka-only ✅
-- E5 score threshold 0.82 sebelum LLM ✅
-- Prompt strict — HANYA data referensi, temperature=0.1 ✅
-- Encoding UTF-8 fix untuk Windows (cp1252) ✅
-- scores.argmax() wrong index fix ✅
+**Added**
+- Rebrand: **Cici Anova → NARA (NextGen AI Response Agent)**
+- Personality system di `prompts/system.md`
+- Command handler WhatsApp: `/start`, `/help`, `/topics`, `/stop`
+- WA watchdog notif session expired via bridge `/send`
+- WA image indicator "⏳ Memproses gambar..."
+- Foto+caption Telegram diarahkan ke handler gambar
+
+**Fixed**
+- WA bold: `**text**` → `*text*`
+- Semua sisa "Cici Anova" di 10 file dibersihkan
+- Emoji rule relax — bebas emoji
+- Pesan processing di WA dibiarkan (gak dihapus)
+
+**Docs**
+- Backronym NARA, FAQ rapi, RAM 8GB, Linux guide
 
 ---
 
-### v0.5.0 — 2026-05-25
-**✨ Fitur Baru**
-- Resureksi repo: balikin WA bridge, start-all 4 terminal ✅
-- Domain classifier BM25 hybrid — ganti from E5-only ✅
-- Multi-part skip feedback — kasi catatan bagian mana yg gak dijawab ✅
-- Daily limit 50→25 (perintah Owner) ✅
+#### v1.0.0 — 2026-05-26
 
-**🔧 Perbaikan**
-- Puppeteer `--single-process` dihapus — penyebab LifecycleWatcher error ✅
-- Python import trap BM25 — fix di embedder.py ✅
+**Added**
+- BM25 hybrid domain filter
+- E5-base + kategori di embedding
+- Query logging ke `query_log.jsonl`
+- Multi-part query split
+- WA typing indicator, image+OCR
+- Telegram image processing
+- WA watchdog session expired
 
----
-
-### v0.4.0 — 2026-05-21
-**✨ Fitur Baru**
-- Gemini 2.5 Flash sebagai opsi free LLM ✅
-- Daily chat limit 100/user/hari, reset otomatis ✅
-- TRUSTED_CHAT_IDS dari `.env` — admin skip security ✅
-- LLM failover chain sampai 20 provider ✅
-
-**🔧 Perbaikan**
-- Hapus rate limiter duplikat di telegram_bot.py ✅
-- Hapus session rest 6 jam (redundan) ✅
-- Logging error API response sebelum akses `choices` ✅
+**Fixed**
+- Python import trap BM25, WA double path, reply mode
+- top_k tuning 3→5→3, BM25 stopwords, E5 threshold 0.82
+- Prompt strict, temperature 0.1, encoding cp1252
+- `scores.argmax()` wrong index
 
 ---
 
-### v0.3.0 — 2026-05-20
-**✨ Fitur Baru**
-- 6-layer security: sanitasi, anti-spam, daily limit, BM25, E5, watchdog ✅
-- Credit: dibuat dan dikelola oleh Syahrul Toha Saputra ✅
-- failover chain 3→10 provider ✅
-- Logging sukses/gagal tiap provider LLM ✅
+#### v0.5.0 — 2026-05-25
 
-**🔧 Perbaikan**
-- Deteksi otomatis Ollama lokal ✅
-- max_tokens 500→2000 — jawaban gak kepotong ✅
-- Fallback plain text kalo markdown error di Telegram ✅
-- Hapus rate limiter duplikat ✅
+**Added**
+- Resureksi repo: WA bridge + 4 terminal
+- BM25 hybrid classifier (ganti E5-only)
+- Multi-part skip feedback
+- Daily limit 50→25
 
----
-
-### v0.2.0 — 2026-05-19
-**✨ Fitur Baru**
-- Refactor modular: `core/`, `prompts/`, `security/` ✅
-- EasyOCR untuk screenshot/image ✅
-- LLM failover: 3 provider backup chain ✅
-- ParseMode.MARKDOWN di Telegram — bold/italic tampil ✅
-
-**🔧 Perbaikan**
-- TOP_K: 5→3 — hemat token ✅
-- OCR: hapus `paragraph=True` — format output beda ✅
-- Import ParseMode ketinggalan ✅
-- Rename DB: `cici_anova.db` → `chatbot.db` ✅
-- Rename kolom: `pertanyaan→kendala`, `jawaban→solusi` ✅
+**Fixed**
+- Puppeteer `--single-process` (LifecycleWatcher crash)
+- BM25 import trap
 
 ---
 
-### v0.1.0 — 2026-05-18
-**🎉 Rilis Perdana — Cici Anova**
+#### v0.4.0 — 2026-05-21
 
-**✨ Fitur Awal**
-- FastAPI server + Telegram bot ✅
-- OpenCode Go: deepseek-v4-flash (thinking off) ✅
-- LLM config dari `.env` (DEEPSEEK_* → LLM_*) ✅
-- Anti-spam rate limit: 5 chat/menit ✅
-- 500 karakter limit per chat ✅
-- Input sanitasi + media filter ✅
-- Chat history limit: 20→10 ✅
-- `.gitignore` + CLEANED history (token aman) ✅
+**Added**
+- Gemini 2.5 Flash free LLM
+- Daily limit 100, auto-reset
+- TRUSTED_CHAT_IDS dari `.env`
+- Failover 20 provider
 
-</details>
+**Fixed**
+- Rate limiter duplikat, session rest 6 jam redundant
+- Error logging sebelum akses `choices`
+
+---
+
+#### v0.3.0 — 2026-05-20
+
+**Added**
+- 6-layer security system
+- Credit Syahrul Toha Saputra
+- Failover 3→10 provider
+- Provider logging (sukses/gagal)
+
+**Fixed**
+- Ollama auto-detect
+- max_tokens 500→2000
+- Markdown error fallback
+- Rate limiter duplikat
+
+---
+
+#### v0.2.0 — 2026-05-19
+
+**Added**
+- Modular refactor: `core/`, `prompts/`, `security/`
+- EasyOCR, LLM failover 3 provider
+- ParseMode.MARKDOWN
+
+**Fixed**
+- TOP_K 5→3, OCR paragraph bug
+- Import ParseMode, DB rename, kolom rename
+
+---
+
+#### v0.1.0 — 2026-05-18 — Rilis Perdana
+
+**Added**
+- FastAPI + Telegram bot
+- OpenCode Go deepseek-v4-flash
+- LLM config `.env`, rate limit, 500 char limit
+- Input sanitasi, media filter, history limit 10
+- `.gitignore` + CLEANED history
+
+---
 
 ---
 
