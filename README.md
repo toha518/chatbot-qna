@@ -756,6 +756,17 @@ sudo lsof -i :8000              # Linux
 - `hybrid_search()` — fungsi baru di embedder, RRF dengan K=60
 - Kategori sebagai **metadata terpisah** — gak ikut di-embedding, similarity murni konten
 - `prompts/responses.json` — single source of truth untuk SEMUA user-facing text (greeting, rejection, error, spam, dll)
+- **Two-Phase Fallback** — kalo hybrid score < 0.82, concot query user sebelumnya, search ulang. Fix follow-up pendek kayak "di dtsen juga udah sesuai"
+
+**Changed**
+- top_k: 3 → 5 (distribusi hybrid lebih variatif)
+- `/health` → engine: `hybrid (E5+BM25)`
+- Greeting prompt: sekarang menyebutkan nama, role, dan topik yang dikuasai (bukan cuma "halo")
+- Multi-part split flowchart: BM25 + E5 → BM25 domain + hybrid search
+- Tabel "Perbedaan Format Pesan Telegram vs WhatsApp" dihapus dari README
+- Contoh `total_qna` di health response: 79 → 100+
+- README reflect hybrid retrieval + lisensi internal
+- Badge: `E5-base` → `Hybrid (E5+BM25)`
 
 **Changed**
 - top_k: 3 → 5 (distribusi hybrid lebih variatif)
