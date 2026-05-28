@@ -347,43 +347,36 @@ async def chat(req: ChatRequest):
     # ===================== LLM ANSWER =====================
     # Single question — cek E5 top score dulu
     if top_score < 0.82:
-        # ── Two-Phase Fallback ──
-        # Coba concat dengan query user sebelumnya (follow-up pendek sering gak berdiri sendiri)
-        prev_user_query = None
-        for msg in reversed(history):
-            if msg["role"] == "user":
-                prev_user_query = msg["content"]
+        # ── Cascade Fallback ──
+        # Kalo hybrid score rendah, coba concat 1-2 query user sebelumnya
+        # Biar follow-up pendek kayak "di dtsen juga udah sesuai" tetap ke-dapet konteks
+        prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
+        fallback_success = False
+
+        for depth in range(1, min(3, len(prev_queries) + 1)):
+            # depth=1: concat 1 query sebelumnya
+            # depth=2: concat 2 query sebelumnya
+            context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
+            enhanced_query = " — ".join(context_parts)
+
+            print(f"[QUERY] Cascade depth={depth}: '{enhanced_query[:120]}'")
+            ctx2, scores2, bq2 = hybrid_search(enhanced_query, top_k=5)
+            ts2 = float(scores2[0]) if len(scores2) > 0 else 0
+
+            if ts2 >= 0.82:
+                print(f"[QUERY] Cascade depth={depth} berhasil: {top_score:.3f} → {ts2:.3f}")
+                top_score = ts2
+                context = ctx2
+                best_q = bq2
+                fallback_success = True
                 break
 
-        if prev_user_query:
-            enhanced_query = f"{prev_user_query} — {req.pertanyaan}"
-            print(f"[QUERY] Two-phase fallback: enhanced='{enhanced_query[:120]}'")
-            context2, scores2, best_q2 = hybrid_search(enhanced_query, top_k=5)
-            top_score2 = float(scores2[0]) if len(scores2) > 0 else 0
-
-            if top_score2 >= 0.82:
-                # Fallback berhasil — pakai hasil baru
-                print(f"[QUERY] Fallback berhasil!: top_score {top_score:.3f} → {top_score2:.3f}")
-                top_score = top_score2
-                context = context2
-                best_q = best_q2
+        if not fallback_success:
+            # Semua cascade gagal — reject
+            if prev_queries:
+                print(f"[QUERY] Cascade tetap rendah — tolak")
             else:
-                print(f"[QUERY] Fallback tetap rendah ({top_score2:.3f}) — tolak")
-                jawaban = REJECTION_MSG
-                history.append({"role": "user", "content": req.pertanyaan})
-                history.append({"role": "assistant", "content": jawaban})
-                log_chat(cid, req.pertanyaan, jawaban)
-                log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                          bm25_status="ACCEPT", top_score=top_score,
-                          top_faq=best_q, dijawab=False, jawaban=jawaban)
-                if session_baru:
-                    wib = timezone(timedelta(hours=7))
-                    now = datetime.now(wib).strftime("%H:%M")
-                    jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-                return {"jawaban": jawaban, "skor": top_score}
-        else:
-            # Gak ada history — reject langsung
-            print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
+                print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
             jawaban = REJECTION_MSG
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
