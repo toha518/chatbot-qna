@@ -755,17 +755,27 @@ sudo lsof -i :8000              # Linux
 - `get_bm25_scores_all()` — BM25 return score per-doc buat hybrid
 - `hybrid_search()` — fungsi baru di embedder, RRF dengan K=60
 - Kategori sebagai **metadata terpisah** — gak ikut di-embedding, similarity murni konten
+- `prompts/responses.json` — single source of truth untuk SEMUA user-facing text (greeting, rejection, error, spam, dll)
 
 **Changed**
 - top_k: 3 → 5 (distribusi hybrid lebih variatif)
 - `/health` → engine: `hybrid (E5+BM25)`
+- Greeting prompt: sekarang menyebutkan nama, role, dan topik yang dikuasai (bukan cuma "halo")
+- Multi-part split flowchart: BM25 + E5 → BM25 domain + hybrid search
+- Tabel "Perbedaan Format Pesan Telegram vs WhatsApp" dihapus dari README
+- Contoh `total_qna` di health response: 79 → 100+
 - README reflect hybrid retrieval + lisensi internal
 - Badge: `E5-base` → `Hybrid (E5+BM25)`
 
-**Deprecated**
-- Prefix kategori di embedding (`"SOBAT: cara reset password"` → `"cara reset password"`) dihapus
+**Refactor**
+- **Zero hardcode prompt** — semua teks statis di .py dipindah ke `prompts/responses.json`
+  - server.py, telegram_bot.py, wa_handler.py, security/rate_limiter.py
+  - Cukup edit `prompts/responses.json` untuk ubah semua pesan
+- `load_responses()` di `core/llm.py` — helper buat load responses.json
+- Greeting fallback di `server.py`: bacanya dari `prompts/identity.json` + `responses.json`
 
 **Docs**
+- Flowchart step 6 di-update: multi-part split → hybrid search
 - Flowchart step 7 di-update: E5 SEMANTIC SEARCH → HYBRID RETRIEVAL
 - Tech Stack: Semantic Search → Hybrid Retrieval
 - Lisensi: Apache 2.0 → Proyek internal BPS
