@@ -76,7 +76,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Hybrid Search (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5 |
+| 🧠 **Hybrid Search (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. Cascade fallback depth 2 — concat 1-2 prev query kalo skor < 0.82 |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -99,7 +99,7 @@ Bot ini punya **6 lapis proteksi**:
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **BM25 Domain Filter** | `core/bm25.py` | Keyword overlap vs FAQ. **Skor < 0.5?** Ditolak langsung tanpa LLM |
-| 5 | 🔍 **Hybrid Threshold** | `server.py` | Skor E5 cosine similarity < 0.82? Dianggap di luar domain — tolak. BM25 tetap diproses rescue |
+| 5 | 🔍 **Hybrid Threshold + Cascade Fallback** | `server.py` | Skor E5 cosine similarity < 0.82? Cascade: concat 1-2 query user sebelumnya, search ulang. Masih < 0.82? tolak. BM25 tetap diproses rescue |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Threshold Domain Filter
@@ -204,7 +204,10 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 │  BM25 keyword overlap (per-doc)              │
 │  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)  │
 │  top-5 berdasarkan RRF score                 │
-│  Score E5 < 0.82? → tolak                    │
+│  Score < 0.82? → Cascade Fallback            │
+│    depth=1: concat 1 prev user query        │
+│    depth=2: concat 2 prev user query        │
+│    Masih < 0.82? → tolak                    │
 └───────────────────────────────────────────────┘
          │
          ▼
@@ -755,27 +758,17 @@ sudo lsof -i :8000              # Linux
 - `get_bm25_scores_all()` — BM25 return score per-doc buat hybrid
 - `hybrid_search()` — fungsi baru di embedder, RRF dengan K=60
 - Kategori sebagai **metadata terpisah** — gak ikut di-embedding, similarity murni konten
-- `prompts/responses.json` — single source of truth untuk SEMUA user-facing text (greeting, rejection, error, spam, dll)
-- **Two-Phase Fallback** — kalo hybrid score < 0.82, concot query user sebelumnya, search ulang. Fix follow-up pendek kayak "di dtsen juga udah sesuai"
+- `prompts/responses.json` — single source of truth untuk SEMUA user-facing text
+- **Cascade Fallback** — hybrid score < 0.82? concat 1-2 query user sebelumnya, search ulang. depth max 2. Fix follow-up pendek kayak "di dtsen juga udah sesuai"
 
 **Changed**
 - top_k: 3 → 5 (distribusi hybrid lebih variatif)
 - `/health` → engine: `hybrid (E5+BM25)`
-- Greeting prompt: sekarang menyebutkan nama, role, dan topik yang dikuasai (bukan cuma "halo")
+- Greeting prompt: sekarang menyebutkan nama, role, dan topik yang dikuasai
 - Multi-part split flowchart: BM25 + E5 → BM25 domain + hybrid search
 - Tabel "Perbedaan Format Pesan Telegram vs WhatsApp" dihapus dari README
 - Contoh `total_qna` di health response: 79 → 100+
-- README reflect hybrid retrieval + lisensi internal
-- Badge: `E5-base` → `Hybrid (E5+BM25)`
-
-**Changed**
-- top_k: 3 → 5 (distribusi hybrid lebih variatif)
-- `/health` → engine: `hybrid (E5+BM25)`
-- Greeting prompt: sekarang menyebutkan nama, role, dan topik yang dikuasai (bukan cuma "halo")
-- Multi-part split flowchart: BM25 + E5 → BM25 domain + hybrid search
-- Tabel "Perbedaan Format Pesan Telegram vs WhatsApp" dihapus dari README
-- Contoh `total_qna` di health response: 79 → 100+
-- README reflect hybrid retrieval + lisensi internal
+- Flowchart step 7: cascade fallback detail (depth 1-2)
 - Badge: `E5-base` → `Hybrid (E5+BM25)`
 
 **Refactor**
@@ -787,7 +780,7 @@ sudo lsof -i :8000              # Linux
 
 **Docs**
 - Flowchart step 6 di-update: multi-part split → hybrid search
-- Flowchart step 7 di-update: E5 SEMANTIC SEARCH → HYBRID RETRIEVAL
+- Flowchart step 7 di-update: HYBRID RETRIEVAL + cascade fallback
 - Tech Stack: Semantic Search → Hybrid Retrieval
 - Lisensi: Apache 2.0 → Proyek internal BPS
 
