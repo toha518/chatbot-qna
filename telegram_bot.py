@@ -7,8 +7,22 @@ import re
 import os
 import io
 import tempfile
+import json
 from dotenv import load_dotenv
 from collections import defaultdict
+
+# Load responses + identity from prompts/
+_RESPONSES = {}
+_IDENTITY = {}
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_resp_path = os.path.join(_base_dir, "prompts", "responses.json")
+_id_path = os.path.join(_base_dir, "prompts", "identity.json")
+if os.path.exists(_resp_path):
+    with open(_resp_path, "r", encoding="utf-8") as f:
+        _RESPONSES = json.load(f)
+if os.path.exists(_id_path):
+    with open(_id_path, "r", encoding="utf-8") as f:
+        _IDENTITY = json.load(f)
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -74,16 +88,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
+    topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(_IDENTITY.get("topics", [])))
+    name = _IDENTITY.get("name", "Nara")
+    role = _IDENTITY.get("role", "asisten IT")
+    greeting_text = _RESPONSES.get("greeting", "").format(
+        name=name,
+        role=role,
+        topics_list=topics_list
+    )
     await update.message.reply_text(
-        "Halo! Saya Nara, asisten permasalahan IT dari BPS Provinsi Kepulauan Bangka Belitung.\n\n"
-        "Saya bisa bantu menjawab pertanyaan seputar:\n"
-        "1. SOBAT\n"
-        "2. GC PBI\n"
-        "3. GC PLN\n"
-        "4. FASIH\n"
-        "5. Pengolahan SE2026\n\n"
-        "Silakan ketik pertanyaan atau gunakan menu di bawah!"
-        f"{footer}",
+        greeting_text + footer,
         reply_markup=MENU_MARKUP
     )
 
@@ -158,12 +172,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = text.replace(em, '')
 
     if len(text.strip()) == 0:
-        await update.message.reply_text("⚠️ Pesan kosong setelah penyaringan.")
+        await update.message.reply_text(_RESPONSES.get("question_empty", "⚠️ Pesan kosong setelah penyaringan."))
         return
 
     # ===================== BATAS KARAKTER =====================
     if len(text) > 500:
-        await update.message.reply_text("⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.")
+        await update.message.reply_text(_RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang.").format(max_length=500))
         return
 
     # ===================== TOMBOL MENU =====================
@@ -201,7 +215,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Fallback: kalo markdown error, kirim plain text
             await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
-        await update.message.reply_text(f"Maaf, terjadi error: {str(e)}", reply_markup=MENU_MARKUP)
+        await update.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
 
@@ -238,7 +252,7 @@ def main():
                     await msg_processing.delete()
                 except Exception:
                     pass
-                await update.message.reply_text("⚠️ Format tidak didukung. Kirim screenshot atau foto.")
+                await update.message.reply_text(_RESPONSES.get("image_format", "⚠️ Format tidak didukung."))
                 return
 
             # Download gambar
@@ -269,7 +283,7 @@ def main():
                 combined = caption
 
             if not combined.strip():
-                await update.message.reply_text("⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.")
+                await update.message.reply_text(_RESPONSES.get("image_no_text", "⚠️ Tidak bisa membaca teks dari gambar."))
                 return
 
             # Kirim ke server chatbot kayak chat biasa
@@ -299,14 +313,14 @@ def main():
                 await msg_processing.delete()
             except Exception:
                 pass
-            await update.message.reply_text(f"⚠️ Gagal memproses gambar: {str(e)}", reply_markup=MENU_MARKUP)
+            await update.message.reply_text(_RESPONSES.get("image_failed", "⚠️ Gagal memproses gambar.").format(error=str(e)), reply_markup=MENU_MARKUP)
             print(f"[IMAGE ERROR] {e}")
 
     # Handler untuk foto, gambar, dokumen gambar
     app.add_handler(MessageHandler(filters.PHOTO | (filters.Document.IMAGE), handle_image))
     # Handler untuk media lain (sticker, voice, video) — tetap ditolak
     async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.")
+        await update.message.reply_text(_RESPONSES.get("text_only", "⚠️ Hanya menerima teks dan gambar."))
     app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE, handle_media))
 
     # Daftarin command menu ke Telegram (biar muncul pas ketik /)

@@ -14,6 +14,19 @@ import base64
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
+# Load responses + identity from prompts/
+_RESPONSES = {}
+_IDENTITY = {}
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_resp_path = os.path.join(_base_dir, "prompts", "responses.json")
+_id_path = os.path.join(_base_dir, "prompts", "identity.json")
+if os.path.exists(_resp_path):
+    with open(_resp_path, "r", encoding="utf-8") as f:
+        _RESPONSES = json.load(f)
+if os.path.exists(_id_path):
+    with open(_id_path, "r", encoding="utf-8") as f:
+        _IDENTITY = json.load(f)
+
 
 def _strip_markdown(text: str) -> str:
     """Konversi formatting Telegram → WhatsApp"""
@@ -87,7 +100,7 @@ def wa_message():
                     pertanyaan = caption
 
                 if not pertanyaan.strip():
-                    return jsonify({"jawaban": "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual."})
+                    return jsonify({"jawaban": _RESPONSES.get("image_no_text", "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.")})
             else:
                 pertanyaan = caption
         except (json.JSONDecodeError, Exception) as e:
@@ -99,16 +112,14 @@ def wa_message():
     # ===================== COMMAND HANDLER (seperti /start di Telegram) =====================
     cmd = pertanyaan.strip().lower()
     if cmd == '/start':
+        topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(_IDENTITY.get("topics", [])))
+        name = _IDENTITY.get("name", "Nara")
+        role = _IDENTITY.get("role", "asisten IT")
         return jsonify({
-            "jawaban": (
-                "Halo! Saya Nara, asisten permasalahan IT dari BPS Provinsi Kepulauan Bangka Belitung.\n\n"
-                "Saya bisa bantu menjawab pertanyaan seputar:\n"
-                "1. SOBAT\n"
-                "2. GC PBI\n"
-                "3. GC PLN\n"
-                "4. FASIH\n"
-                "5. Pengolahan SE2026\n\n"
-                "Silakan ketik pertanyaan Anda!"
+            "jawaban": _RESPONSES.get("greeting", "").format(
+                name=name,
+                role=role,
+                topics_list=topics_list
             )
         })
     if cmd == '/help':
@@ -152,10 +163,10 @@ def wa_message():
             pertanyaan = pertanyaan.replace(em, '')
 
     if len(pertanyaan.strip()) == 0:
-        return jsonify({"jawaban": "⚠️ Pesan kosong setelah penyaringan."})
+        return jsonify({"jawaban": _RESPONSES.get("question_empty", "⚠️ Pesan kosong setelah penyaringan.")})
 
     if len(pertanyaan) > 500:
-        return jsonify({"jawaban": "⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter."})
+        return jsonify({"jawaban": _RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500)})
 
     # ===================== PANGGIL SERVER API =====================
     try:
@@ -173,11 +184,11 @@ def wa_message():
 
     except requests.exceptions.ConnectionError:
         return jsonify({
-            "jawaban": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan."
+            "jawaban": _RESPONSES.get("server_down", "⚠️ Server Nara tidak merespon.")
         }), 503
     except Exception as e:
         print(f"[WA ERROR] Panggil server.py gagal: {e}")
-        return jsonify({"jawaban": f"⚠️ Error: {str(e)}"}), 500
+        return jsonify({"jawaban": _RESPONSES.get("image_failed", "⚠️ Error: {error}").format(error=str(e))}), 500
 
 
 # ===================== HEALTH CHECK =====================

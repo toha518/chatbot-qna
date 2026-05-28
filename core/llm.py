@@ -10,6 +10,19 @@ LLM_KEYS: list[str] = []
 LLM_MODELS: list[str] = []
 
 
+def load_responses() -> dict:
+    """
+    Baca file prompts/responses.json — semua teks jawaban statis.
+    Ganti di sini aja, semua file .py otomatis dapet update.
+    """
+    base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+    path = os.path.join(base, "responses.json")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def load_llm_config() -> int:
     """
     Baca LLM config dari .env.

@@ -2,6 +2,15 @@
 
 import re
 import time
+import json
+import os
+
+# Load spam messages dari prompts/responses.json
+_RESPONSES = {}
+_resp_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts", "responses.json")
+if os.path.exists(_resp_path):
+    with open(_resp_path, "r", encoding="utf-8") as f:
+        _RESPONSES = json.load(f)
 
 # ===================== KONFIGURASI =====================
 RATE_LIMIT = 5          # Maks 5 pesan per menit
@@ -67,10 +76,7 @@ def check_api_rate_limit(chat_id: str):
     if entry["blocked_until"] > now:
         if not entry["block_notified"]:
             entry["block_notified"] = True
-            return False, (
-                f"⚠️ Kamu terdeteksi melakukan spam. "
-                f"Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-            )
+            return False, _RESPONSES.get("spam_blocked", "").format(minutes=BLOCK_DURATION // 60)
         return False, "__SILENT_BLOCK__"
 
     # Hapus timestamp expired (> 1 menit)
@@ -80,10 +86,7 @@ def check_api_rate_limit(chat_id: str):
     if len(entry["timestamps"]) >= RATE_LIMIT:
         entry["blocked_until"] = now + BLOCK_DURATION
         entry["block_notified"] = True
-        return False, (
-            f"⚠️ Kamu terdeteksi melakukan spam. "
-            f"Coba lagi dalam {BLOCK_DURATION // 60} menit!"
-        )
+        return False, _RESPONSES.get("spam_warning", "").format(minutes=BLOCK_DURATION // 60)
 
     entry["timestamps"].append(now)
     return True, ""

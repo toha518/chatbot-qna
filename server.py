@@ -18,7 +18,7 @@ from core.embedder import init_data, load_from_gsheet, search, hybrid_search, qu
 from core.bm25 import check_domain, get_bm25_score, get_bm25_scores_all
 from core.query_logger import log_query, get_stats
 from core.llm import (
-    load_llm_config, load_prompts,
+    load_llm_config, load_prompts, load_responses,
     build_greeting_prompt, build_system_prompt, call_llm
 )
 from security.rate_limiter import (
@@ -39,6 +39,8 @@ else:
     total_qna = 0
 load_llm_config()
 identity, system_template, greeting_template, acronyms = load_prompts()
+responses = load_responses()
+REJECTION_MSG = responses.get("rejection", "").format(topics_line=", ".join(identity["topics"]))
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
@@ -192,9 +194,9 @@ async def chat(req: ChatRequest):
         for em in set(emojis[5:]):
             req.pertanyaan = req.pertanyaan.replace(em, '')
     if len(req.pertanyaan) > 500:
-        return {"jawaban": "⚠️ Pertanyaan terlalu panjang. Maksimal 500 karakter.", "skor": 0}
+        return {"jawaban": responses.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500), "skor": 0}
     if len(req.pertanyaan.strip()) == 0:
-        return {"jawaban": "⚠️ Pesan kosong setelah penyaringan.", "skor": 0}
+        return {"jawaban": responses.get("question_empty", "⚠️ Pesan kosong setelah penyaringan."), "skor": 0}
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
     if req.image_path:
         try:
@@ -236,7 +238,7 @@ async def chat(req: ChatRequest):
             if last_notified != today:
                 daily_limit_notified[clean_cid] = today
                 return {
-                    "jawaban": f"⚠️ Anda sudah mencapai batas chat harian ({DAILY_LIMIT} chat). Silakan coba lagi besok! 🙏",
+                    "jawaban": responses.get("daily_limit_reached", "").format(limit=DAILY_LIMIT),
                     "skor": 0
                 }
             return {"jawaban": "", "skor": 0}
@@ -274,7 +276,8 @@ async def chat(req: ChatRequest):
         )
         jawaban = await call_llm(messages, timeout=30)
         if not jawaban:
-            jawaban = f"Halo! Saya {identity['name']}, {identity['role']}. Ada yang bisa saya bantu?"
+            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
         api_rate_limit[cid]["last_active"] = time.time()
         if session_baru:
             wib = timezone(timedelta(hours=7))
@@ -295,11 +298,7 @@ async def chat(req: ChatRequest):
     bm25_score = get_bm25_score(req.pertanyaan)
     if not check_domain(req.pertanyaan):
         print(f"[QUERY] Luar domain BPS — tolak (BM25={bm25_score:.2f})")
-        jawaban = (
-            "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
-            "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
-            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
-        )
+        jawaban = REJECTION_MSG
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
@@ -332,11 +331,7 @@ async def chat(req: ChatRequest):
                 jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
-            jawaban = (
-                "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
-                "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
-                "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
-            )
+            jawaban = REJECTION_MSG
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
@@ -353,11 +348,7 @@ async def chat(req: ChatRequest):
     # Single question — cek E5 top score dulu, tolak kalo terlalu rendah
     if top_score < 0.82:
         print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
-        jawaban = (
-            "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
-            "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
-            "Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut."
-        )
+        jawaban = REJECTION_MSG
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
@@ -372,13 +363,13 @@ async def chat(req: ChatRequest):
 
     system_prompt = build_system_prompt(system_template, identity, acronyms)
     messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "system", "content": f"Data referensi:\n{context}"})
+    messages.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=context)})
     for msg in history:
         messages.append(msg)
     messages.append({"role": "user", "content": req.pertanyaan})
     jawaban = await call_llm(messages, timeout=30)
     if not jawaban:
-        jawaban = "Maaf, terjadi error. Silakan coba lagi."
+        jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
     # ===================== SAVE =====================
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})

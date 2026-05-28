@@ -1,0 +1,20 @@
+{
+  "_note": "Static response templates — ganti di sini, semua file .py baca dari sini",
+
+  "greeting": "Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\nSilakan ketik pertanyaan Anda!",
+  "rejection": "Maaf, saya tidak dapat menjawab pertanyaan tersebut. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
+  "rejection_short": "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
+  "error_llm": "Maaf, terjadi error. Silakan coba lagi.",
+  "question_too_long": "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.",
+  "question_empty": "⚠️ Pesan kosong setelah penyaringan.",
+  "daily_limit_reached": "⚠️ Anda sudah mencapai batas chat harian ({limit} chat). Silakan coba lagi besok! 🙏",
+  "spam_warning": "⚠️ Kamu terdeteksi melakukan spam. Harap tunggu {minutes} menit sebelum bertanya lagi.",
+  "spam_blocked": "⚠️ Kamu terdeteksi melakukan spam. Kamu diblokir sementara selama {minutes} menit.",
+  "image_no_text": "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.",
+  "image_format": "⚠️ Format tidak didukung. Kirim screenshot atau foto.",
+  "image_failed": "⚠️ Gagal memproses gambar: {error}",
+  "text_only": "⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.",
+  "server_down": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan.",
+  "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}",
+  "context_header": "Data referensi:\n{context}"
+}
