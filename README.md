@@ -194,7 +194,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
          ▼
 ┌─ 6. MULTI-PART SPLIT ───────────────────────┐
 │  Pisah "dan", "serta", "lalu"               │
-│  Tiap bagian dicek BM25 + E5 independen     │
+│  Tiap bagian dicek BM25 domain + hybrid search  │
 │  Bagian di luar domain → di-skip            │
 └───────────────────────────────────────────────┘
          │
