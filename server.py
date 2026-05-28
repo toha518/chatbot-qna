@@ -345,21 +345,57 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": top_score}
     # ===================== LLM ANSWER =====================
-    # Single question — cek E5 top score dulu, tolak kalo terlalu rendah
+    # Single question — cek E5 top score dulu
     if top_score < 0.82:
-        print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
-        jawaban = REJECTION_MSG
-        history.append({"role": "user", "content": req.pertanyaan})
-        history.append({"role": "assistant", "content": jawaban})
-        log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                  bm25_status="ACCEPT", top_score=top_score,
-                  top_faq=best_q, dijawab=False, jawaban=jawaban)
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": top_score}
+        # ── Two-Phase Fallback ──
+        # Coba concat dengan query user sebelumnya (follow-up pendek sering gak berdiri sendiri)
+        prev_user_query = None
+        for msg in reversed(history):
+            if msg["role"] == "user":
+                prev_user_query = msg["content"]
+                break
+
+        if prev_user_query:
+            enhanced_query = f"{prev_user_query} — {req.pertanyaan}"
+            print(f"[QUERY] Two-phase fallback: enhanced='{enhanced_query[:120]}'")
+            context2, scores2, best_q2 = hybrid_search(enhanced_query, top_k=5)
+            top_score2 = float(scores2[0]) if len(scores2) > 0 else 0
+
+            if top_score2 >= 0.82:
+                # Fallback berhasil — pakai hasil baru
+                print(f"[QUERY] Fallback berhasil!: top_score {top_score:.3f} → {top_score2:.3f}")
+                top_score = top_score2
+                context = context2
+                best_q = best_q2
+            else:
+                print(f"[QUERY] Fallback tetap rendah ({top_score2:.3f}) — tolak")
+                jawaban = REJECTION_MSG
+                history.append({"role": "user", "content": req.pertanyaan})
+                history.append({"role": "assistant", "content": jawaban})
+                log_chat(cid, req.pertanyaan, jawaban)
+                log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                          bm25_status="ACCEPT", top_score=top_score,
+                          top_faq=best_q, dijawab=False, jawaban=jawaban)
+                if session_baru:
+                    wib = timezone(timedelta(hours=7))
+                    now = datetime.now(wib).strftime("%H:%M")
+                    jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+                return {"jawaban": jawaban, "skor": top_score}
+        else:
+            # Gak ada history — reject langsung
+            print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
+            jawaban = REJECTION_MSG
+            history.append({"role": "user", "content": req.pertanyaan})
+            history.append({"role": "assistant", "content": jawaban})
+            log_chat(cid, req.pertanyaan, jawaban)
+            log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                      bm25_status="ACCEPT", top_score=top_score,
+                      top_faq=best_q, dijawab=False, jawaban=jawaban)
+            if session_baru:
+                wib = timezone(timedelta(hours=7))
+                now = datetime.now(wib).strftime("%H:%M")
+                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            return {"jawaban": jawaban, "skor": top_score}
 
     system_prompt = build_system_prompt(system_template, identity, acronyms)
     messages = [{"role": "system", "content": system_prompt}]
