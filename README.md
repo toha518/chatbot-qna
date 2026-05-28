@@ -11,12 +11,12 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**.
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://core.telegram.org/bots)
 [![WhatsApp](https://img.shields.io/badge/WhatsApp-Bridge-25D366?logo=whatsapp)](https://whatsapp.com)
-[![E5-base](https://img.shields.io/badge/Embedding-E5--base-orange)](https://huggingface.co/intfloat/multilingual-e5-base)
+[![Hybrid](https://img.shields.io/badge/Retrieval-Hybrid%20(E5%2BBM25)-purple)](https://huggingface.co/intfloat/multilingual-e5-base)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
 Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026** via Telegram & WhatsApp.
 
-> **Stack:** FastAPI + E5-base (semantic search) + BM25 (domain filter) + Multi-LLM failover + SQLite + EasyOCR
+> **Stack:** FastAPI + Hybrid E5+BM25 (RRF fusion) + Multi-LLM failover + SQLite + EasyOCR
 > **Model:** Cloud (OpenAI-compatible) → Ollama lokal — auto failover
 
 ---
@@ -36,8 +36,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 - [❓ FAQ](#-faq)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
-- [📄 Lisensi](#lisensi)
-- [📄 Lisensi](#-lisensi)
+
 
 ---
 
@@ -61,8 +60,8 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Semantic Search** | intfloat/multilingual-e5-base (768d) |
-| **Domain Filter** | BM25 (custom Python, zero-dependency) |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (semantic + keyword) |
+| **Domain Filter** | BM25 (custom Python, keyword overlap) |
 | **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
 | **Telegram** | python-telegram-bot (Polling) |
@@ -77,7 +76,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Hybrid Search (BM25 + E5)** | Keyword overlap (BM25) untuk filter domain, semantic search (E5) untuk retrieval jawaban |
+| 🧠 **Hybrid Search (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5 |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -100,7 +99,7 @@ Bot ini punya **6 lapis proteksi**:
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **BM25 Domain Filter** | `core/bm25.py` | Keyword overlap vs 79 FAQ. **Skor < 0.5?** Ditolak langsung tanpa LLM |
-| 5 | 🔍 **E5 Score Threshold** | `server.py` | Skor cosine similarity < 0.82? Dianggap di luar domain — tolak |
+| 5 | 🔍 **Hybrid Threshold** | `server.py` | Skor E5 cosine similarity < 0.82? Dianggap di luar domain — tolak. BM25 tetap diproses rescue |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Threshold Domain Filter
@@ -153,8 +152,8 @@ chatbot-qna/
 │
 ├── core/                     ← 🔧 Mesin utama
 │   ├── database.py           ←   SQLite: init, log chat, query history
-│   ├── embedder.py           ←   E5-base: load model, encode, semantic search
-│   ├── bm25.py               ←   BM25 domain checker (keyword overlap, stopwords)
+│   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
+│   ├── bm25.py               ←   BM25: domain checker + per-doc scoring hybrid
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL)
 │
@@ -215,8 +214,11 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
          │
          ▼
 ┌─ 7. E5 SEMANTIC SEARCH ─────────────────────┐
-│  Cosine similarity, top-3 FAQ               │
-│  Score < 0.82? → dianggap gak relevan       │
+│  E5 semantic similarity (cosine)             │
+│  BM25 keyword overlap (per-doc)              │
+│  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)  │
+│  top-5 berdasarkan RRF score                 │
+│  Score E5 < 0.82? → tolak                    │
 └───────────────────────────────────────────────┘
          │
          ▼
@@ -239,7 +241,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 | `prompts/identity.json` | ✅ **Wajib** | Nama & role bot baru |
 | `prompts/system.md` | ⬜ Opsional | Aturan main LLM |
 | `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
-| `core/embedder.py` | ⬜ Opsional | Bisa ganti model embedder |
+| `core/embedder.py` | ⬜ Opsional | Bisa ganti model hybrid search |
 | `core/bm25.py` | ⬜ Opsional | Stopwords disesuaikan domain |
 | `security/*.py` | ❌ **Jangan** | Proteksi built-in |
 
@@ -572,7 +574,7 @@ Output:
 {
   "status": "ok",
   "total_qna": 79,
-  "engine": "E5-base",
+  "engine": "hybrid (E5+BM25)",
   "source": "Google Sheets",
   "active_sessions": 0,
   "query_stats": {
@@ -805,7 +807,7 @@ sudo lsof -i :8000              # Linux
 
 **Added**
 - BM25 hybrid domain filter — keyword overlap, zero-dependency
-- E5-base semantic search + kategori di embedding
+- E5-base semantic search (hybrid RRF dengan BM25)
 - Evaluasi logging (`query_log.jsonl`) — BM25 score, status, jawaban tiap query
 - Multi-part query split — pertanyaan dengan "dan", "serta" dipisah otomatis
 - WA typing indicator (`sendStateTyping`)
@@ -903,7 +905,7 @@ Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Ke
 
 ## 📄 Lisensi
 
-Proyek ini didistribusikan di bawah lisensi **Apache 2.0**. Lihat file [LICENSE](LICENSE) untuk detail.
+Proyek internal BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
 
