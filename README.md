@@ -124,20 +124,6 @@ User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena** anti-spam & daily limit.
 - Emoji > 5 — kelebihan dihapus
 - Karakter > 500 — ditolak
 
-### Perbedaan Format Pesan Telegram vs WhatsApp
-
-| Fitur | Telegram | WhatsApp |
-|-------|----------|----------|
-| **Bold** | `**bold**` tampil tebal ✅ | `**bold**` → teks biasa (strip) |
-| *Italic* | `*italic*` tampil miring ✅ | `*italic*` → teks biasa (strip) |
-| `Code` | `` `code` `` tampil monospace ✅ | `` `code` `` → teks biasa (strip) |
-| Gambar + OCR | "⏳ Memproses gambar..." → hapus → jawaban ✅ | typing indicator → jawaban ✅ |
-| Image caption | Gabung caption + OCR text auto ✅ | Sama ✅ |
-| Kirim pesan | `reply_text()` — balas ke pesan tertentu | `sendMessage()` — kirim pesan biasa (bukan reply) |
-| Typing indicator | `send_action("typing")` | `chat.sendStateTyping()` → `chat.clearState()` |
-| Session watchdog | 30 menit idle → notif Telegram | 30 menit idle → session dihapus (skip notif) |
-- Pesan kosong setelah filtering — ditolak
-
 ---
 
 ## 🧠 Arsitektur Modular
