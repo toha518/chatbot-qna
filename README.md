@@ -98,7 +98,7 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **BM25 Domain Filter** | `core/bm25.py` | Keyword overlap vs 79 FAQ. **Skor < 0.5?** Ditolak langsung tanpa LLM |
+| 4 | 🎯 **BM25 Domain Filter** | `core/bm25.py` | Keyword overlap vs FAQ. **Skor < 0.5?** Ditolak langsung tanpa LLM |
 | 5 | 🔍 **Hybrid Threshold** | `server.py` | Skor E5 cosine similarity < 0.82? Dianggap di luar domain — tolak. BM25 tetap diproses rescue |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
@@ -201,7 +201,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
          │
          ▼
 ┌─ 5. BM25 DOMAIN CHECK ──────────────────────┐
-│  Keyword overlap vs 79 FAQ                  │
+│  Keyword overlap vs FAQ                     │
 │  Score < 0.5? → TOLAK (gak lanjut ke LLM)   │
 └───────────────────────────────────────────────┘
          │
@@ -759,6 +759,30 @@ sudo lsof -i :8000              # Linux
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
+
+---
+
+#### v2.2.0 — 2026-05-29
+
+**Added**
+- **Hybrid retrieval** E5+BM25 via RRF fusion — BM25 keyword + E5 semantic digabung pake Reciprocal Rank Fusion
+- `get_bm25_scores_all()` — BM25 return score per-doc buat hybrid
+- `hybrid_search()` — fungsi baru di embedder, RRF dengan K=60
+- Kategori sebagai **metadata terpisah** — gak ikut di-embedding, similarity murni konten
+
+**Changed**
+- top_k: 3 → 5 (distribusi hybrid lebih variatif)
+- `/health` → engine: `hybrid (E5+BM25)`
+- README reflect hybrid retrieval + lisensi internal
+- Badge: `E5-base` → `Hybrid (E5+BM25)`
+
+**Deprecated**
+- Prefix kategori di embedding (`"SOBAT: cara reset password"` → `"cara reset password"`) dihapus
+
+**Docs**
+- Flowchart step 7 di-update: E5 SEMANTIC SEARCH → HYBRID RETRIEVAL
+- Tech Stack: Semantic Search → Hybrid Retrieval
+- Lisensi: Apache 2.0 → Proyek internal BPS
 
 ---
 
