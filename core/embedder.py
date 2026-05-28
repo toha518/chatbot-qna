@@ -64,8 +64,9 @@ def load_from_gsheet(csv_url: str) -> int:
         categories = cats
 
         print(f"[RELOAD] Encoding {len(questions)} pertanyaan...")
-        # Include kategori di embedding biar search lebih akurat
-        passage_texts = [f"passage: {c}: {q}" if c else f"passage: {q}" for q, c in zip(questions, categories)]
+        # Kategori jadi metadata terpisah — gak ikut di-embedding
+        # Lebih akurat karena similarity murni dari konten pertanyaan
+        passage_texts = [f"passage: {q}" for q in questions]
         question_vecs = embedder.encode(
             passage_texts,
             show_progress_bar=False
@@ -92,7 +93,7 @@ def load_from_gsheet(csv_url: str) -> int:
             questions = data["questions"]
             answers = data["answers"]
             categories = data.get("categories", [""] * len(questions))
-            passage_texts = [f"passage: {c}: {q}" if c else f"passage: {q}" for q, c in zip(questions, categories)]
+            passage_texts = [f"passage: {q}" for q in questions]
             question_vecs = embedder.encode(
                 passage_texts,
                 show_progress_bar=False
