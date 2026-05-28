@@ -171,3 +171,76 @@ def search(query: str, top_k: int = 3):
             )
 
     return context, scores[best_idx], questions[best_idx[0]] if len(best_idx) > 0 else ""
+
+
+def hybrid_search(query: str, top_k: int = 5):
+    """
+    Hybrid search: E5 (semantic) + BM25 (keyword) via RRF fusion.
+    Returns (context_string, e5_top_score_array, best_question).
+    top_k lebih besar dari E5-only karena hasil BM25+E5 lebih bervariasi.
+    """
+    global question_vecs, questions, answers, categories
+
+    if len(questions) == 0:
+        return "", np.array([]), ""
+
+    # ── E5 semantic scores ──
+    query_vec = embedder.encode(["query: " + query])
+    e5_scores = cosine_similarity(query_vec, question_vecs).flatten()
+
+    # ── BM25 keyword scores ──
+    from core.bm25 import get_bm25_scores_all
+    bm25_scores = np.array(get_bm25_scores_all(query))
+
+    # ── Rank positions ──
+    e5_rank = np.argsort(-e5_scores)       # descending
+    bm25_rank = np.argsort(-bm25_scores)
+
+    # ── RRF fusion ──
+    K = 60  # smoothing constant
+    rrf_scores = np.zeros(len(questions))
+    for i, idx in enumerate(e5_rank):
+        rrf_scores[idx] += 1.0 / (i + K)
+    for i, idx in enumerate(bm25_rank):
+        rrf_scores[idx] += 1.0 / (i + K)
+
+    # ── Top-K by RRF ──
+    best_idx = np.argsort(-rrf_scores)[:top_k]
+
+    # ── Format konteks ──
+    context = ""
+    seen_answers = set()
+    for idx in best_idx:
+        if rrf_scores[idx] < 0.001:
+            continue
+        answer_key = answers[idx].strip()[:100]
+        if answer_key in seen_answers:
+            continue
+        seen_answers.add(answer_key)
+
+        k = categories[idx].strip() if idx < len(categories) and categories[idx].strip() else ""
+        if k:
+            context += (f"KATEGORI: {k}\n"
+                        f"PERTANYAAN: {questions[idx]}\n"
+                        f"JAWABAN: {answers[idx]}\n\n")
+        else:
+            context += (f"PERTANYAAN: {questions[idx]}\n"
+                        f"JAWABAN: {answers[idx]}\n\n")
+
+    # ── Fallback ──
+    if not context and len(questions) > 0:
+        idx0 = best_idx[0]
+        k0 = categories[idx0].strip() if idx0 < len(categories) and categories[idx0].strip() else ""
+        if k0:
+            context = (f"KATEGORI: {k0}\n"
+                       f"PERTANYAAN: {questions[idx0]}\n"
+                       f"JAWABAN: {answers[idx0]}\n\n")
+        else:
+            context = (f"PERTANYAAN: {questions[idx0]}\n"
+                       f"JAWABAN: {answers[idx0]}\n\n")
+
+    # ── Return E5 top score sebagai skor utama ──
+    # (threshold 0.82 tetap relevan karena E5 skor asli)
+    best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
+    top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
+    return context, np.array([top_e5]), best_q

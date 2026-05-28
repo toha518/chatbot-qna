@@ -14,8 +14,8 @@ from pydantic import BaseModel
 load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
-from core.embedder import init_data, load_from_gsheet, search, questions
-from core.bm25 import check_domain, get_bm25_score
+from core.embedder import init_data, load_from_gsheet, search, hybrid_search, questions
+from core.bm25 import check_domain, get_bm25_score, get_bm25_scores_all
 from core.query_logger import log_query, get_stats
 from core.llm import (
     load_llm_config, load_prompts,
@@ -96,7 +96,7 @@ def health():
     return {
         "status": "ok",
         "total_qna": len(questions),
-        "engine": "E5-base",
+        "engine": "hybrid (E5+BM25)",
         "source": "Google Sheets" if GSHEET_CSV_URL else "pickle",
         "active_sessions": len(sessions),
         "query_stats": stats
@@ -285,10 +285,10 @@ async def chat(req: ChatRequest):
                   bm25_status="GREETING", dijawab=True, greeting=True,
                   jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
-    # ===================== E5 RETRIEVAL =====================
-    context, scores, best_q = search(req.pertanyaan, top_k=3)
+    # ===================== HYBRID RETRIEVAL (E5 + BM25) =====================
+    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
-    print(f"[QUERY] top_score={top_score:.3f}")
+    print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
     # ===================== DOMAIN CHECK (BM25) =====================
     # BM25 based on keyword overlap. Out-of-domain questions like "presiden"
     # have ZERO keyword overlap with BPS FAQ → BM25 score ~0.
@@ -321,7 +321,7 @@ async def chat(req: ChatRequest):
                 print(f"[QUERY] Part '{part[:30]}...' skip (BM25)")
                 skipped_parts.append(part)
                 continue
-            p_ctx, p_scores, p_best_q = search(part, top_k=1)
+            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1)
             for line in p_ctx.split('\n'):
                 if line.startswith('JAWABAN:'):
                     relevant_answers.append(line.replace('JAWABAN: ', '').strip())
@@ -350,9 +350,9 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": top_score}
     # ===================== LLM ANSWER =====================
-    # Single question — cek E5 score dulu, tolak kalo terlalu rendah
+    # Single question — cek E5 top score dulu, tolak kalo terlalu rendah
     if top_score < 0.82:
-        print(f"[QUERY] E5 score terlalu rendah ({top_score:.3f}) — tolak")
+        print(f"[QUERY] Hybrid score terlalu rendah ({top_score:.3f}) — tolak")
         jawaban = (
             "Maaf, saya tidak dapat menjawab pertanyaan tersebut. "
             "Saya hanya dapat membantu pertanyaan seputar SOBAT, GC PBI, GC PLN, FASIH, dan Pengolahan SE2026. "
