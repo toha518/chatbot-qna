@@ -213,7 +213,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 7. E5 SEMANTIC SEARCH ─────────────────────┐
+┌─ 7. HYBRID RETRIEVAL (E5 + BM25) ──────────┐
 │  E5 semantic similarity (cosine)             │
 │  BM25 keyword overlap (per-doc)              │
 │  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)  │
@@ -573,7 +573,7 @@ Output:
 ```json
 {
   "status": "ok",
-  "total_qna": 79,
+  "total_qna": 100+,
   "engine": "hybrid (E5+BM25)",
   "source": "Google Sheets",
   "active_sessions": 0,
@@ -714,7 +714,7 @@ sudo lsof -i :8000              # Linux
 
 **Q:** BM25 score kok 999?
 
-**A:** BM25 gagal di-build. Restart server (`python -m uvicorn server:app ...`). Cek log startup — harus ada `[RELOAD] 79 Q&A loaded` + BM25 index kebangun otomatis.
+**A:** BM25 gagal di-build. Restart server (`python -m uvicorn server:app ...`). Cek log startup — harus ada `[RELOAD] N Q&A loaded` + BM25 index kebangun otomatis.
 
 ---
 
