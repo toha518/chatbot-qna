@@ -274,7 +274,7 @@ async def chat(req: ChatRequest):
         )
         jawaban = await call_llm(messages, timeout=30)
         if not jawaban:
-            jawaban = f"Halo! Saya {identity['name']}, {identity['role']}..."
+            jawaban = f"Halo! Saya {identity['name']}, {identity['role']}. Ada yang bisa saya bantu?"
         api_rate_limit[cid]["last_active"] = time.time()
         if session_baru:
             wib = timezone(timedelta(hours=7))
