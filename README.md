@@ -174,12 +174,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 │  5 req/menit + 25 chat/hari                  │
 └───────────────────────────────────────────────┘
          │
-         ▼
-┌─ 3. TYPING INDICATOR ──────────────────────┐
-│  Telegram: bot.send_action("typing")       │
-│  WhatsApp: chat.sendStateTyping()           │
-└───────────────────────────────────────────────┘
-         │
+         │  (↘ Telegram/WA kirim typing indicator)
          ▼
 ┌─ 4. GREETING? ──────────────────────────────┐
 │  "halo", "pagi" → langsung LLM, no search   │
