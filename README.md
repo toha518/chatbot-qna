@@ -247,8 +247,20 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 | 🎯 **Domain Filter** | `server.py` (layer 5) | < 0.5 → **REJECT** | Cegah pertanyaan di luar domain BPS masuk ke LLM. Hemat biaya & prevent hallucination |
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
-**Kelebihan:** Cepat (gak perlu GPU), transparan (skor bisa di-debug), bagus untuk istilah teknis/kode kayak "GC PBI", "FASIH", "SE2026 prelist".
-**Kekurangan:** Gak bisa menangkap sinonim atau konteks kalimat. "Lupa password" dan "lupa kata sandi" dianggap berbeda.
+**✅ Kelebihan:**
+- ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
+- 🔍 **Transparan** — skor bisa di-debug. Kalau reject, tau persis keyword mana yang cocok/tidak
+- 🎯 **Peka istilah teknis** — kode kayak "GC PBI", "FASIH", "SE2026 prelist" langsung kena skor tinggi karena exact match
+- 🛡️ **Domain filter efektif** — pertanyaan di luar BPS kayak "resep nasi goreng" dapet skor 0 karena gak ada satupun kata yang cocok
+- 🧹 **Zero dependency** — implementasi custom Python, gak perlu package eksternal
+- 📉 **Memory footprint** — ~10 KB doang (cuma frequency table)
+
+**❌ Kekurangan:**
+- 🧠 **Buta sinonim** — "lupa password" dan "lupa kata sandi" dianggap完全不同 karena surface form beda. Dua query yang maksudnya sama bisa hasil skor beda jauh
+- 📖 **Buta konteks kalimat** — urutan kata gak ngaruh. "Aktivasi FASIH error" sama dengan "error aktivasi FASIH" secara ranking
+- 📏 **Bergantung kualitas FAQ** — kalo FAQ singkat/sedikit kata, skor BM25-nya rendah karena overlap-nya dikit
+- 🔁 **Gak ada fallback** — kalau user nanya dengan sinonim yang gak ada di FAQ, BM25 langsung reject meskipun maksudnya relevan
+- 📐 **Skor beda-beda tiap query** — skor BM25 query A gak bisa dibandingin langsung dengan skor BM25 query B karena tergantung frekuensi term di corpus
 
 ---
 
@@ -268,8 +280,20 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 **Kenapa pake prefix `"passage:"` / `"query:"`?**
 E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → passage. Prefix yang beda bikin representasi lebih akurat daripada encode polos.
 
-**Kelebihan:** Paham sinonim, konteks kalimat, dan variasi bahasa. "Lupa password" ⇄ "lupa kata sandi" tetap nyambung.
-**Kekurangan:** Butuh RAM/GPU (E5-base ~278MB), gak ngerti keyword spesifik yang jarang muncul di training data, lebih lambat dari BM25.
+**✅ Kelebihan:**
+- 🧠 **Paham sinonim** — "lupa password" ⇄ "lupa kata sandi" tetap nyambung karena representasi vektornya mirip
+- 📖 **Peka konteks kalimat** — urutan kata ngaruh. "Cara reset password" beda embedding dengan "password reset cara"
+- 🌐 **Multilingual** — E5-base dilatih untuk banyak bahasa, termasuk Indonesia. Gak perlu model Inggris doang
+- 🔄 **Robust ke variasi bahasa** — "gimana cara daftar SOBAT?", "cara pendaftaran SOBAT", "SOBAT registration" semua punya vektor yang berdekatan
+- 🧩 **Generalize ke FAQ baru** — selama FAQ masih dalam domain yang sama, similarity tetap akurat meskipun kata-katanya gak persis sama
+
+**❌ Kekurangan:**
+- 💾 **Butuh memori besar** — model E5-base ~278MB di RAM. Untuk server dengan RAM terbatas, ini berat
+- 🐢 **Lambat di CPU** — encode query butuh ~200-500ms di CPU. Kalo rame, bisa jadi bottleneck
+- 🎯 **Kurang peka keyword spesifik** — kode teknis kayak "GC PBI" atau "FASIH" yang jarang muncul di training data bisa kena noise. "GC PLN error" bisa mirip vektornya dengan "GC PBI error" karena pola kalimatnya sama — padahal topiknya beda
+- 📉 **Semantic drift** — query pendek kayak "linknya udah dicoba" punya vektor yang tersebar (gak jelas arahnya), similarity jadi rendah ke FAQ manapun
+- 🔄 **Harus rebuild encoding** — setiap FAQ berubah (reload), semua 127 vektor harus di-encode ulang (~10-20 detik di CPU)
+- 🧪 **Blackbox** — susah di-debug kenapa similarity 0.65 dan bukan 0.85. Gak ada keyword yang bisa diinspeksi seperti BM25
 
 ---
 
@@ -340,6 +364,37 @@ Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt 
 | **Kecepatan** | ⚡ sangat cepat | 🐢 lebih lambat | 🐢 mengikuti E5 |
 | **Ukuran memori** | ~10 KB | ~278 MB | — |
 | **Ketangguhan follow-up** | ❌ (kata kunci aja) | ⚠️ (lumayan) | ✅ + cascade |
+
+---
+
+### 🤝 Kenapa BM25 dan E5 Harus Digabung?
+
+BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja berarti mewarisi semua blindspot-nya.
+
+| Skenario | BM25 sendiri | E5 sendiri | Hybrid RRF |
+|----------|:------------:|:----------:|:----------:|
+| User nanya "aktivasi FASIH" | ✅ Skor tinggi (exact match "FASIH") | ✅ Skor tinggi (paham konteks aktivasi) | ✅ Keduanya setuju → aman |
+| User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
+| User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
+| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-5 masih include yang bener |
+| User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih | ❌ Skor 0.77 (mirip vektor dengan FAQ pendek karena kata doang) | ✅ Domain filter BM25 tolak duluan sebelum E5 diproses |
+| User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih | ❌ Skor 0.80 (cukup tinggi karena kata umum) | ✅ BM25 reject duluan, E5 gak sempat diproses |
+
+**Intinya:**
+
+```
+BM25 = filter kasar + jaring keyword → kecepatan & kepastian
+E5   = jaring halus semantik → pemahaman konteks
+RRF  = penyatu ranking → ambil yang terbaik dari keduanya
+```
+
+- **BM25 mencegah false positive** — pertanyaan luar domain langsung di-cut di layer 5, sebelum E5 & LLM dipanggil. Ini hemat biaya API dan cegah hallucination
+- **E5 mencegah false negative** — pertanyaan yang pake sinonim, variasi bahasa, atau kalimat panjang tetap dapet FAQ yang relevan meskipun gak ada keyword yang cocok
+- **RRF menyatukan** — tanpa training, tanpa tuning bobot, cukup ranking dari dua sistem digabung. FAQ yang rank 1 di BM25 tapi rank 10 di E5 tetap dianggep
+- **Cascade fallback jadi jaring terakhir** — follow-up pendek yang jeblok di hybrid masih bisa diselamatkan dengan concat history
+
+**Analoginya:**
+> BM25 kayak satpam yang ngecek KTP — cepet, tegas, gak peduli wajah. E5 kayak teman lama yang inget wajah — bisa kenalin meskipun gak bawa KTP. Hybrid RRF? Keduanya kerja bareng: satpam filter yang gak punya KTP, teman lama bantu kenalin yang mirip-mirip. Cascade fallback? Follow-up sampe ke pintu belakang — "oh ini rombongan yang tadi udah masuk."
 
 ---
 
