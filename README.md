@@ -350,9 +350,9 @@ Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt 
 | **OpenAI text-embedding-3-small** | API key tambahan, biaya per query, latency jaringan |
 | **BAAI/bge-base-en-v1.5** | Inggris doang, gak optimal untuk Indonesia |
 | **Qwen2.5-embedding** | Baru, belum mature, komunitas kecil |
-| **ChromaDB / LangChain** | Overkill untuk skala saat ini (~365 FAQ) — setup overhead gak sebanding |
+| **ChromaDB / LangChain** | Overkill untuk skala saat ini (127 FAQ) — setup overhead gak sebanding |
 
-E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk ~365 FAQ, dan terbukti di berbagai benchmark retrieval.**
+E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk 127 FAQ, dan terbukti di berbagai benchmark retrieval.**
 
 ---
 
