@@ -1,0 +1,36 @@
+# ===================== NARA Dependencies =====================
+# Install: pip install -r requirements.txt
+
+# ---- Core ----
+# LLM gateway & API server
+fastapi>=0.100.0
+uvicorn[standard]
+pydantic
+python-dotenv
+httpx
+
+# ---- AI Models ----
+# E5 embedding model (278MB)
+sentence-transformers>=2.2.0
+
+# FastText domain classifier (<0.5ms inferensi)
+fasttext>=0.9.2
+
+# Similarity computation
+numpy
+scikit-learn
+
+# ---- OCR ----
+# EasyOCR (~500MB, lazy load pas ada gambar)
+easyocr
+
+# ---- Telegram Bot ----
+python-telegram-bot>=20.0
+
+# ---- Database ----
+# sqlite3 built-in — no extra install (for chat history + daily limit)
+
+# ---- Optional / WA Bridge ----
+flask
+ollama
+google-generativeai
