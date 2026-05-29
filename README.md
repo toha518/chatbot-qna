@@ -256,7 +256,7 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 - 📉 **Memory footprint** — ~10 KB doang (cuma frequency table)
 
 **❌ Kekurangan:**
-- 🧠 **Buta sinonim** — "lupa password" dan "lupa kata sandi" dianggap完全不同 karena surface form beda. Dua query yang maksudnya sama bisa hasil skor beda jauh
+- 🧠 **Buta sinonim** — "lupa password" dan "lupa kata sandi" dianggap berbeda total karena surface form beda. Dua query yang maksudnya sama bisa hasil skor beda jauh
 - 📖 **Buta konteks kalimat** — urutan kata gak ngaruh. "Aktivasi FASIH error" sama dengan "error aktivasi FASIH" secara ranking
 - 📏 **Bergantung kualitas FAQ** — kalo FAQ singkat/sedikit kata, skor BM25-nya rendah karena overlap-nya dikit
 - 🔁 **Gak ada fallback** — kalau user nanya dengan sinonim yang gak ada di FAQ, BM25 langsung reject meskipun maksudnya relevan
