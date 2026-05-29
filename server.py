@@ -252,7 +252,7 @@ async def chat(req: ChatRequest):
     # ===================== E5 DOMAIN FILTER =====================
     # Encode query SEKALI, reuse buat domain filter + hybrid retrieval
     query_vec = encode_query(req.pertanyaan)
-    domain, domain_conf = classify(query_vec)
+    domain, domain_conf = classify(query_vec, query_text=req.pertanyaan)
     print(f"[DOMAIN] '{req.pertanyaan[:50]}' → {domain} (conf={domain_conf:.3f})")
 
     # Greeting — jawab langsung dengan template
@@ -323,7 +323,7 @@ async def chat(req: ChatRequest):
         skipped_parts = []
         for part in parts:
             part_vec = encode_query(part)
-            part_domain, part_conf = classify(part_vec)
+            part_domain, part_conf = classify(part_vec, query_text=part)
             if part_domain != "faq":
                 print(f"[QUERY] Part '{part[:30]}...' skip (domain={part_domain}, conf={part_conf:.3f})")
                 skipped_parts.append(part)
