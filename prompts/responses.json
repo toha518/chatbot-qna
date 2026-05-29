@@ -1,7 +1,7 @@
 {
   "_note": "Static response templates — ganti di sini, semua file .py baca dari sini",
 
-  "greeting": "Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\nSilakan ketik pertanyaan Anda!",
+  "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
   "rejection": "Maaf, saya tidak dapat menjawab pertanyaan tersebut. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
   "rejection_short": "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
   "error_llm": "Maaf, terjadi error. Silakan coba lagi.",
