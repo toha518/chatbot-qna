@@ -217,6 +217,145 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 
 ---
 
+## 🧠 Detail Hybrid Search (E5 + BM25 via RRF)
+
+Hybrid search menggabungkan **2 pendekatan berbeda** — keyword exact match (BM25) dan semantic similarity (E5) — lalu menyatukan peringkatnya pakai **Reciprocal Rank Fusion (RRF)**.
+
+---
+
+### 🔤 BM25 — Keyword Exact Match
+
+**BM25 (Best Matching 25)** adalah algoritma ranking berbasis _term frequency_ — turunan modern dari TF-IDF.
+
+**Cara kerja:**
+1. Query user di-tokenisasi & di-*stopword* (kata umum seperti "siapa", "bagaimana", "bapak", "ibu" dihapus)
+2. Tiap FAQ juga di-tokenisasi saat index di-build
+3. BM25 menghitung skor tiap dokumen berdasarkan:
+   - **Seberapa sering** kata kunci query muncul di dokumen (TF — Term Frequency)
+   - **Seberapa langka** kata itu di seluruh corpus (IDF — Inverse Document Frequency)
+   - **Panjang dokumen** — dokumen panjang di-penalti biar gak curang
+
+**Rumus (intuisi):**
+```
+BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term, doc) + k₁ × (1 − b + b × docLen/avgDocLen)) ]
+```
+
+**Di NARA, BM25 punya 2 peran:**
+
+| Peran | Ada di | Threshold | Fungsi |
+|-------|--------|-----------|--------|
+| 🎯 **Domain Filter** | `server.py` (layer 5) | < 0.5 → **REJECT** | Cegah pertanyaan di luar domain BPS masuk ke LLM. Hemat biaya & prevent hallucination |
+| 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
+
+**Kelebihan:** Cepat (gak perlu GPU), transparan (skor bisa di-debug), bagus untuk istilah teknis/kode kayak "GC PBI", "FASIH", "SE2026 prelist".
+**Kekurangan:** Gak bisa menangkap sinonim atau konteks kalimat. "Lupa password" dan "lupa kata sandi" dianggap berbeda.
+
+---
+
+### 🧬 E5-base — Semantic Similarity
+
+**E5 (EmbEddings from bidirEctional Encoder rEpresentations)** adalah model embedding dari Microsoft — versi khusus `intfloat/multilingual-e5-base` yang support **multilingual** (termasuk Indonesia). Output: vektor 768 dimensi.
+
+**Cara kerja:**
+1. FAQ di-encode **sekali saat startup** dengan prefix `"passage: "` → jadi 768D vector tiap FAQ
+2. Query user di-encode **real-time** dengan prefix `"query: "` → 768D vector
+3. Cosine similarity antara query vector dan tiap FAQ vector:
+   ```
+   cosine_sim(q, d) = dot(q, d) / (||q|| × ||d||)
+   ```
+   Range: -1 sampai 1 (makin mendekati 1 = makin mirip secara semantik)
+
+**Kenapa pake prefix `"passage:"` / `"query:"`?**
+E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → passage. Prefix yang beda bikin representasi lebih akurat daripada encode polos.
+
+**Kelebihan:** Paham sinonim, konteks kalimat, dan variasi bahasa. "Lupa password" ⇄ "lupa kata sandi" tetap nyambung.
+**Kekurangan:** Butuh RAM/GPU (E5-base ~278MB), gak ngerti keyword spesifik yang jarang muncul di training data, lebih lambat dari BM25.
+
+---
+
+### 🔗 RRF Fusion — Menyatukan BM25 + E5
+
+**RRF (Reciprocal Rank Fusion)** adalah metode tanpa training untuk menggabungkan ranking dari dua atau lebih sistem retrieval.
+
+**Cara kerja:**
+1. BM25 meng*ranking* semua FAQ → tiap FAQ dapat rank_BM25 (1 = paling cocok keyword)
+2. E5 meng*ranking* semua FAQ → tiap FAQ dapat rank_E5 (1 = paling cocok semantik)
+3. RRF menghitung **skor gabungan** per FAQ:
+   ```
+   RRF_score(d) = 1 / (K + rank_E5(d))  +  1 / (K + rank_BM25(d))
+   ```
+   **K = 60** — konstanta smoothing. Semakin besar K, semakin rata bobot antar sistem.
+4. Ambil **top-5** FAQ berdasarkan RRF_score tertinggi
+
+**Visual sederhana (2 FAQ):**
+| FAQ | rank_E5 | rank_BM25 | RRF dengan K=60 |
+|-----|:-------:|:---------:|:----------------:|
+| "Cara aktivasi FASIH" | 1 | 2 | 1/(60+1) + 1/(60+2) = 0.0325 |
+| "FASIH error terus" | 3 | 1 | 1/(60+3) + 1/(60+1) = 0.0323 |
+
+→ FAQ pertama menang tipis. Tapi kalo BM25 gak cocok sama sekali (rank rendah), E5 masih bisa angkat FAQ yang relevan secara semantik.
+
+**Kenapa RRF? Kenapa gak average atau weighted sum?**
+- **Average score** gak fair karena BM25 score range beda dengan cosine similarity
+- **Weighted sum** butuh tuning bobot manual
+- **RRF** cuma butuh ranking (bukan skor mentah), jadi scale-invariant, zero-config, dan terbukti robust di berbagai dataset
+
+---
+
+### 🔄 Cascade Fallback
+
+Hybrid search RRF udah lumayan, tapi ada kasus follow-up pendek yang jeblok:
+```
+User: "aktivasi FASIH gimana caranya?"  → skor hybrid 0.88 ✅
+User: "linknya udah dicoba"             → skor hybrid 0.65 ❌ (terlalu pendek, gak nyambung ke FAQ)
+```
+
+**Solusi — Cascade Fallback:**
+
+| Depth | Aksi | Threshold |
+|:-----:|------|:---------:|
+| 0 | Search dengan query original | < 0.82 → depth 1 |
+| 1 | **Concat** 1 query user sebelumnya + query saat ini → search ulang | < 0.82 → depth 2 |
+| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | < 0.82 → **TOLAK** |
+
+**Contoh cascade:**
+```
+Query: "linknya udah dicoba"  → hybrid score 0.65 ❌
+  ↓ depth 1 (concat 1 prev)
+  "aktivasi FASIH gimana caranya? linknya udah dicoba"  → hybrid score 0.85 ✅
+```
+
+Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt terlalu panjang.
+
+---
+
+## 🆚 Perbandingan: BM25 vs E5 vs Hybrid
+
+| Aspek | BM25 | E5-base | Hybrid (RRF) |
+|-------|:----:|:-------:|:------------:|
+| **Pendekatan** | Keyword overlap | Semantic vector | Ranking fusion |
+| **Paham sinonim?** | ❌ | ✅ | ✅ |
+| **Peka istilah teknis?** | ✅ (GC PBI, FASIH) | ⚠️ (kadang bias) | ✅ (ter cover BM25) |
+| **GPU dibutuhkan?** | ❌ (CPU doang) | ⚠️ (CPU bisa, lambat) | — |
+| **Kecepatan** | ⚡ sangat cepat | 🐢 lebih lambat | 🐢 mengikuti E5 |
+| **Ukuran memori** | ~10 KB | ~278 MB | — |
+| **Ketangguhan follow-up** | ❌ (kata kunci aja) | ⚠️ (lumayan) | ✅ + cascade |
+
+---
+
+### 💡 Kenapa gak pake model embedding lain?
+
+| Model | Alasan gak dipakai |
+|-------|-------------------|
+| **OpenAI text-embedding-3-small** | API key tambahan, biaya per query, latency jaringan |
+| **BAAI/bge-base-en-v1.5** | Inggris doang, gak optimal untuk Indonesia |
+| **Qwen2.5-embedding** | Baru, belum mature, komunitas kecil |
+| **ChromaDB / LangChain** | Overkill untuk 72 FAQ — setup overhead gak sebanding |
+
+E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk 72 FAQ, dan terbukti di berbagai benchmark retrieval.**
+
+---
+
 ## 🔄 Replikasi / Custom Bot
 
 | File | Wajib? | Keterangan |
