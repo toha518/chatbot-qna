@@ -111,6 +111,16 @@ def init_data(csv_url: str) -> int:
     return total
 
 
+def encode_query(query: str) -> np.ndarray:
+    """Encode satu query user pake E5.
+    Ngembaliin 768d vector — bisa dipake ulang buat filter domain & retrieval.
+    """
+    global embedder
+    if embedder is None:
+        init_embedder()
+    return embedder.encode(["query: " + query])[0]
+
+
 def search(query: str, top_k: int = 3):
     """
     Cari pertanyaan paling relevan di database.
@@ -173,11 +183,18 @@ def search(query: str, top_k: int = 3):
     return context, scores[best_idx], questions[best_idx[0]] if len(best_idx) > 0 else ""
 
 
-def hybrid_search(query: str, top_k: int = 5):
+def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
     """
     Hybrid search: E5 (semantic) + BM25 (keyword) via RRF fusion.
-    Returns (context_string, e5_top_score_array, best_question).
-    top_k lebih besar dari E5-only karena hasil BM25+E5 lebih bervariasi.
+    
+    Args:
+        query: teks pertanyaan user
+        top_k: jumlah FAQ yang direturn
+        query_vec: E5 embedding yang SUDAH di-compute (optional).
+                   Kalau None, compute ulang dari query.
+    
+    Returns:
+        (context_string, e5_top_score_array, best_question)
     """
     global question_vecs, questions, answers, categories
 
@@ -185,8 +202,15 @@ def hybrid_search(query: str, top_k: int = 5):
         return "", np.array([]), ""
 
     # ── E5 semantic scores ──
-    query_vec = embedder.encode(["query: " + query])
-    e5_scores = cosine_similarity(query_vec, question_vecs).flatten()
+    if query_vec is not None:
+        # Reuse embedding dari filter domain (hemat 1 encode!)
+        if query_vec.ndim == 1:
+            qv = query_vec.reshape(1, -1)
+        else:
+            qv = query_vec
+    else:
+        qv = embedder.encode(["query: " + query])
+    e5_scores = cosine_similarity(qv, question_vecs).flatten()
 
     # ── BM25 keyword scores ──
     from core.bm25 import get_bm25_scores_all

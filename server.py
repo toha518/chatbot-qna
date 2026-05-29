@@ -14,8 +14,10 @@ from pydantic import BaseModel
 load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
-from core.embedder import init_data, load_from_gsheet, search, hybrid_search, questions
-from core.bm25 import check_domain, get_bm25_score, get_bm25_scores_all
+from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
+import core.embedder as _embedder_module
+from core.domain_filter import init_templates, classify
+from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
 from core.llm import (
     load_llm_config, load_prompts, load_responses,
@@ -37,6 +39,9 @@ if GSHEET_CSV_URL:
 else:
     print("[BOOT] ⚠️ GSHEET_CSV_URL tidak di-set!")
     total_qna = 0
+# Init E5 domain filter templates (setelah embedder di-load)
+if _embedder_module.embedder is not None:
+    init_templates(_embedder_module.embedder)
 load_llm_config()
 identity, system_template, greeting_template, acronyms = load_prompts()
 responses = load_responses()
@@ -244,33 +249,14 @@ async def chat(req: ChatRequest):
             return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
-    # ===================== GREETING & INTRO DETECTION =====================
-    # Greeting roots — cocokkan prefix biar "haloo", "pagi2" tetap kena
-    greeting_roots = {"halo", "hai", "hey", "hi", "helo", "hell", "hello", "hallo", "pagi", "siang", "sore", "malam", "assalamu"}
-    multi_greetings = [
-        "selamat pagi", "selamat siang",
-        "selamat sore", "selamat malam"
-    ]
-    # Intro questions — tanya soal identitas dan kemampuan bot
-    intro_patterns = [
-        "siapa kamu", "kamu siapa", "nama kamu", "nama kamu siapa",
-        "kamu bisa apa", "apa yang kamu bisa", "apa saja yang kamu bisa",
-        "kamu bisa bantu apa", "fungsi kamu", "tugas kamu", "peran kamu",
-        "how are you", "apa kabar", "kabar", "lagi apa",
-        "perkenalkan", "kenalan", "kenalin",
-    ]
-    words_lower = req.pertanyaan.lower().strip().split()
-    query_lower = req.pertanyaan.lower().strip()
+    # ===================== E5 DOMAIN FILTER =====================
+    # Encode query SEKALI, reuse buat domain filter + hybrid retrieval
+    query_vec = encode_query(req.pertanyaan)
+    domain, domain_conf = classify(query_vec)
+    print(f"[DOMAIN] '{req.pertanyaan[:50]}' → {domain} (conf={domain_conf:.3f})")
 
-    is_greeting = any(
-        any(w.startswith(r) for r in greeting_roots)
-        for w in words_lower
-    ) or any(g in query_lower for g in multi_greetings)
-    is_intro = (
-        any(p in query_lower for p in intro_patterns)
-    )
-
-    if (is_greeting and len(words_lower) <= 3) or is_intro:
+    # Greeting — jawab langsung dengan template
+    if domain == "greeting":
         messages = build_greeting_prompt(
             greeting_template, identity, req.pertanyaan, acronyms
         )
@@ -284,31 +270,51 @@ async def chat(req: ChatRequest):
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=get_bm25_score(req.pertanyaan),
+        log_query(req.pertanyaan, cid, bm25_score=domain_conf,
                   bm25_status="GREETING", dijawab=True, greeting=True,
                   jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
-    # ===================== HYBRID RETRIEVAL (E5 + BM25) =====================
-    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
-    top_score = float(scores[0]) if len(scores) > 0 else 0
-    print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
-    # ===================== DOMAIN CHECK (BM25) =====================
-    # BM25 based on keyword overlap. Out-of-domain questions like "presiden"
-    # have ZERO keyword overlap with BPS FAQ → BM25 score ~0.
-    bm25_score = get_bm25_score(req.pertanyaan)
-    if not check_domain(req.pertanyaan):
-        print(f"[QUERY] Luar domain BPS — tolak (BM25={bm25_score:.2f})")
+
+    # Capability — sama, langsung LLM pake greeting prompt
+    if domain == "capability":
+        messages = build_greeting_prompt(
+            greeting_template, identity, req.pertanyaan, acronyms
+        )
+        jawaban = await call_llm(messages, timeout=30)
+        if not jawaban:
+            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+        api_rate_limit[cid]["last_active"] = time.time()
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=domain_conf,
+                  bm25_status="CAPABILITY", dijawab=True, greeting=True,
+                  jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": 1.0}
+
+    # Out-of-context — tolak langsung, skip retrieval
+    if domain == "out_of_context":
+        print(f"[QUERY] Luar domain BPS — tolak (conf={domain_conf:.3f})")
         jawaban = REJECTION_MSG
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+        log_query(req.pertanyaan, cid, bm25_score=domain_conf,
                   bm25_status="REJECT", dijawab=False)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": top_score}
+        return {"jawaban": jawaban, "skor": 0.0}
+
+    # ===================== FAQ → HYBRID RETRIEVAL (reuse embedding) =====================
+    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5, query_vec=query_vec)
+    top_score = float(scores[0]) if len(scores) > 0 else 0
+    print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25, domain={domain})")
+    bm25_score = domain_conf
     # ===================== MULTI-PART SPLIT =====================
     parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
     parts = [p.strip() for p in parts if p.strip()]
@@ -316,11 +322,13 @@ async def chat(req: ChatRequest):
         relevant_answers = []
         skipped_parts = []
         for part in parts:
-            if not check_domain(part):
-                print(f"[QUERY] Part '{part[:30]}...' skip (BM25)")
+            part_vec = encode_query(part)
+            part_domain, part_conf = classify(part_vec)
+            if part_domain != "faq":
+                print(f"[QUERY] Part '{part[:30]}...' skip (domain={part_domain}, conf={part_conf:.3f})")
                 skipped_parts.append(part)
                 continue
-            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1)
+            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1, query_vec=part_vec)
             for line in p_ctx.split('\n'):
                 if line.startswith('JAWABAN:'):
                     relevant_answers.append(line.replace('JAWABAN: ', '').strip())
