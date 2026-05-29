@@ -37,5 +37,5 @@ Thumbs.db
 .vscode/
 .idea/
 
-# === FastText model (auto-trained at startup) ===
-*.ftz
+# === FastText model is tracked (4MB) — only ignore .bin ===
+*.bin
