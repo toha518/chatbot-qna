@@ -60,8 +60,8 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Hybrid Retrieval** | E5+BM25 via RRF fusion (semantic + keyword) |
-| **Domain Filter** | BM25 (custom Python, keyword overlap) |
+| **Hybrid Retrieval + Domain Filter** | E5+BM25 via RRF fusion — cascade fallback otomatis jadi filter domain |
+| **Greeting/Capability Detector** | FastText (dual-mode: model 4MB / keyword fallback) |
 | **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
 | **Telegram** | python-telegram-bot (Polling) |
@@ -76,7 +76,8 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Hybrid Search (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. Cascade fallback depth 2 — concat 1-2 prev query kalo skor < 0.82 |
+| 🧠 **Hybrid Search + Domain Filter (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. **Hybrid score otomatis jadi domain filter** — query di luar BPS dapet E5+BM25 rendah → cascade reject. Gak perlu layer filter tambahan |
+| 🏷️ **FastText Greeting Detector** | FastText model (4MB) / keyword fallback untuk menyaring **sapaan** (halo, pagi, assalamualaikum) & **capability** (kamu bisa apa, siapa kamu). Respon langsung tanpa retrieval & LLM |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -98,21 +99,30 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **BM25 Domain Filter** | `core/bm25.py` | Keyword overlap vs FAQ. **Skor < 0.5?** Ditolak langsung tanpa LLM |
-| 5 | 🔍 **Hybrid Threshold + Cascade Fallback** | `server.py` | Skor E5 cosine similarity < 0.82? Cascade: concat 1-2 query user sebelumnya, search ulang. Masih < 0.82? tolak. BM25 tetap diproses rescue |
+| 4 | 🎯 **FastText Domain Classifier** | `core/fasttext_filter.py` | FastText model (atau keyword fallback di Windows) menyaring **greeting** & **capability**. Bukan FAQ? Langsung respon salam/identitas, skip LLM & retrieval |
+| 5 | 🔍 **Hybrid Score + Cascade Fallback** | `server.py` | **Hybrid search (E5+BM25 RRF) otomatis jadi domain filter.** Query di luar BPS → E5 cosim rendah + BM25 = 0 → top_score < 0.82 → cascade concat 1-2 prev query → masih < 0.82? **TOLAK**. Query FAQ beneran → top_score tinggi → jawab. **Gak perlu layer filter tambahan** |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
-### Detail Threshold Domain Filter
+### Detail Pipeline Domain
 
-| Pertanyaan | Contoh | BM25 Score | E5 Score | Hasil |
-|------------|--------|:----------:|:---------:|:-----:|
-| Tentang SOBAT / GC PLN / FASIH | "cara daftar SOBAT" | 4.60 | 0.86 | ✅ Dijawab |
-| Tentang SE2026 | "se2026 prelist" | 3.68 | 0.89 | ✅ Dijawab |
-| Di luar konteks BPS | "siapa presiden indonesia" | **0.00** | 0.80 | ❌ Ditolak |
-| Di luar konteks BPS | "resep nasi goreng" | **0.00** | 0.77 | ❌ Ditolak |
-| Multi-part campuran | "aktivasi FASIH dan siapa presiden" | ✅ + ❌ | — | ✅ Bagian FASIH dijawab, sisanya di-skip |
+```
+Input → FastText → greeting / capability → respon langsung (skip LLM)
+                 → out_of_context → hybrid_search (E5+BM25 RRF) → top_score ≥ 0.82? → LLM jawab
+                                                                  → < 0.82 → cascade concat 1-2 prev query
+                                                                             → masih < 0.82? → ❌ REJECT
+```
 
-> **Catatan:** BM25 bekerja berdasarkan **keyword overlap**. Kata umum (stopwords) seperti "siapa", "bagaimana", "nama", "bapak", "ibu" dihapus sebelum perhitungan. Angka doang (tahun, nomor) juga difilter. Skor BM25 = 0 jika tidak ada satupun kata yang cocok dengan FAQ.
+**Kenapa hybrid search bisa jadi domain filter?**
+Karena hybrid score gabungan E5 (semantic) + BM25 (keyword). Query di luar domain BPS otomatis dapet skor rendah dari **keduanya** — E5 gak dapet sinyal semantik yang cocok, BM25 gak dapet keyword overlap. RRF fusion-nya jeblok. Cascade fallback sebagai jaring terakhir.
+
+| Contoh | E5 cosim | BM25 | top_score | Hasil |
+|--------|:--------:|:----:|:---------:|:-----:|
+| "cara daftar SOBAT" | 0.86 | ✅ (daftar) | ≥ 0.82 | ✅ Dijawab |
+| "se2026 prelist" | 0.89 | ✅ (prelist) | ≥ 0.82 | ✅ Dijawab |
+| "siapa presiden indonesia" | 0.25 | ❌ 0.0 | ~0.15 ❌ | ❌ REJECT |
+| "resep nasi goreng" | 0.18 | ❌ 0.0 | ~0.10 ❌ | ❌ REJECT |
+| "hi" (tanpa fasttext) | 0.18 | ❌ 0.0 | ~0.10 ❌ | ❌ REJECT (tapi FastText tangkap sbg greeting) |
+| Multi-part campuran | — | — | — | ✅ Bagian FAQ dijawab, sisanya di-skip |
 
 ### Trusted User
 
@@ -139,7 +149,10 @@ chatbot-qna/
 ├── core/                     ← 🔧 Mesin utama
 │   ├── database.py           ←   SQLite: init, log chat, query history
 │   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
-│   ├── bm25.py               ←   BM25: domain checker + per-doc scoring hybrid
+│   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
+│   ├── fasttext_filter.py    ←   FastText: greeting/capability classifier (dual-mode: model / keyword fallback)
+│   ├── fasttext_train.txt    ←   Training data FastText (215 sampel, 3 kelas)
+│   ├── domain_filter.ftz     ←   Pre-trained model FastText (4MB, load instant)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL)
 │
@@ -176,37 +189,38 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
          │
          │  (↘ Telegram/WA kirim typing indicator)
          ▼
-┌─ 4. GREETING? ──────────────────────────────┐
-│  "halo", "pagi" → langsung LLM, no search   │
+┌─ 3. FASTTEXT CLASSIFIER ────────────────────┐
+│  greeting? → respon salam, skip LLM ✅       │
+│  capability? → respon fitur, skip LLM ✅     │
+│  out_of_context? → lanjut ke hybrid search   │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 5. BM25 DOMAIN CHECK ──────────────────────┐
-│  Keyword overlap vs FAQ                     │
-│  Score < 0.5? → TOLAK (gak lanjut ke LLM)   │
-└───────────────────────────────────────────────┘
-         │
-         ▼
-┌─ 6. MULTI-PART SPLIT ───────────────────────┐
+┌─ 4. MULTI-PART SPLIT ───────────────────────┐
 │  Pisah "dan", "serta", "lalu"               │
-│  Tiap bagian dicek BM25 domain + hybrid search  │
-│  Bagian di luar domain → di-skip            │
+│  Tiap bagian hybrid search individual        │
+│  bagian skor < 0.50? → di-skip              │
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 7. HYBRID RETRIEVAL (E5 + BM25) ──────────┐
-│  E5 semantic similarity (cosine)             │
-│  BM25 keyword overlap (per-doc)              │
-│  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)  │
-│  top-5 berdasarkan RRF score                 │
-│  Score < 0.82? → Cascade Fallback            │
-│    depth=1: concat 1 prev user query        │
-│    depth=2: concat 2 prev user query        │
-│    Masih < 0.82? → tolak                    │
-└───────────────────────────────────────────────┘
+┌─ 5. HYBRID RETRIEVAL + DOMAIN FILTER (E5+BM25 RRF) ─┐
+│  E5 semantic similarity (cosine)                      │
+│  BM25 keyword overlap (per-doc)                       │
+│  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)       │
+│  top-5 berdasarkan RRF score                          │
+│  ┌─── INI JUGA JADI DOMAIN FILTER ───┐               │
+│  │ top_score < 0.82? → Cascade        │               │
+│  │   depth=1: concat 1 prev query     │               │
+│  │   depth=2: concat 2 prev query     │               │
+│  │   Masih < 0.82? → ❌ REJECT        │               │
+│  │ top_score ≥ 0.82? → ✅ LANJUT LLM  │               │
+│  └────────────────────────────────────┘               │
+│  Gak perlu layer filter terpisah — hybrid score       │
+│  otomatis rendah kalo query di luar domain BPS ✅     │
+└───────────────────────────────────────────────────────┘
          │
          ▼
-┌─ 8. LLM ANSWER ─────────────────────────────┐
+┌─ 6. LLM ANSWER ─────────────────────────────┐
 │  System prompt + context referensi          │
 │  3 provider backup chain                    │
 └───────────────────────────────────────────────┘
@@ -240,27 +254,26 @@ Hybrid search menggabungkan **2 pendekatan berbeda** — keyword exact match (BM
 BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term, doc) + k₁ × (1 − b + b × docLen/avgDocLen)) ]
 ```
 
-**Di NARA, BM25 punya 2 peran:**
+**Di NARA, BM25 punya 1 peran:**
 
 | Peran | Ada di | Threshold | Fungsi |
 |-------|--------|-----------|--------|
-| 🎯 **Domain Filter** | `server.py` (layer 5) | < 0.5 → **REJECT** | Cegah pertanyaan di luar domain BPS masuk ke LLM. Hemat biaya & prevent hallucination |
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
+
+> **Catatan:** BM25 **tidak lagi berfungsi sebagai domain filter** seperti di versi sebelumnya. Domain filtering sekarang di-handle oleh **FastText** (greeting/capability detector) + **hybrid cascade** (otomatis reject kalo E5+BM25 score rendah).
 
 **✅ Kelebihan:**
 - ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
-- 🔍 **Transparan** — skor bisa di-debug. Kalau reject, tau persis keyword mana yang cocok/tidak
+- 🔍 **Transparan** — skor bisa di-debug
 - 🎯 **Peka istilah teknis** — kode kayak "GC PBI", "FASIH", "SE2026 prelist" langsung kena skor tinggi karena exact match
-- 🛡️ **Domain filter efektif** — pertanyaan di luar BPS kayak "resep nasi goreng" dapet skor 0 karena gak ada satupun kata yang cocok
-- 🧹 **Zero dependency** — implementasi custom Python, gak perlu package eksternal
+- 🧹 **Zero dependency** — implementasi custom Python
 - 📉 **Memory footprint** — ~10 KB doang (cuma frequency table)
 
 **❌ Kekurangan:**
-- 🧠 **Buta sinonim** — "lupa password" dan "lupa kata sandi" dianggap berbeda total karena surface form beda. Dua query yang maksudnya sama bisa hasil skor beda jauh
-- 📖 **Buta konteks kalimat** — urutan kata gak ngaruh. "Aktivasi FASIH error" sama dengan "error aktivasi FASIH" secara ranking
-- 📏 **Bergantung kualitas FAQ** — kalo FAQ singkat/sedikit kata, skor BM25-nya rendah karena overlap-nya dikit
-- 🔁 **Gak ada fallback** — kalau user nanya dengan sinonim yang gak ada di FAQ, BM25 langsung reject meskipun maksudnya relevan
-- 📐 **Skor beda-beda tiap query** — skor BM25 query A gak bisa dibandingin langsung dengan skor BM25 query B karena tergantung frekuensi term di corpus
+- 🧠 **Buta sinonim** — "lupa password" dan "lupa kata sandi" dianggap berbeda total karena surface form beda
+- 📖 **Buta konteks kalimat** — urutan kata gak ngaruh. "Aktivasi FASIH error" sama dengan "error aktivasi FASIH"
+- 📏 **Bergantung kualitas FAQ** — kalo FAQ singkat/sedikit kata, skor BM25-nya rendah
+- 📐 **Skor beda-beda tiap query** — skor BM25 antar query gak bisa dibandingin langsung
 
 ---
 
@@ -326,6 +339,20 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 
 ---
 
+### 🏷️ FastText — Greeting & Capability Detector
+
+Sebelum hybrid search dijalankan, FastText (atau keyword fallback di Windows) menyaring 2 jenis pertanyaan yang **gak perlu retrieval**:
+
+| Domain | Contoh | Aksi |
+|--------|--------|------|
+| **greeting** | "halo", "pagi min", "assalamualaikum" | Respon salam langsung, skip LLM & retrieval |
+| **capability** | "kamu bisa apa", "siapa kamu", "fitur apa aja" | Respon identitas & fitur langsung, skip LLM |
+| **out_of_context** | "siapa presiden", "resep nasi goreng" | Lanjut ke hybrid search + cascade |
+
+**Dual-mode:**
+- **FastText model (4MB)** — jalan di Linux / VPS. Load instant, inferensi < 0.5ms
+- **Keyword fallback** — auto aktif kalo FastText model gagal load (Windows numpy 2.x bug). Akurasi test: 24/25 = 96%
+
 ### 🔄 Cascade Fallback
 
 Hybrid search RRF udah lumayan, tapi ada kasus follow-up pendek yang jeblok:
@@ -350,6 +377,8 @@ Query: "linknya udah dicoba"  → hybrid score 0.65 ❌
 ```
 
 Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt terlalu panjang.
+
+> 🔑 **Kenapa hybrid search bisa jadi domain filter?** Karena hybrid score = E5 (semantic) + BM25 (keyword). Query di luar BPS otomatis skor rendah dari **keduanya** — E5 gak dapet sinyal semantik, BM25 gak dapet keyword overlap. Cascade sebagai jaring terakhir. Gak perlu layer filter terpisah seperti BM25 domain checker yang lama.
 
 ---
 
@@ -383,18 +412,21 @@ BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja bera
 **Intinya:**
 
 ```
-BM25 = filter kasar + jaring keyword → kecepatan & kepastian
-E5   = jaring halus semantik → pemahaman konteks
-RRF  = penyatu ranking → ambil yang terbaik dari keduanya
+FastText = resepsionis → sapa tamu / arahin ke bagian lain
+BM25     = jaring keyword → kecepatan & kepastian
+E5       = jaring halus semantik → pemahaman konteks
+RRF      = penyatu ranking → ambil yang terbaik dari keduanya
+Cascade  = jaring terakhir → follow-up & konteks percakapan
 ```
 
-- **BM25 mencegah false positive** — pertanyaan luar domain langsung di-cut di layer 5, sebelum E5 & LLM dipanggil. Ini hemat biaya API dan cegah hallucination
+- **FastText menyaring greeting & capability** — sebelum hybrid search dipanggil. Respon langsung, hemat token & latency
+- **Hybrid score (E5+BM25 RRF) otomatis jadi domain filter** — query di luar BPS dapet E5 rendah + BM25 0 → RRF jeblok → cascade reject. **Gak perlu BM25 domain checker terpisah** seperti arsitektur sebelumnya
 - **E5 mencegah false negative** — pertanyaan yang pake sinonim, variasi bahasa, atau kalimat panjang tetap dapet FAQ yang relevan meskipun gak ada keyword yang cocok
 - **RRF menyatukan** — tanpa training, tanpa tuning bobot, cukup ranking dari dua sistem digabung. FAQ yang rank 1 di BM25 tapi rank 10 di E5 tetap dianggep
 - **Cascade fallback jadi jaring terakhir** — follow-up pendek yang jeblok di hybrid masih bisa diselamatkan dengan concat history
 
 **Analoginya:**
-> BM25 kayak satpam yang ngecek KTP — cepet, tegas, gak peduli wajah. E5 kayak teman lama yang inget wajah — bisa kenalin meskipun gak bawa KTP. Hybrid RRF? Keduanya kerja bareng: satpam filter yang gak punya KTP, teman lama bantu kenalin yang mirip-mirip. Cascade fallback? Follow-up sampe ke pintu belakang — "oh ini rombongan yang tadi udah masuk."
+> FastText kayak resepsionis yang nyapa "halo, ada yang bisa dibantu?" — kalo user cuma nyapa, resepsionis jawab langsung. Kalo user nanya sesuatu, resepsionis arahin ke bagian terkait. BM25 kayak petugas arsip yang jago nyari dokumen pake kata kunci. E5 kayak kolega yang hafal isi dokumen — bisa nyari berdasarkan kemiripan topik. RRF adalah manager yang gabungin masukan keduanya buat ranking final. Cascade? Follow-up sampe ke pintu belakang — manager nanya "oh, ini rombongan yang tadi udah masuk?" — cek history.
 
 ---
 
