@@ -196,8 +196,6 @@ async def chat(req: ChatRequest):
     if len(emojis) > 5:
         for em in set(emojis[5:]):
             req.pertanyaan = req.pertanyaan.replace(em, '')
-    if len(req.pertanyaan) > 500:
-        return {"jawaban": responses.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500), "skor": 0}
     if len(req.pertanyaan.strip()) == 0:
         return {"jawaban": responses.get("question_empty", "⚠️ Pesan kosong setelah penyaringan."), "skor": 0}
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
@@ -222,6 +220,10 @@ async def chat(req: ChatRequest):
         except Exception as e:
             print(f"[OCR] Error processing image: {e}")
             # Fallback — proceed with original question
+    else:
+        # Character limit hanya untuk teks biasa (bukan OCR)
+        if len(req.pertanyaan) > 500:
+            return {"jawaban": responses.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500), "skor": 0}
     # ===================== ANTI-SPAM =====================
     init_rate_limit_entry(cid)
     if cid not in TRUSTED_IDS:
