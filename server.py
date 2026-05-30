@@ -293,9 +293,40 @@ async def chat(req: ChatRequest):
     top_score = float(scores[0]) if len(scores) > 0 else 0
     print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
 
-    # ── MULTI-PART SPLIT ──
-    parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
-    parts = [p.strip() for p in parts if p.strip()]
+    # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
+    # Step 1: heuristic split by conjunctions, question marks, sentence boundaries
+    _SPLIT_PATTERN = re.compile(
+        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|sedangkan|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'  # conjunctions
+        r'|(?<=\?)\s+(?=[A-Za-z])'  # "? " diikuti kata
+        r'|\.\s+'                     # ". " — sentence boundary
+        r'|[;]\s*'                     # semicolon
+    )
+    parts = _SPLIT_PATTERN.split(req.pertanyaan.strip())
+    parts = [p.strip().rstrip('?.').strip() for p in parts if p.strip()]
+
+    # Step 2: E5 semantic merge — gabungin part yang masih 1 konteks
+    # Dua part di-merge kalo E5 cosine similarity-nya >= threshold
+    # (misal "cara daftar SOBAT dan ketentuannya" — semantically related)
+    if len(parts) > 1:
+        from sklearn.metrics.pairwise import cosine_similarity
+        _SEMANTIC_MERGE_THRESHOLD = 0.55
+        merged_parts = [parts[0]]
+        for i in range(1, len(parts)):
+            prev_vec = encode_query(merged_parts[-1])
+            curr_vec = encode_query(parts[i])
+            if prev_vec.ndim == 1: prev_vec = prev_vec.reshape(1, -1)
+            if curr_vec.ndim == 1: curr_vec = curr_vec.reshape(1, -1)
+            sim = float(cosine_similarity(prev_vec, curr_vec).flatten()[0])
+            if sim >= _SEMANTIC_MERGE_THRESHOLD:
+                # Semantically related — merge
+                merged_parts[-1] = merged_parts[-1] + " " + parts[i]
+                print(f"[MERGE] Part {i-1}+{i}: sim={sim:.3f} -> '{merged_parts[-1][:60]}'")
+            else:
+                # Different intents — keep separate
+                merged_parts.append(parts[i])
+                print(f"[SPLIT] Part {i-1} vs {i}: sim={sim:.3f} -> separate intents")
+        parts = merged_parts
+
     if len(parts) > 1:
         relevant_answers = []
         skipped_parts = []
