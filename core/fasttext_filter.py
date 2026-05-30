@@ -3,13 +3,13 @@ FastText-based domain classifier — Nara Layer 2 filter
 Membedakan: greeting, capability, out_of_context.
 Hanya dipanggil KALAU FAQ sim (E5) < threshold.
 
-Layer 2: FastText (4MB, <0.5ms) — lightweight intent classifier
-- Startup pertama: train dari fasttext_train.txt, simpan .ftz (2 detik)
-- Startup berikut: load .ftz langsung (instant)
+Dual mode:
+  - Primary: FastText (4MB, <0.5ms) — jalan di Linux / VPS
+  - Fallback: keyword heuristic — auto aktif kalo FastText error (Windows numpy bug)
 """
 
 import os
-import numpy as np
+import re
 
 _FT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FT_TRAIN_PATH = os.path.join(_FT_DIR, "fasttext_train.txt")
@@ -17,78 +17,131 @@ _FT_MODEL_PATH = os.path.join(_FT_DIR, "domain_filter.ftz")
 
 _model = None
 _ready = False
+_using_fallback = False
+
+# ── Fallback keyword patterns (extracted from fasttext_train.txt) ──
+_GREETING_KEYWORDS = [
+    "halo", "hai", "hy", "hey", "hi", "helo", "hallo", "hello",
+    "pagi", "siang", "sore", "malam",
+    "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
+    "permisi", "assalamualaikum", "assalamu'alaikum",
+    "good morning", "good afternoon", "good evening",
+    "apa kabar",
+    "tes", "test",
+    "coba",
+    "min", "mas",
+    "eh", "hii", "hei",
+    "p",
+]
+
+_CAPABILITY_KEYWORDS = [
+    "kamu bisa apa", "bisa apa",
+    "fitur apa", "fungsi kamu", "tugas kamu", "peran kamu",
+    "keahlian kamu", "kegunaan kamu",
+    "apa yang bisa", "ada yang bisa",
+    "bantuan apa",
+    "siapa kamu", "kamu siapa", "nama kamu",
+    "kamu ini apa", "bot apa",
+    "perkenalkan", "kenalan", "kenalin",
+    "ceritakan tentang dirimu", "jelaskan tentang dirimu",
+    "what can you do",
+]
+
+_GREETING_PREFIXES = [
+    "halo", "hai", "hy", "hey", "hi", "helo", "hallo", "hello",
+    "pagi", "siang", "sore", "malam",
+    "assalamu",
+]
 
 
-def _patch_numpy_compat():
-    """Monkey-patch fasttext.predict biar kompatibel sama NumPy 2.0.
-    Di Windows numpy 2.x, np.array(..., copy=False) error.
+def _keyword_classify(text: str) -> tuple[str, float]:
+    """Fallback classifier pake keyword matching.
+    Cek capability dulu (string spesifik), baru greeting (prefix & keyword).
     """
-    try:
-        import fasttext.FastText as _ft
-        _old = _ft._FastText.predict
-        def _patched(self, text, k=1, threshold=0.0):
-            labels, probs = _old(self, text, k, threshold)
-            # Convert to list dulu biar gak kena numpy copy error
-            return labels, [float(p) for p in probs]
-        _ft._FastText.predict = _patched
-        return True
-    except Exception:
-        return False
+    t = text.strip().lower()
+
+    # Capability — exact substring match (spesifik)
+    for kw in _CAPABILITY_KEYWORDS:
+        if kw in t:
+            return "capability", 0.95
+
+    # Greeting — prefix match (biar "haloo", "pagi min" kena)
+    words = t.split()
+    for w in words:
+        for prefix in _GREETING_PREFIXES:
+            if w.startswith(prefix):
+                return "greeting", 0.90
+
+    # Greeting — multi-word exact match
+    for kw in _GREETING_KEYWORDS:
+        if kw in t:
+            return "greeting", 0.85
+
+    return "out_of_context", 0.0
 
 
 def init_classifier() -> None:
     """Load atau train FastText model.
     Panggil SEKALI di startup.
     
-    Prioritas: load .ftz (instant) > train dari .txt (2 detik)
+    FastText = primary, keyword = fallback kalo gagal.
     """
-    global _model, _ready
+    global _model, _ready, _using_fallback
 
     try:
         import fasttext
     except ImportError:
-        print("[FASTTEXT] ⚠️ fasttext library not installed")
+        print("[FASTTEXT] ⚠️ Library not installed — using keyword fallback")
+        _using_fallback = True
+        _ready = True
         return
 
-    # Patch numpy 2.0 compatibility
-    _patch_numpy_compat()
-
-    # Coba load model yang udah ada
+    # Coba load model
     if os.path.exists(_FT_MODEL_PATH):
         try:
             _model = fasttext.load_model(_FT_MODEL_PATH)
+            # Test predict — kalo gagal (Windows numpy bug), fallback
+            try:
+                _model.predict("test")
+            except Exception as e:
+                print(f"[FASTTEXT] ⚠️ Predict error: {str(e)[:60]}... — using keyword fallback")
+                _model = None
+                _using_fallback = True
+                _ready = True
+                return
+
             _ready = True
             ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
             print(f"[FASTTEXT] Loaded from {os.path.basename(_FT_MODEL_PATH)} ({ftz_size}KB)")
             return
         except Exception as e:
-            print(f"[FASTTEXT] ⚠️ Gagal load model: {e} — retrain")
+            print(f"[FASTTEXT] ⚠️ Gagal load: {str(e)[:60]}... — using keyword fallback")
 
-    # Gak ada model — train dari scratch
+    # Train dari scratch
     if not os.path.exists(_FT_TRAIN_PATH):
-        print(f"[FASTTEXT] ⚠️ Training data not found at {_FT_TRAIN_PATH}")
+        print("[FASTTEXT] ⚠️ Training data not found — using keyword fallback")
+        _using_fallback = True
+        _ready = True
         return
 
     try:
-        print(f"[FASTTEXT] Training classifier from {os.path.basename(_FT_TRAIN_PATH)}...")
+        print(f"[FASTTEXT] Training from {os.path.basename(_FT_TRAIN_PATH)}...")
         _model = fasttext.train_supervised(
-            input=_FT_TRAIN_PATH,
-            dim=100, epoch=25, lr=0.5,
-            wordNgrams=2, minCount=1,
-            bucket=10000,
-            loss='softmax'
+            input=_FT_TRAIN_PATH, dim=100, epoch=25, lr=0.5,
+            wordNgrams=2, minCount=1, bucket=10000, loss='softmax'
         )
         _model.save_model(_FT_MODEL_PATH)
         _ready = True
         ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
-        print(f"[FASTTEXT] Domain classifier ready — {ftz_size}KB model saved")
+        print(f"[FASTTEXT] Ready — {ftz_size}KB model saved")
     except Exception as e:
-        print(f"[FASTTEXT] ⚠️ Gagal train model: {e}")
-        _ready = False
+        print(f"[FASTTEXT] ⚠️ Train gagal: {str(e)[:60]}... — fallback keyword")
+        _using_fallback = True
+        _ready = True
 
 
 def classify(text: str, threshold: float = 0.60) -> tuple[str, float]:
-    """Predict intent pake FastText.
+    """Predict intent — FastText (primary) / keyword fallback.
 
     Args:
         text: raw user query
@@ -98,9 +151,16 @@ def classify(text: str, threshold: float = 0.60) -> tuple[str, float]:
         (domain, confidence):
             "greeting" | "capability" | "out_of_context"
     """
-    if not _ready or _model is None:
+    if not _ready:
         return "out_of_context", 0.0
 
+    if _using_fallback:
+        domain, confidence = _keyword_classify(text)
+        if confidence < threshold:
+            return "out_of_context", confidence
+        return domain, confidence
+
+    # FastText mode
     try:
         labels, scores = _model.predict(text.strip().lower())
         domain = labels[0].replace("__label__", "")
@@ -108,9 +168,8 @@ def classify(text: str, threshold: float = 0.60) -> tuple[str, float]:
 
         if confidence < threshold:
             return "out_of_context", confidence
-
         return domain, confidence
 
     except Exception as e:
-        print(f"[FASTTEXT] Error: {e}")
-        return "out_of_context", 0.0
+        print(f"[FASTTEXT] Error: {str(e)[:60]} — fallback keyword")
+        return _keyword_classify(text)
