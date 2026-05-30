@@ -71,6 +71,7 @@ class ChatRequest(BaseModel):
     pertanyaan: str
     chat_id: str = "default"
     image_path: str = ""  # path file gambar buat OCR (dari WA bridge)
+    is_ocr: bool = False   # flag kalo teks berasal dari OCR (Telegram)
 class StopRequest(BaseModel):
     chat_id: str
 # ===================== BACKGROUND TASKS =====================
@@ -220,8 +221,8 @@ async def chat(req: ChatRequest):
         except Exception as e:
             print(f"[OCR] Error processing image: {e}")
             # Fallback — proceed with original question
-    else:
-        # Character limit hanya untuk teks biasa (bukan OCR)
+    # Character limit — skip kalo dari OCR
+    if not req.is_ocr and not req.image_path:
         if len(req.pertanyaan) > 500:
             return {"jawaban": responses.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500), "skor": 0}
     # ===================== ANTI-SPAM =====================

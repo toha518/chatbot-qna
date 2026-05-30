@@ -174,7 +174,7 @@ def wa_message():
         api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
         resp = requests.post(
             api_url,
-            json={"pertanyaan": pertanyaan, "chat_id": sender},
+            json={"pertanyaan": pertanyaan, "chat_id": sender, "is_ocr": True},
             timeout=120
         )
         data = resp.json()

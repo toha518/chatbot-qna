@@ -286,11 +286,11 @@ def main():
                 await update.message.reply_text(_RESPONSES.get("image_no_text", "⚠️ Tidak bisa membaca teks dari gambar."))
                 return
 
-            # Kirim ke server chatbot kayak chat biasa
+            # Kirim ke server chatbot — kasih flag is_ocr biar skip 500 char limit
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
                     CHATBOT_URL,
-                    json={"pertanyaan": combined, "chat_id": chat_id}
+                    json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True}
                 )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
