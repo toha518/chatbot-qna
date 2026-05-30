@@ -296,10 +296,10 @@ async def chat(req: ChatRequest):
     # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
     # Step 1: heuristic split by conjunctions, question marks, sentence boundaries
     _SPLIT_PATTERN = re.compile(
-        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|sedangkan|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'  # conjunctions
-        r'|(?<=\?)\s+(?=[A-Za-z])'  # "? " diikuti kata
-        r'|\.\s+'                     # ". " — sentence boundary
-        r'|[;]\s*'                     # semicolon
+        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'  # conjunctions
+        r'|(?<=\?)\s+(?=[A-Za-z])'      # "? " diikuti kata
+        r'|\.\s+'                         # ". " — sentence boundary
+        r'|[,;]\s*'                       # comma or semicolon
     )
     parts = _SPLIT_PATTERN.split(req.pertanyaan.strip())
     parts = [p.strip().rstrip('?.').strip() for p in parts if p.strip()]
