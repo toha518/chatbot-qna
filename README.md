@@ -85,7 +85,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom `kendala` & `solusi` |
 | 📊 **Query Logging** | Semua pertanyaan dicatat ke `query_log.jsonl` — BM25 score, status, jawaban |
 | 🧠 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 semantic merge. Cosim antar part ≥ 0.55? merge balik (1 konteks). < 0.55? split (beda intent). Bagian di luar BPS di-skip |
-| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, panjang maks 500 karakter |
+| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter. Input dari OCR gambar **tidak kena limit 500 karakter** (screenshot error panjang tetap terbaca penuh) |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting biar bersih |
 
 ---
@@ -140,7 +140,8 @@ User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena** anti-spam & daily limit.
 
 - Control characters (`\x00-\x1f`) — dibuang
 - Emoji > 5 — kelebihan dihapus
-- Karakter > 500 — ditolak
+- Karakter > 500 — ditolak (kecuali dari OCR gambar)
+- Input dari OCR (screenshot error, foto dokumentasi) **dibebaskan dari limit 500 karakter** via flag `is_ocr: True` di request. Server bedain berdasarkan field `is_ocr` di ChatRequest — kalo True, skip character limit
 
 ---
 
@@ -1071,6 +1072,7 @@ sudo lsof -i :8000              # Linux
   -> word boundary regex \b untuk single tokens
 - Pipeline urutan: FastText duluan, FAQ sim setelah (biar "hi"/"haloo" gak kena cascade reject)
 - `history` undefined: baris `init_session()` kehapus saat replace block
+- **OCR 500 char limit** — OCR gambar gak kena potong 500 karakter. Telegram & WA kirim flag `is_ocr: True`, server skip character limit kalo request dari OCR
 
 **Dependencies**
 - Tambah `fasttext` (Linux) / `fasttext-wheel` (Windows)
