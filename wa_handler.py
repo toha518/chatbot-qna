@@ -165,16 +165,21 @@ def wa_message():
     if len(pertanyaan.strip()) == 0:
         return jsonify({"jawaban": _RESPONSES.get("question_empty", "⚠️ Pesan kosong setelah penyaringan.")})
 
-    if len(pertanyaan) > 500:
-        return jsonify({"jawaban": _RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500)})
+    # Character limit hanya untuk teks biasa (bukan OCR)
+    if not is_image:
+        if len(pertanyaan) > 500:
+            return jsonify({"jawaban": _RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500)})
 
     # ===================== PANGGIL SERVER API =====================
     try:
         # CHATBOT_URL udah include /chat, jadi jangan ditambahin lagi
         api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
+        payload = {"pertanyaan": pertanyaan, "chat_id": sender}
+        if is_image:
+            payload["is_ocr"] = True
         resp = requests.post(
             api_url,
-            json={"pertanyaan": pertanyaan, "chat_id": sender, "is_ocr": True},
+            json=payload,
             timeout=120
         )
         data = resp.json()
