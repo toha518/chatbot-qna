@@ -532,10 +532,11 @@ TRUSTED_CHAT_IDS=1267972859
 ### 5. Install Python Dependencies
 
 ```cmd
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask fasttext-wheel
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
+> **FastText di Windows:** `fasttext` asli butuh C++ Build Tools. Gunakan `fasttext-wheel` (pre-built binary) — import tetap `import fasttext`.
 
 ### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
@@ -688,10 +689,11 @@ TRUSTED_CHAT_IDS=1267972859
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask fasttext
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
+> Jika `fasttext` gagal build, alternatif: `pip install fasttext-wheel`
 
 ### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
@@ -982,6 +984,82 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.3.0 — 2026-05-30
+
+**Added**
+- **FastText greeting & capability detector** — dual-mode classifier:
+  - Primary: FastText model (4MB, <0.5ms inferensi) — jalan di Linux/VPS
+  - Fallback: keyword regex (auto aktif di Windows, akurasi test 24/25=96%)
+  - FastText dulu di pipeline, sebelum hybrid search. Greeting/capability langsung respon, skip retrieval & LLM
+- `core/fasttext_filter.py` — FastText wrapper (load/train/classify) + keyword fallback
+- `core/fasttext_train.txt` — 215 baris training data (50 greeting, 35 capability, 130+ out_of_context)
+- `core/domain_filter.ftz` — pre-trained FastText model (4MB, load instant)
+- `requirements.txt` — file dependencies resmi
+- README: flow chart FastText step, tabel LLM dipanggil hanya saat top_score >= 0.82
+
+**Changed**
+- **BM25 domain filter dihapus** — hybrid search (E5+BM25 RRF) + cascade fallback sekarang jadi domain filter otomatis.
+  Query di luar BPS -> E5 cosim rendah + BM25 0 -> top_score < 0.82 -> cascade reject. **LLM tidak dipanggil** (zero cost token)
+- Pipeline: regex greeting + BM25 filter -> FastText classifier + hybrid cascade
+- Flow chart: step 3 FastText greeting/capability -> step 5 hybrid search + domain filter
+- Tech stack: BM25 filter -> FastText + Hybrid Cascade
+- Security layer 4: BM25 -> FastText, layer 5: hybrid threshold -> hybrid + domain filter
+
+**Removed**
+- `core/domain_filter.py` (E5 template approach — rawan false positive "siapa presiden" -> capability)
+- FAQ sim layer (redundan — hybrid score sudah mencakup E5 + BM25)
+- BM25 sebagai domain filter (sekarang hanya sebagai hybrid leg)
+
+**Fixed**
+- Python 3.12 + numpy 2.x compatibility — auto fallback keyword di Windows
+- Keyword false positive: "p" match "presiden", "min" match "admin", "mas" match "masalah"
+  -> word boundary regex \b untuk single tokens
+- Pipeline urutan: FastText duluan, FAQ sim setelah (biar "hi"/"haloo" gak kena cascade reject)
+- `history` undefined: baris `init_session()` kehapus saat replace block
+
+**Dependencies**
+- Tambah `fasttext` (Linux) / `fasttext-wheel` (Windows)
+
+---
+
+
+#### v2.3.0 — 2026-05-30
+
+**Added**
+- **FastText greeting & capability detector** — dual-mode classifier:
+  - Primary: FastText model (4MB, <0.5ms inferensi) — jalan di Linux/VPS
+  - Fallback: keyword regex (auto aktif di Windows, akurasi test 24/25=96%)
+  - FastText dulu di pipeline, sebelum hybrid search. Greeting/capability langsung respon, skip retrieval & LLM
+- `core/fasttext_filter.py` — FastText wrapper (load/train/classify) + keyword fallback
+- `core/fasttext_train.txt` — 215 baris training data (50 greeting, 35 capability, 130+ out_of_context)
+- `core/domain_filter.ftz` — pre-trained FastText model (4MB, load instant)
+- `requirements.txt` — file dependencies resmi
+- README: flow chart FastText step, tabel LLM dipanggil hanya saat top_score >= 0.82
+
+**Changed**
+- **BM25 domain filter dihapus** — hybrid search (E5+BM25 RRF) + cascade fallback sekarang jadi domain filter otomatis.
+  Query di luar BPS -> E5 cosim rendah + BM25 0 -> top_score < 0.82 -> cascade reject. **LLM tidak dipanggil** (zero cost token)
+- Pipeline: regex greeting + BM25 filter -> FastText classifier + hybrid cascade
+- Flow chart: step 3 FastText greeting/capability -> step 5 hybrid search + domain filter
+- Tech stack: BM25 filter -> FastText + Hybrid Cascade
+- Security layer 4: BM25 -> FastText, layer 5: hybrid threshold -> hybrid + domain filter
+
+**Removed**
+- `core/domain_filter.py` (E5 template approach — rawan false positive "siapa presiden" -> capability)
+- FAQ sim layer (redundan — hybrid score sudah mencakup E5 + BM25)
+- BM25 sebagai domain filter (sekarang hanya sebagai hybrid leg)
+
+**Fixed**
+- Python 3.12 + numpy 2.x compatibility — auto fallback keyword di Windows
+- Keyword false positive: "p" match "presiden", "min" match "admin", "mas" match "masalah"
+  -> word boundary regex \b untuk single tokens
+- Pipeline urutan: FastText duluan, FAQ sim setelah (biar "hi"/"haloo" gak kena cascade reject)
+- `history` undefined: baris `init_session()` kehapus saat replace block
+
+**Dependencies**
+- Tambah `fasttext` (Linux) / `fasttext-wheel` (Windows)
+
+---
 #### v2.2.0 — 2026-05-29
 
 **Added**
