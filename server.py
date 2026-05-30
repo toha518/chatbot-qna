@@ -13,10 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 load_dotenv()
 # ===================== MODULES =====================
-import numpy as np
 from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
-import core.embedder as _embedder_module
 from core.fasttext_filter import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
@@ -249,14 +247,9 @@ async def chat(req: ChatRequest):
             return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
-    # ===================== FASTTEXT → FAQ SIM DOMAIN FILTER =====================
-    # Encode query SEKALI — reuse buat FAQ sim + hybrid retrieval
-    query_vec = encode_query(req.pertanyaan)
-
-    # Step 1: FastText — cek greeting/capability duluan
-    # (biar "hi" / "haloo" yang juga punya FAQ sim tinggi tetap ke-detect sbg greeting)
+    # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
     ft_domain, ft_conf = ft_classify(req.pertanyaan)
-    print(f"[DOMAIN] ft={ft_domain} ({ft_conf:.3f}) | '{req.pertanyaan[:60]}'")
+    print(f"[DOMAIN] '{req.pertanyaan[:60]}' → {ft_domain} ({ft_conf:.3f})")
 
     # Greeting — respon langsung, skip retrieval
     if ft_domain == "greeting":
@@ -292,36 +285,9 @@ async def chat(req: ChatRequest):
                   bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # Step 2: FastText bilang out_of_context — cek FAQ similarity
-    from sklearn.metrics.pairwise import cosine_similarity
-    _faq_embs = getattr(_embedder_module, 'question_vecs', None)
-    if _faq_embs is not None and len(_faq_embs) > 0:
-        qv = query_vec.reshape(1, -1) if query_vec.ndim == 1 else query_vec
-        faq_sim = float(cosine_similarity(qv, _faq_embs).flatten().max())
-    else:
-        faq_sim = 0.0
-    print(f"[DOMAIN] faq_sim={faq_sim:.3f} | '{req.pertanyaan[:60]}'")
-
-    if faq_sim < 0.50:
-        # Beneran out-of-context — tolak
-        print(f"[QUERY] Luar domain BPS — tolak (ft={ft_domain}, faq_sim={faq_sim:.3f})")
-        jawaban = REJECTION_MSG
-        history.append({"role": "user", "content": req.pertanyaan})
-        history.append({"role": "assistant", "content": jawaban})
-        log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="REJECT", dijawab=False)
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": 0.0}
-
-    # Step 3: FAQ sim tinggi → hybrid retrieval
-    print(f"[DOMAIN] faq — faq_sim={faq_sim:.3f}")
-    bm25_score = faq_sim
-
-    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5, query_vec=query_vec)
+    # out_of_context → hybrid retrieval (biar cascade & hybrid score yg nentuin)
+    bm25_score = ft_conf
+    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
     print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
 
@@ -332,18 +298,12 @@ async def chat(req: ChatRequest):
         relevant_answers = []
         skipped_parts = []
         for part in parts:
-            part_vec = encode_query(part)
-            _faq2 = getattr(_embedder_module, 'question_vecs', None)
-            if _faq2 is not None:
-                pv = part_vec.reshape(1, -1) if part_vec.ndim == 1 else part_vec
-                part_faq = float(cosine_similarity(pv, _faq2).flatten().max())
-            else:
-                part_faq = 0.0
-            if part_faq < 0.50:
-                print(f"[QUERY] Part '{part[:30]}...' skip (faq_sim={part_faq:.3f})")
+            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1)
+            ts_p = float(p_scores[0]) if len(p_scores) > 0 else 0
+            if ts_p < 0.50:
+                print(f"[QUERY] Part '{part[:30]}...' skip (score={ts_p:.3f})")
                 skipped_parts.append(part)
                 continue
-            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1, query_vec=part_vec)
             for line in p_ctx.split('\n'):
                 if line.startswith('JAWABAN:'):
                     relevant_answers.append(line.replace('JAWABAN: ', '').strip())
@@ -368,7 +328,7 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": top_score}
 
-    # ── SINGLE QUESTION LLM ──
+    # ── SINGLE QUESTION — cascade fallback kalo score rendah ──
     if top_score < 0.82:
         prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
         fallback_success = False
