@@ -249,12 +249,50 @@ async def chat(req: ChatRequest):
             return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
-    # ===================== FAQ SIM + FASTTEXT DOMAIN FILTER =====================
-    # Encode query SEKALI, reuse buat filter & retrieval
+    # ===================== FASTTEXT → FAQ SIM DOMAIN FILTER =====================
+    # Encode query SEKALI — reuse buat FAQ sim + hybrid retrieval
     query_vec = encode_query(req.pertanyaan)
 
-    # Layer 1: FAQ similarity — berapa mirip query ini ke FAQ BPS secara semantik?
-    # Akses question_vecs via module reference (bukan import langsung — biar dapet nilai terbaru)
+    # Step 1: FastText — cek greeting/capability duluan
+    # (biar "hi" / "haloo" yang juga punya FAQ sim tinggi tetap ke-detect sbg greeting)
+    ft_domain, ft_conf = ft_classify(req.pertanyaan)
+    print(f"[DOMAIN] ft={ft_domain} ({ft_conf:.3f}) | '{req.pertanyaan[:60]}'")
+
+    # Greeting — respon langsung, skip retrieval
+    if ft_domain == "greeting":
+        messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
+        jawaban = await call_llm(messages, timeout=30)
+        if not jawaban:
+            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+        api_rate_limit[cid]["last_active"] = time.time()
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
+                  bm25_status="GREETING", dijawab=True, greeting=True, jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": 1.0}
+
+    # Capability — respon langsung, skip retrieval
+    if ft_domain == "capability":
+        messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
+        jawaban = await call_llm(messages, timeout=30)
+        if not jawaban:
+            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+        api_rate_limit[cid]["last_active"] = time.time()
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
+                  bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": 1.0}
+
+    # Step 2: FastText bilang out_of_context — cek FAQ similarity
     from sklearn.metrics.pairwise import cosine_similarity
     _faq_embs = getattr(_embedder_module, 'question_vecs', None)
     if _faq_embs is not None and len(_faq_embs) > 0:
@@ -262,155 +300,11 @@ async def chat(req: ChatRequest):
         faq_sim = float(cosine_similarity(qv, _faq_embs).flatten().max())
     else:
         faq_sim = 0.0
-    print(f"[QUERY] faq_sim={faq_sim:.3f} | '{req.pertanyaan[:60]}'")
+    print(f"[DOMAIN] faq_sim={faq_sim:.3f} | '{req.pertanyaan[:60]}'")
 
-    if faq_sim >= 0.50:
-        # ── LAYER 1: FAQ — hybrid retrieval langsung ──
-        print(f"[DOMAIN] faq — faq_sim={faq_sim:.3f}")
-        bm25_score = faq_sim
-
-        context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5, query_vec=query_vec)
-        top_score = float(scores[0]) if len(scores) > 0 else 0
-        print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
-
-        # ── MULTI-PART SPLIT ──
-        parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
-        parts = [p.strip() for p in parts if p.strip()]
-        if len(parts) > 1:
-            relevant_answers = []
-            skipped_parts = []
-            for part in parts:
-                part_vec = encode_query(part)
-                _faq_embs2 = getattr(_embedder_module, 'question_vecs', None)
-                if _faq_embs2 is not None:
-                    pv = part_vec.reshape(1, -1) if part_vec.ndim == 1 else part_vec
-                    part_faq = float(cosine_similarity(pv, _faq_embs2).flatten().max())
-                else:
-                    part_faq = 0.0
-                if part_faq < 0.50:
-                    print(f"[QUERY] Part '{part[:30]}...' skip (faq_sim={part_faq:.3f})")
-                    skipped_parts.append(part)
-                    continue
-                p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1, query_vec=part_vec)
-                for line in p_ctx.split('\n'):
-                    if line.startswith('JAWABAN:'):
-                        relevant_answers.append(line.replace('JAWABAN: ', '').strip())
-                        break
-            if relevant_answers:
-                jawaban = '\n\n'.join(relevant_answers)
-                if skipped_parts:
-                    jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
-                print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
-            else:
-                jawaban = REJECTION_MSG
-            history.append({"role": "user", "content": req.pertanyaan})
-            history.append({"role": "assistant", "content": jawaban})
-            log_chat(cid, req.pertanyaan, jawaban)
-            log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                      bm25_status="ACCEPT", top_score=top_score,
-                      top_faq="", dijawab=bool(relevant_answers),
-                      multi_part=True, jawaban=jawaban)
-            if session_baru:
-                wib = timezone(timedelta(hours=7))
-                now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
-            return {"jawaban": jawaban, "skor": top_score}
-
-        # ── SINGLE QUESTION LLM ──
-        if top_score < 0.82:
-            prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
-            fallback_success = False
-            for depth in range(1, min(3, len(prev_queries) + 1)):
-                context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
-                enhanced_query = " — ".join(context_parts)
-                print(f"[QUERY] Cascade depth={depth}: '{enhanced_query[:120]}'")
-                ctx2, scores2, bq2 = hybrid_search(enhanced_query, top_k=5)
-                ts2 = float(scores2[0]) if len(scores2) > 0 else 0
-                if ts2 >= 0.82:
-                    print(f"[QUERY] Cascade depth={depth} berhasil: {top_score:.3f} → {ts2:.3f}")
-                    top_score = ts2
-                    context = ctx2
-                    best_q = bq2
-                    fallback_success = True
-                    break
-            if not fallback_success:
-                print(f"[QUERY] Cascade gagal — tolak (top_score={top_score:.3f})")
-                jawaban = REJECTION_MSG
-                history.append({"role": "user", "content": req.pertanyaan})
-                history.append({"role": "assistant", "content": jawaban})
-                log_chat(cid, req.pertanyaan, jawaban)
-                log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                          bm25_status="ACCEPT", top_score=top_score,
-                          top_faq=best_q, dijawab=False, jawaban=jawaban)
-                if session_baru:
-                    wib = timezone(timedelta(hours=7))
-                    now = datetime.now(wib).strftime("%H:%M")
-                    jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-                return {"jawaban": jawaban, "skor": top_score}
-
-        system_prompt = build_system_prompt(system_template, identity, acronyms)
-        messages = [{"role": "system", "content": system_prompt}]
-        messages.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=context)})
-        for msg in history:
-            messages.append(msg)
-        messages.append({"role": "user", "content": req.pertanyaan})
-        jawaban = await call_llm(messages, timeout=30)
-        if not jawaban:
-            jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
-        history.append({"role": "user", "content": req.pertanyaan})
-        history.append({"role": "assistant", "content": jawaban})
-        log_chat(cid, req.pertanyaan, jawaban)
-        top_faq = best_q if len(scores) > 0 else ""
-        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                  bm25_status="ACCEPT", top_score=top_score,
-                  top_faq=top_faq, dijawab=True, jawaban=jawaban)
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": top_score}
-
-    else:
-        # ── LAYER 2: FastText classifier ──
-        ft_domain, ft_conf = ft_classify(req.pertanyaan)
-        print(f"[DOMAIN] {ft_domain} — faq_sim={faq_sim:.3f}, ft_conf={ft_conf:.3f}")
-
-        # Greeting
-        if ft_domain == "greeting":
-            messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-            jawaban = await call_llm(messages, timeout=30)
-            if not jawaban:
-                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
-            api_rate_limit[cid]["last_active"] = time.time()
-            if session_baru:
-                wib = timezone(timedelta(hours=7))
-                now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-            log_chat(cid, req.pertanyaan, jawaban)
-            log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                      bm25_status="GREETING", dijawab=True, greeting=True, jawaban=jawaban)
-            return {"jawaban": jawaban, "skor": 1.0}
-
-        # Capability
-        if ft_domain == "capability":
-            messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-            jawaban = await call_llm(messages, timeout=30)
-            if not jawaban:
-                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
-            api_rate_limit[cid]["last_active"] = time.time()
-            if session_baru:
-                wib = timezone(timedelta(hours=7))
-                now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-            log_chat(cid, req.pertanyaan, jawaban)
-            log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                      bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
-            return {"jawaban": jawaban, "skor": 1.0}
-
-        # Out-of-context
-        print(f"[QUERY] Luar domain BPS — tolak (faq_sim={faq_sim:.3f}, ft={ft_conf:.3f})")
+    if faq_sim < 0.50:
+        # Beneran out-of-context — tolak
+        print(f"[QUERY] Luar domain BPS — tolak (ft={ft_domain}, faq_sim={faq_sim:.3f})")
         jawaban = REJECTION_MSG
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
@@ -422,3 +316,108 @@ async def chat(req: ChatRequest):
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": 0.0}
+
+    # Step 3: FAQ sim tinggi → hybrid retrieval
+    print(f"[DOMAIN] faq — faq_sim={faq_sim:.3f}")
+    bm25_score = faq_sim
+
+    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5, query_vec=query_vec)
+    top_score = float(scores[0]) if len(scores) > 0 else 0
+    print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
+
+    # ── MULTI-PART SPLIT ──
+    parts = re.split(r'\s+(?:dan|serta|sedangkan|lalu|terus|trus)\s+|[,;]\s*', req.pertanyaan.strip())
+    parts = [p.strip() for p in parts if p.strip()]
+    if len(parts) > 1:
+        relevant_answers = []
+        skipped_parts = []
+        for part in parts:
+            part_vec = encode_query(part)
+            _faq2 = getattr(_embedder_module, 'question_vecs', None)
+            if _faq2 is not None:
+                pv = part_vec.reshape(1, -1) if part_vec.ndim == 1 else part_vec
+                part_faq = float(cosine_similarity(pv, _faq2).flatten().max())
+            else:
+                part_faq = 0.0
+            if part_faq < 0.50:
+                print(f"[QUERY] Part '{part[:30]}...' skip (faq_sim={part_faq:.3f})")
+                skipped_parts.append(part)
+                continue
+            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1, query_vec=part_vec)
+            for line in p_ctx.split('\n'):
+                if line.startswith('JAWABAN:'):
+                    relevant_answers.append(line.replace('JAWABAN: ', '').strip())
+                    break
+        if relevant_answers:
+            jawaban = '\n\n'.join(relevant_answers)
+            if skipped_parts:
+                jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
+            print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
+        else:
+            jawaban = REJECTION_MSG
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                  bm25_status="ACCEPT", top_score=top_score,
+                  top_faq="", dijawab=bool(relevant_answers),
+                  multi_part=True, jawaban=jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": top_score}
+
+    # ── SINGLE QUESTION LLM ──
+    if top_score < 0.82:
+        prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
+        fallback_success = False
+        for depth in range(1, min(3, len(prev_queries) + 1)):
+            context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
+            enhanced_query = " — ".join(context_parts)
+            print(f"[QUERY] Cascade depth={depth}: '{enhanced_query[:120]}'")
+            ctx2, scores2, bq2 = hybrid_search(enhanced_query, top_k=5)
+            ts2 = float(scores2[0]) if len(scores2) > 0 else 0
+            if ts2 >= 0.82:
+                print(f"[QUERY] Cascade depth={depth} berhasil: {top_score:.3f} → {ts2:.3f}")
+                top_score = ts2
+                context = ctx2
+                best_q = bq2
+                fallback_success = True
+                break
+        if not fallback_success:
+            print(f"[QUERY] Cascade gagal — tolak (top_score={top_score:.3f})")
+            jawaban = REJECTION_MSG
+            history.append({"role": "user", "content": req.pertanyaan})
+            history.append({"role": "assistant", "content": jawaban})
+            log_chat(cid, req.pertanyaan, jawaban)
+            log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                      bm25_status="ACCEPT", top_score=top_score,
+                      top_faq=best_q, dijawab=False, jawaban=jawaban)
+            if session_baru:
+                wib = timezone(timedelta(hours=7))
+                now = datetime.now(wib).strftime("%H:%M")
+                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            return {"jawaban": jawaban, "skor": top_score}
+
+    system_prompt = build_system_prompt(system_template, identity, acronyms)
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=context)})
+    for msg in history:
+        messages.append(msg)
+    messages.append({"role": "user", "content": req.pertanyaan})
+    jawaban = await call_llm(messages, timeout=30)
+    if not jawaban:
+        jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
+    history.append({"role": "user", "content": req.pertanyaan})
+    history.append({"role": "assistant", "content": jawaban})
+    log_chat(cid, req.pertanyaan, jawaban)
+    top_faq = best_q if len(scores) > 0 else ""
+    log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+              bm25_status="ACCEPT", top_score=top_score,
+              top_faq=top_faq, dijawab=True, jawaban=jawaban)
+    if session_baru:
+        wib = timezone(timedelta(hours=7))
+        now = datetime.now(wib).strftime("%H:%M")
+        jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+    return {"jawaban": jawaban, "skor": top_score}
