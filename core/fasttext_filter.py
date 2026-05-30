@@ -19,6 +19,23 @@ _model = None
 _ready = False
 
 
+def _patch_numpy_compat():
+    """Monkey-patch fasttext.predict biar kompatibel sama NumPy 2.0.
+    Di Windows numpy 2.x, np.array(..., copy=False) error.
+    """
+    try:
+        import fasttext.FastText as _ft
+        _old = _ft._FastText.predict
+        def _patched(self, text, k=1, threshold=0.0):
+            labels, probs = _old(self, text, k, threshold)
+            # Convert to list dulu biar gak kena numpy copy error
+            return labels, [float(p) for p in probs]
+        _ft._FastText.predict = _patched
+        return True
+    except Exception:
+        return False
+
+
 def init_classifier() -> None:
     """Load atau train FastText model.
     Panggil SEKALI di startup.
@@ -32,6 +49,9 @@ def init_classifier() -> None:
     except ImportError:
         print("[FASTTEXT] ⚠️ fasttext library not installed")
         return
+
+    # Patch numpy 2.0 compatibility
+    _patch_numpy_compat()
 
     # Coba load model yang udah ada
     if os.path.exists(_FT_MODEL_PATH):

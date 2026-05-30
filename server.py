@@ -16,7 +16,7 @@ load_dotenv()
 import numpy as np
 from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
-from core.embedder import question_vecs as _faq_embeddings
+import core.embedder as _embedder_module
 from core.fasttext_filter import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
@@ -248,15 +248,18 @@ async def chat(req: ChatRequest):
                 }
             return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
+    history, session_baru = init_session(cid)
     # ===================== FAQ SIM + FASTTEXT DOMAIN FILTER =====================
     # Encode query SEKALI, reuse buat filter & retrieval
     query_vec = encode_query(req.pertanyaan)
 
     # Layer 1: FAQ similarity — berapa mirip query ini ke FAQ BPS secara semantik?
+    # Akses question_vecs via module reference (bukan import langsung — biar dapet nilai terbaru)
     from sklearn.metrics.pairwise import cosine_similarity
-    if _faq_embeddings is not None and len(_faq_embeddings) > 0:
+    _faq_embs = getattr(_embedder_module, 'question_vecs', None)
+    if _faq_embs is not None and len(_faq_embs) > 0:
         qv = query_vec.reshape(1, -1) if query_vec.ndim == 1 else query_vec
-        faq_sim = float(cosine_similarity(qv, _faq_embeddings).flatten().max())
+        faq_sim = float(cosine_similarity(qv, _faq_embs).flatten().max())
     else:
         faq_sim = 0.0
     print(f"[QUERY] faq_sim={faq_sim:.3f} | '{req.pertanyaan[:60]}'")
@@ -278,9 +281,10 @@ async def chat(req: ChatRequest):
             skipped_parts = []
             for part in parts:
                 part_vec = encode_query(part)
-                if _faq_embeddings is not None:
+                _faq_embs2 = getattr(_embedder_module, 'question_vecs', None)
+                if _faq_embs2 is not None:
                     pv = part_vec.reshape(1, -1) if part_vec.ndim == 1 else part_vec
-                    part_faq = float(cosine_similarity(pv, _faq_embeddings).flatten().max())
+                    part_faq = float(cosine_similarity(pv, _faq_embs2).flatten().max())
                 else:
                     part_faq = 0.0
                 if part_faq < 0.50:
