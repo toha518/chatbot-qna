@@ -47,35 +47,65 @@ _CAPABILITY_KEYWORDS = [
     "what can you do",
 ]
 
-_GREETING_PREFIXES = [
+# ── Compiled regex patterns ──
+# Multi-word phrases bisa substring match (gak ada false positive)
+# Single words pake word boundary \b biar "p" gak match "presiden"
+_GREETING_PATTERNS = [
+    # Multi-word (substring safe)
+    "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
+    "good morning", "good afternoon", "good evening",
+    "apa kabar",
+    "assalamualaikum", "assalamu'alaikum",
+]
+
+# Single-word + word boundary \b
+_GREETING_TOKENS = [
+    "halo", "hai", "hy", "hey", "hi", "helo", "hallo", "hello",
+    "pagi", "siang", "sore", "malam",
+    "permisi", "tes", "test", "coba",
+    "min", "mas", "eh", "hii", "hei", "p",
+]
+
+# PREFIX = single word prefix (biar "haloo", "pagi2", "assalamu" kena)
+_GREETING_PREFIX = [
     "halo", "hai", "hy", "hey", "hi", "helo", "hallo", "hello",
     "pagi", "siang", "sore", "malam",
     "assalamu",
 ]
 
+# Compile once
+_GREETING_TOKEN_RE = re.compile(
+    r'\b(' + '|'.join(re.escape(t) for t in _GREETING_TOKENS) + r')\b',
+    re.IGNORECASE
+)
+
 
 def _keyword_classify(text: str) -> tuple[str, float]:
     """Fallback classifier pake keyword matching.
-    Cek capability dulu (string spesifik), baru greeting (prefix & keyword).
+    Cek capability dulu (frasa spesifik), baru greeting (prefix & token regex).
     """
     t = text.strip().lower()
 
-    # Capability — exact substring match (spesifik)
+    # ── Capability — exact phrase match (spesifik, aman dari false positive) ──
     for kw in _CAPABILITY_KEYWORDS:
         if kw in t:
             return "capability", 0.95
 
-    # Greeting — prefix match (biar "haloo", "pagi min" kena)
+    # ── Greeting: prefix match (biar "haloo", "pagi min" kena) ──
     words = t.split()
     for w in words:
-        for prefix in _GREETING_PREFIXES:
+        for prefix in _GREETING_PREFIX:
             if w.startswith(prefix):
                 return "greeting", 0.90
 
-    # Greeting — multi-word exact match
-    for kw in _GREETING_KEYWORDS:
-        if kw in t:
-            return "greeting", 0.85
+    # ── Greeting: multi-word substring ──
+    for phrase in _GREETING_PATTERNS:
+        if phrase in t:
+            return "greeting", 0.90
+
+    # ── Greeting: single token word boundary ──
+    if _GREETING_TOKEN_RE.search(t):
+        return "greeting", 0.85
 
     return "out_of_context", 0.0
 
