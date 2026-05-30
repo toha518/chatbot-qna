@@ -84,7 +84,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom `kendala` & `solusi` |
 | 📊 **Query Logging** | Semua pertanyaan dicatat ke `query_log.jsonl` — BM25 score, status, jawaban |
-| 🧠 **Multi-Part Split** | Pertanyaan dengan "dan", "serta", "lalu" dipisah otomatis. Bagian di luar BPS di-skip |
+| 🧠 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 semantic merge. Cosim antar part ≥ 0.55? merge balik (1 konteks). < 0.55? split (beda intent). Bagian di luar BPS di-skip |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, panjang maks 500 karakter |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting biar bersih |
 
@@ -205,8 +205,13 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
          │
          ▼
 ┌─ 4. MULTI-PART SPLIT ───────────────────────┐
-│  Pisah "dan", "serta", "lalu"               │
-│  Tiap bagian hybrid search individual        │
+│  Layer 1: Heuristic split                    │
+│    konjungsi (dan/serta/sedangkan/lalu/...)  │
+│    delimiter (? / . / , / ;)                 │
+│  Layer 2: E5 Semantic Merge                  │
+│    cosim antar part < 0.55? = beda intent    │
+│    cosim ≥ 0.55? = 1 konteks → merge balik   │
+│  Tiap bagian hybrid search individual         │
 │  bagian skor < 0.50? → di-skip              │
 └───────────────────────────────────────────────┘
          │
@@ -360,6 +365,52 @@ Sebelum hybrid search dijalankan, FastText (atau keyword fallback di Windows) me
 **Dual-mode:**
 - **FastText model (4MB)** — jalan di Linux / VPS. Load instant, inferensi < 0.5ms
 - **Keyword fallback** — auto aktif kalo FastText model gagal load (Windows numpy 2.x bug). Akurasi test: 24/25 = 96%
+
+### 🧩 Multi-Part Split (E5 Semantic Boundary)
+
+User sering nanya multiple hal dalam 1 chat — "cara daftar SOBAT dan aktivasi FASIH" atau "lupa password? cara reset?". Dulu cuma split pake regex konjungsi (`dan`, `serta`, `lalu`), tapi ada false positive:
+
+| Query | Regex Split (dulu) | Seharusnya |
+|-------|:------------------:|:----------:|
+| "cara daftar SOBAT dan aktivasi FASIH" | ✅ Split (beda program) | ✅ Split |
+| "cara daftar SOBAT dan ketentuannya" | ❌ Split padahal 1 konteks | ❌ Jangan split |
+| "aktivasi FASIH bagaimana? kalau error?" | ❌ Gak split | ✅ Split |
+
+**Solusi — 2 Layer Split:**
+
+**Layer 1: Heuristic Split**
+Split berdasarkan delimiter alami:
+```
+• Konjungsi: dan, serta, sedangkan, lalu, terus, trus,
+  sementara itu, adapun, namun, tetapi, selanjutnya,
+  pertama, kedua, ketiga
+• Delimiter: ? diikuti kata, . sentence boundary, koma, titik koma
+```
+
+**Layer 2: E5 Semantic Merge**
+Setelah heuristic split, tiap pasangan part dicek cosine similarity:
+```python
+vec_a = E5_encode(part_a)
+vec_b = E5_encode(part_b)
+sim = cosine_similarity(vec_a, vec_b)
+
+if sim >= 0.55:
+    MERGE → masih 1 konteks ("daftar SOBAT" + "ketentuannya" → 0.72)
+else:
+    SPLIT → beda intent ("daftar SOBAT" + "aktivasi FASIH" → 0.35)
+```
+
+**E5 encode tiap part** — ini **reuse** dari pipeline yang udah jalan, jadi zero additional model cost.
+
+**Contoh hasil final:**
+
+| Query | Heuristic Split | Setelah E5 Merge | Hybrid Result |
+|-------|:---------------:|:----------------:|:-------------:|
+| "cara daftar SOBAT dan aktivasi FASIH" | [daftar SOBAT, aktivasi FASIH] | **split** (cosim 0.35) | ✅ 2 FAQ dicari |
+| "cara daftar SOBAT dan ketentuannya" | [daftar SOBAT, ketentuannya] | **merge** (cosim 0.72) | ✅ 1 query utuh |
+| "aktivasi FASIH? kalau error?" | [aktivasi FASIH, kalau error] | **split** (cosim 0.30) | ✅ 2 FAQ dicari |
+
+---
 
 ### 🔄 Cascade Fallback
 
@@ -995,6 +1046,10 @@ sudo lsof -i :8000              # Linux
 - `core/fasttext_train.txt` — 215 baris training data (50 greeting, 35 capability, 130+ out_of_context)
 - `core/domain_filter.ftz` — pre-trained FastText model (4MB, load instant)
 - `requirements.txt` — file dependencies resmi
+- **Multi-part split E5 Semantic Boundary** — 2 layer:
+  - Layer 1: Heuristic split (konjungsi + delimiter `?` `.` `,` `;`)
+  - Layer 2: E5 cosim antar part ≥ 0.55 → merge (1 konteks), < 0.55 → split (beda intent)
+  - Fix false split "daftar SOBAT dan ketentuannya" (cosim 0.72 → merge)
 - README: flow chart FastText step, tabel LLM dipanggil hanya saat top_score >= 0.82
 
 **Changed**
