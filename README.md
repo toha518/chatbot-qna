@@ -115,14 +115,22 @@ Input → FastText → greeting / capability → respon langsung (skip LLM)
 **Kenapa hybrid search bisa jadi domain filter?**
 Karena hybrid score gabungan E5 (semantic) + BM25 (keyword). Query di luar domain BPS otomatis dapet skor rendah dari **keduanya** — E5 gak dapet sinyal semantik yang cocok, BM25 gak dapet keyword overlap. RRF fusion-nya jeblok. Cascade fallback sebagai jaring terakhir.
 
-| Contoh | E5 cosim | BM25 | top_score | Hasil |
-|--------|:--------:|:----:|:---------:|:-----:|
-| "cara daftar SOBAT" | 0.86 | ✅ (daftar) | ≥ 0.82 | ✅ Dijawab |
-| "se2026 prelist" | 0.89 | ✅ (prelist) | ≥ 0.82 | ✅ Dijawab |
-| "siapa presiden indonesia" | 0.25 | ❌ 0.0 | ~0.15 ❌ | ❌ REJECT |
-| "resep nasi goreng" | 0.18 | ❌ 0.0 | ~0.10 ❌ | ❌ REJECT |
-| "hi" (tanpa fasttext) | 0.18 | ❌ 0.0 | ~0.10 ❌ | ❌ REJECT (tapi FastText tangkap sbg greeting) |
-| Multi-part campuran | — | — | — | ✅ Bagian FAQ dijawab, sisanya di-skip |
+> 🔑 **Yang penting:** Saat `top_score < 0.82`, sistem **LANGSUNG TOLAK tanpa memanggil LLM**. Jadi meskipun hybrid search tetap jalan (E5 encode, hitung similarity, BM25 scoring, RRF fusion), LLM cuma dipanggil kalau ada FAQ relevan yang ketemu. **Gak ada biaya LLM untuk pertanyaan di luar domain.**
+
+| Contoh | E5 cosim | BM25 | top_score | Panggil LLM? | Hasil |
+|--------|:--------:|:----:|:---------:|:------------:|:-----:|
+| "cara daftar SOBAT" | 0.86 | ✅ (daftar) | **≥ 0.82** | ✅ **Ya** (dengan konteks FAQ) | ✅ Dijawab |
+| "se2026 prelist" | 0.89 | ✅ (prelist) | **≥ 0.82** | ✅ **Ya** (dengan konteks FAQ) | ✅ Dijawab |
+| "siapa presiden indonesia" | 0.25 | ❌ 0.0 | **~0.15** | ❌ **Tidak** | ❌ REJECT (langsung) |
+| "resep nasi goreng" | 0.18 | ❌ 0.0 | **~0.10** | ❌ **Tidak** | ❌ REJECT (langsung) |
+| "hi" (tanpa fasttext) | 0.18 | ❌ 0.0 | **~0.10** | ❌ **Tidak** | ❌ REJECT (tapi FastText tangkap sbg greeting) |
+| Multi-part campuran | — | — | — | ✅ Tiap bagian dicek individu | ✅ Bagian FAQ dijawab, sisanya di-skip |
+
+**LLM cuma dipanggil di 2 situasi:**
+1. **FastText** mendeteksi greeting/capability → LLM jawab tanpa retrieval
+2. **top_score ≥ 0.82** (langsung atau setelah cascade) → LLM jawab dengan konteks FAQ
+
+Di luar itu? `REJECTION_MSG` — **string statis dari file `responses.json`**, bukan hasil LLM. Zero cost token.
 
 ### Trusted User
 
@@ -367,7 +375,9 @@ User: "linknya udah dicoba"             → skor hybrid 0.65 ❌ (terlalu pendek
 |:-----:|------|:---------:|
 | 0 | Search dengan query original | < 0.82 → depth 1 |
 | 1 | **Concat** 1 query user sebelumnya + query saat ini → search ulang | < 0.82 → depth 2 |
-| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | < 0.82 → **TOLAK** |
+| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | < 0.82 → **TOLAK** → **LLM TIDAK dipanggil** |
+
+> 🔑 **Poin penting:** Cascade reject berarti **LLM tidak pernah dipanggil**. Biaya token = 0. Yang terbuang cuma komputasi E5 encode + BM25 scoring — itu pun < 100ms di CPU.
 
 **Contoh cascade:**
 ```
