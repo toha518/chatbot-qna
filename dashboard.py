@@ -116,16 +116,24 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
         print(f"[LOGS-ERROR] Query failed: {e}")
         traceback.print_exc()
         return {"logs": [], "total": 0, "error": str(e)}
-    # Sanitize None values
+    # Sanitize values — convert None & strings to proper types
+    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"}
+    INT_COLS = {"dijawab", "multi_part", "session_baru"}
     for l in logs:
-        for k in l:
-            if l[k] is None:
-                if k in ("rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"):
+        for k in list(l.keys()):
+            v = l[k]
+            if v is None:
+                l[k] = 0 if k in NUMERIC_COLS | INT_COLS else ""
+            elif k in NUMERIC_COLS and isinstance(v, str):
+                try:
+                    l[k] = float(v)
+                except ValueError:
                     l[k] = 0
-                elif k in ("dijawab", "multi_part", "session_baru"):
+            elif k in INT_COLS and not isinstance(v, int):
+                try:
+                    l[k] = int(v)
+                except (ValueError, TypeError):
                     l[k] = 0
-                else:
-                    l[k] = ""
     try:
         total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}", params)[0]["cnt"]
     except Exception as e:

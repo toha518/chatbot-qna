@@ -513,7 +513,8 @@
         document.getElementById('logPrev').disabled = logPage === 0;
         document.getElementById('logNext').disabled = (logPage + 1) * LOG_LIMIT >= total;
       } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-danger">Error loading logs</td></tr>`;
+        console.error('[LOGS] Error:', e, e?.stack);
+        tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-danger">${e?.message||'Error loading logs'} — check console (F12)</td></tr>`;
       } finally {
         loader.style.display = 'none';
       }
