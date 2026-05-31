@@ -48,7 +48,6 @@ __label__negative_feedback kamu payah
 __label__negative_feedback payah
 __label__negative_feedback bot jelek
 __label__negative_feedback bot sampah
-__label__negative_feedback igut2
 __label__negative_feedback gak guna lu
 __label__negative_feedback percuma
 __label__negative_feedback percuma nanya
