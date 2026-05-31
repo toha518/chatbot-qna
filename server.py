@@ -310,7 +310,7 @@ async def chat(req: ChatRequest):
 
     if len(parts) > 1:
         from sklearn.metrics.pairwise import cosine_similarity
-        _SEMANTIC_MERGE_THRESHOLD = 0.55
+        _SEMANTIC_MERGE_THRESHOLD = 0.78
         merged_parts = [parts[0]]
         for i in range(1, len(parts)):
             prev_vec = encode_query(merged_parts[-1])
