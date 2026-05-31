@@ -413,6 +413,13 @@ async def chat(req: ChatRequest):
     jawaban = await call_llm(messages, timeout=30)
     if not jawaban:
         jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
+    # Post-LLM: kalo LLM ga nemu jawaban & domain BPS → tempel link QNA
+    if jawaban and top_bm25 > 0:
+        _ga_ketemu = ["tidak menemukan", "tidak dapat menemukan", "belum tersedia", "tidak ada informasi",
+                      "tidak tersedia", "belum ada informasi", "tidak bisa menjawab"]
+        if any(k in jawaban.lower() for k in _ga_ketemu):
+            if "http://s.bps.go.id/nara-qna" not in jawaban and "s.bps.go.id/nara-qna" not in jawaban:
+                jawaban += "\n\nℹ️ Pertanyaan Anda akan kami catat. Anda juga bisa mengajukannya langsung di:\n📩 http://s.bps.go.id/nara-qna"
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     log_chat(cid, req.pertanyaan, jawaban)
