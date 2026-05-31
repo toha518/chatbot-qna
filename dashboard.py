@@ -10,6 +10,9 @@ from pathlib import Path
 
 import httpx
 import asyncio
+import subprocess
+import sys
+import os
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -181,6 +184,115 @@ async def api_system_check():
     except Exception:
         ok = 0
     return {"total": len([s for s in SERVICES.values() if s["url"]]), "healthy": ok}
+
+
+# ── Service Control (Windows) ──
+
+SERVICE_PROCESSES = {
+    8000: "Server API (server.py)",
+    3000: "WA Bridge (bridge.js)",
+    3001: "WA Handler (wa_handler.py)",
+}
+
+
+def _is_windows():
+    return sys.platform == "win32"
+
+
+def _find_pids_by_port(port: int) -> list[int]:
+    """Cari PID yang nge-listen di port tertentu (Windows)."""
+    if not _is_windows():
+        return []
+    pids = []
+    try:
+        out = subprocess.check_output(
+            f'netstat -ano | findstr ":{port} "',
+            shell=True, stderr=subprocess.DEVNULL, timeout=10
+        ).decode("utf-8", errors="ignore")
+        for line in out.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                pid = parts[-1]
+                if pid.isdigit():
+                    pids.append(int(pid))
+    except Exception:
+        pass
+    return list(set(pids))
+
+
+def _find_pids_by_name(names: list[str]) -> list[int]:
+    """Cari PID berdasarkan window title (Windows)."""
+    if not _is_windows():
+        return []
+    pids = []
+    for name in names:
+        try:
+            out = subprocess.check_output(
+                f'tasklist /FI "WINDOWTITLE eq {name}*" /FO CSV /NH',
+                shell=True, stderr=subprocess.DEVNULL, timeout=10
+            ).decode("utf-8", errors="ignore")
+            for line in out.splitlines():
+                parts = [p.strip().strip('"') for p in line.split(",")]
+                if len(parts) >= 2 and parts[1].isdigit():
+                    pids.append(int(parts[1]))
+        except Exception:
+            pass
+    return list(set(pids))
+
+
+@app.post("/api/system/stop-all")
+async def api_stop_all():
+    """Stop semua service Nara."""
+    if not _is_windows():
+        return {"status": "error", "message": "Hanya bisa di Windows"}
+    killed = []
+    errors = []
+
+    # Stop via port
+    for port, label in SERVICE_PROCESSES.items():
+        pids = _find_pids_by_port(port)
+        for pid in pids:
+            try:
+                subprocess.run(f"taskkill /PID {pid} /F", shell=True,
+                               capture_output=True, timeout=5)
+                killed.append(f"{label} (PID {pid}, port {port})")
+            except Exception as e:
+                errors.append(f"{label} (PID {pid}): {e}")
+
+    # Stop via window title
+    window_pids = _find_pids_by_name(["SERVER", "WA_HANDLER", "BRIDGE", "TELEGRAM"])
+    for pid in window_pids:
+        if pid not in [int(p.split("PID ")[1].split(")")[0]) for p in killed if "PID" in p]:
+            try:
+                subprocess.run(f"taskkill /PID {pid} /F", shell=True,
+                               capture_output=True, timeout=5)
+                killed.append(f"Window process (PID {pid})")
+            except Exception as e:
+                errors.append(f"Window PID {pid}: {e}")
+
+    return {
+        "status": "ok",
+        "killed": killed,
+        "errors": errors,
+        "message": f"{len(killed)} service(s) stopped{' with ' + str(len(errors)) + ' error(s)' if errors else ''}"
+    }
+
+
+@app.post("/api/system/start-all")
+async def api_start_all():
+    """Start semua service Nara via start-all.bat."""
+    bat_path = Path(__file__).parent / "start-all.bat"
+    if not bat_path.exists():
+        return {"status": "error", "message": f"start-all.bat tidak ditemukan di {bat_path}"}
+    try:
+        subprocess.Popen(
+            ["cmd", "/c", "start", str(bat_path)],
+            cwd=str(bat_path.parent),
+            shell=True
+        )
+        return {"status": "ok", "message": "start-all.bat dijalankan — 4 terminal akan terbuka"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/api/top-faq")

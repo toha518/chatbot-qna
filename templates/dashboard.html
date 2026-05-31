@@ -174,11 +174,14 @@
     <!-- ===== SYSTEM HEALTH PAGE ===== -->
     <div id="page-system" style="display:none">
       <h5 class="mb-3 fw-bold">🖥️ System Health</h5>
-      <div class="d-flex gap-2 mb-3">
+      <div class="d-flex gap-2 mb-3 flex-wrap">
         <button class="btn btn-sm btn-outline-primary" onclick="loadSystem()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <button class="btn btn-sm btn-success" onclick="startAllServices()" id="btnStartAll"><i class="bi bi-play-fill"></i> Start All</button>
+        <button class="btn btn-sm btn-danger" onclick="stopAllServices()" id="btnStopAll"><i class="bi bi-stop-fill"></i> Stop All</button>
         <span class="text-muted ms-2 small" id="sysStatus">-</span>
         <span class="text-muted ms-auto small" id="sysUpdate"></span>
       </div>
+      <div id="sysToast" class="alert alert-info d-none py-2 px-3 mb-3" style="font-size:.85rem"></div>
       <div class="row g-3" id="sysCards"></div>
       <div class="row g-3 mt-2">
         <div class="col-12">
@@ -380,6 +383,61 @@
     }
     function stopSystemPoll() {
       if (sysTimer) { clearInterval(sysTimer); sysTimer = null; }
+    }
+
+    // ── Service Control ──
+
+    function showSysToast(msg, type) {
+      const el = document.getElementById('sysToast');
+      el.className = 'alert alert-' + type + ' py-2 px-3 mb-3';
+      el.style.fontSize = '.85rem';
+      el.textContent = msg;
+      el.classList.remove('d-none');
+      setTimeout(() => el.classList.add('d-none'), 8000);
+    }
+
+    async function stopAllServices() {
+      if (!confirm('Stop semua service Nara?\n\nServer API, WA Handler, WA Bridge, Telegram Bot akan dimatikan.')) return;
+      const btn = document.getElementById('btnStopAll');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Stopping...';
+      try {
+        const resp = await fetch('/api/system/stop-all', { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          showSysToast('🛑 ' + data.message, 'danger');
+          // Auto-refresh setelah 2 detik
+          setTimeout(loadSystem, 2000);
+        } else {
+          showSysToast('⚠️ ' + data.message, 'warning');
+        }
+      } catch(e) {
+        showSysToast('❌ Error: ' + e.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stop-fill"></i> Stop All';
+      }
+    }
+
+    async function startAllServices() {
+      const btn = document.getElementById('btnStartAll');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+      try {
+        const resp = await fetch('/api/system/start-all', { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          showSysToast('🚀 ' + data.message, 'success');
+          setTimeout(loadSystem, 3000);
+        } else {
+          showSysToast('⚠️ ' + data.message, 'warning');
+        }
+      } catch(e) {
+        showSysToast('❌ Error: ' + e.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Start All';
+      }
     }
 
     // Terminal
