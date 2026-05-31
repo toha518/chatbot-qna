@@ -77,7 +77,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Hybrid Search + Domain Filter (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. **Hybrid score otomatis jadi domain filter** — query di luar BPS dapet E5+BM25 rendah → cascade reject. Gak perlu layer filter tambahan |
-| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. 4 kelas spesifik respon langsung, skip retrieval & LLM. Keyword fallback sbg safety net |
+| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas spesifik respon langsung, skip retrieval & LLM. Keyword fallback sbg safety net |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -99,7 +99,7 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
+| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
 | 5 | 🔍 **Domain Filter (RRF-based)** | `server.py` | **Hybrid search (E5+BM25 via RRF) jadi domain filter.** Semua threshold pake RRF score (bukan E5/BM25 doang). 3 gate: RRF < 0.018 → out-of-context (tolak). 0.018 ≤ RRF < 0.025 → cascade → gagal? QNA link. RRF ≥ 0.025 → LLM jawab |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
@@ -220,7 +220,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 ┌─ 3. FASTTEXT CLASSIFIER ────────────────────┐
 │  greeting? → respon salam, skip LLM ✅       │
 │  capability? → respon fitur, skip LLM ✅     │
-│  out_of_context? → lanjut ke hybrid search   │
+│  forward? → lanjut ke hybrid search   │
 └───────────────────────────────────────────────┘
          │
          ▼
@@ -386,7 +386,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
               ├─ capability          → Template statis: "Saya bisa membantu: ..."
               ├─ positive_feedback   → Template: "Sama-sama! 😊 Ada yang bisa saya bantu lagi?"
               ├─ negative_feedback   → Template + link QNA: "Maaf ya... silakan ajukan lewat form"
-              └─ out_of_context      → Lanjut ke hybrid search + domain filter (RRF gate)
+              └─ forward             → Lanjut ke hybrid search + domain filter (RRF gate)
 ```
 
 | Domain | Deskripsi | Contoh Input | Respon | Handler |
@@ -395,11 +395,11 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 | **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
 | **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Sama-sama! 😊 Ada yang bisa saya bantu lagi?" | `responses.json → positive_feedback` |
 | **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
-| **out_of_context** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke hybrid search → RRF gate system | RRF domain filter |
+| **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke hybrid search → RRF gate system | RRF domain filter |
 
 **Kenapa perlu 5 kelas?**
-- Tanpa `positive_feedback`: "makasih" masuk out_of_context → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
-- Tanpa `negative_feedback`: "kamu ga membantu" masuk out_of_context → hybrid search → LLM dengan system prompt ketat → malah kasih link QNA dengan nada formal — padahal harusnya empati dulu.
+- Tanpa `positive_feedback`: "makasih" masuk forward → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
+- Tanpa `negative_feedback`: "kamu ga membantu" masuk forward → hybrid search → LLM dengan system prompt ketat → malah kasih link QNA dengan nada formal — padahal harusnya empati dulu.
 - Tanpa `capability` terpisah: LLM suka ngarang definisi palsu ("GC PBI = Ground Check Penggunaan Bahan Bakar Industri"). Template statis mencegah hal ini.
 
 **Model:**
@@ -413,7 +413,7 @@ __label__greeting pagi nara
 __label__capability kamu bisa apa
 __label__positive_feedback makasih
 __label__negative_feedback kamu tidak membantu
-__label__out_of_context siapa presiden
+__label__forward siapa presiden
 ```
 
 ### 🧩 Multi-Part Split (E5 Semantic Boundary)
@@ -1113,7 +1113,7 @@ sudo lsof -i :8000              # Linux
   - Fallback: keyword regex (auto aktif di Windows, akurasi test 24/25=96%)
   - FastText dulu di pipeline, sebelum hybrid search. Greeting/capability langsung respon, skip retrieval & LLM
 - `core/fasttext_filter.py` — FastText wrapper (load/train/classify) + keyword fallback
-- `core/fasttext_train.txt` — 215 baris training data (50 greeting, 35 capability, 130+ out_of_context)
+- `core/fasttext_train.txt` — 215 baris training data (50 greeting, 35 capability, 130+ forward)
 - `core/domain_filter.ftz` — pre-trained FastText model (4MB, load instant)
 - `requirements.txt` — file dependencies resmi
 - **Multi-part split E5 Semantic Boundary** — 2 layer:

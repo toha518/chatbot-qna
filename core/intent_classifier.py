@@ -1,6 +1,6 @@
 """
 Text classifier — Nara Layer 1 filter
-Membedakan: greeting, capability, positive_feedback, negative_feedback, out_of_context.
+Membedakan: greeting, capability, positive_feedback, negative_feedback, forward.
 
 Dual mode:
   - Primary: SGDClassifier + TF-IDF (<10KB model, <1ms inferensi)
@@ -94,7 +94,7 @@ _LABELS = [
     "negative_feedback",
     "capability",
     "greeting",
-    "out_of_context",
+    "forward",
 ]
 
 
@@ -123,7 +123,7 @@ def _keyword_classify(text: str) -> tuple[str, float]:
     if _GREETING_TOKEN_RE.search(t):
         return "greeting", 0.85
 
-    return "out_of_context", 0.0
+    return "forward", 0.0
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -228,15 +228,15 @@ def classify(text: str, threshold: float = 0.40) -> tuple[str, float]:
     Returns:
         (domain, confidence):
             "greeting" | "capability" | "positive_feedback" |
-            "negative_feedback" | "out_of_context"
+            "negative_feedback" | "forward"
     """
     if not _ready:
-        return "out_of_context", 0.0
+        return "forward", 0.0
 
     if _using_fallback:
         domain, confidence = _keyword_classify(text)
         if confidence < threshold:
-            return "out_of_context", confidence
+            return "forward", confidence
         return domain, confidence
 
     # Scikit-learn mode
@@ -248,7 +248,7 @@ def classify(text: str, threshold: float = 0.40) -> tuple[str, float]:
         domain = _model.classes_[best_idx]
 
         if confidence < threshold:
-            return "out_of_context", confidence
+            return "forward", confidence
         return domain, confidence
 
     except Exception as e:
