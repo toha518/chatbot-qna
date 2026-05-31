@@ -77,7 +77,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Hybrid Search + Domain Filter (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. **Hybrid score otomatis jadi domain filter** — query di luar BPS dapet E5+BM25 rendah → cascade reject. Gak perlu layer filter tambahan |
-| 🏷️ **FastText Greeting Detector** | FastText model (4MB) / keyword fallback untuk menyaring **sapaan** (halo, pagi, assalamualaikum) & **capability** (kamu bisa apa, siapa kamu). Respon langsung tanpa retrieval & LLM |
+| 🏷️ **FastText Greeting / Sentiment Detector** | FastText model (4MB) / keyword fallback. 5 kelas: **greeting**, **capability**, **positive_feedback**, **negative_feedback**, **out_of_context**. 4 kelas spesifik respon langsung tanpa retrieval & LLM. **Windows numpy 2.x compatibility patched** |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -1064,12 +1064,13 @@ sudo lsof -i :8000              # Linux
 - **QNA Form Link** — `http://s.bps.go.id/nara-qna` untuk pertanyaan domain BPS tapi belum ada di FAQ
   - Gate 1: Cascade gagal + RRF ≥ 0.018 → link QNA
   - Gate 2: Multi-part semua gagal + RRF ≥ 0.018 → link QNA
-- `responses.json`: 2 template baru — `rejection_out_of_context`, `rejection_no_answer`
+- `responses.json`: 3 template baru — `rejection_out_of_context`, `rejection_no_answer`, `capability` (template statis)
+- **FastText positive_feedback + negative_feedback detection** — 2 kelas baru:
+  - `positive_feedback`: "makasih", "ok", "sip", "mantap" → "Sama-sama! 😊"
+  - `negative_feedback`: "kamu tidak membantu", "jelek" → link QNA form
+  - Keduanya respon template statis (skip LLM, 0ms, $0)
+- FastText training data massive expansion: 215 → 478 baris
 - Template `capability` statis — gak panggil LLM (cegah ngarang definisi)
-- FastText training data massive expansion: 265 → 417 baris
-  - +greeting: WA style (pagi bang, met malem, bro, sis, gan) + varian "nara"
-  - +capability: colloquial (ngapain, lo, lu, situ, buat apa, guna apa)
-  - +out_of_context: traps (nanya TENTANG Nara), curhat, casual, e-commerce, pendidikan
 - System prompt diperkuat — checklist topik BPS + larangan ngarang definisi
 
 **Changed**
@@ -1081,7 +1082,8 @@ sudo lsof -i :8000              # Linux
 - `hybrid_search()` now returns `[E5, BM25, RRF]` — skor RRF dipake di server.py
 - **Merge threshold multi-part**: `0.55 → 0.78` — cegah false merge antar topik beda
 - **Capability → template statis** — gak panggil LLM (hemat ~200-500ms + token cost)
-- Emoji dibebaskan — hapus aturan maksimal 3 emoji & jenis tertentu
+- **Personality pindah ke identity.json** — `{personality}` placeholder di system.md
+- Emoji dibebaskan — hapus batasan (maks 3) di greeting.md & system.md
 - System prompt: "data referensi tidak menjawab" sekarang include link QNA
 - **Hapus semua hardcode daftar topik** — `/help`, `/topics`, greeting, rejection semua dynamic dari `identity.json`
 
