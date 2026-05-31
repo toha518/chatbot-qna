@@ -70,6 +70,33 @@ _CAPABILITY_KEYWORDS = [
     "what can you do",
 ]
 
+_POSITIVE_FEEDBACK_KEYWORDS = [
+    "makasih", "terima kasih", "terimakasih", "thanks", "thank you",
+    "makasih ya", "makasih banyak", "trims", "tengkyu",
+    "makasih kak", "makasih min", "makasih bang", "makasih loh",
+    "terima kasih banyak", "thank you so much",
+    "ok", "oke", "sip", "siap", "oke sip", "ok deh", "okee",
+    "baik", "baiklah", "noted",
+    "oke kak", "oke min", "siap kak",
+    "mantap", "thanks ya",
+]
+
+_NEGATIVE_FEEDBACK_KEYWORDS = [
+    "tidak membantu", "ga membantu", "gak membantu", "tak membantu",
+    "kamu tidak membantu", "kamu ga membantu", "kamu gak membantu",
+    "ga membantu jawabanmu", "jawabanmu ga membantu",
+    "gak guna", "ga guna", "tak guna",
+    "kamu gak guna", "kamu ga guna",
+    "jelek", "jelek banget", "kamu jelek", "bot jelek",
+    "gak jelas", "ga jelas", "jawabanmu gak jelas",
+    "payah", "kamu payah",
+    "bot sampah",
+    "percuma", "percuma nanya", "sia sia",
+    "jawabanmu salah", "salah semua",
+    "ngawur", "jawabanmu ngawur",
+    "kamu bodoh", "gak paham", "ga paham",
+]
+
 # ── Compiled regex patterns ──
 # Multi-word phrases bisa substring match (gak ada false positive)
 # Single words pake word boundary \b biar "p" gak match "presiden"
@@ -108,6 +135,16 @@ def _keyword_classify(text: str) -> tuple[str, float]:
     Cek capability dulu (frasa spesifik), baru greeting (prefix & token regex).
     """
     t = text.strip().lower()
+
+    # ── Positive feedback — "makasih", "ok", "sip" ──
+    for kw in _POSITIVE_FEEDBACK_KEYWORDS:
+        if kw in t:
+            return "positive_feedback", 0.95
+
+    # ── Negative feedback — "ga membantu", "jelek" ──
+    for kw in _NEGATIVE_FEEDBACK_KEYWORDS:
+        if kw in t:
+            return "negative_feedback", 0.95
 
     # ── Capability — exact phrase match (spesifik, aman dari false positive) ──
     for kw in _CAPABILITY_KEYWORDS:

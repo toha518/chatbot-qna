@@ -476,3 +476,5 @@ __label__out_of_context zodiak
 # ===== OUT_OF_CONTEXT (bukan greeting/capability) =====
 # ===== OUT_OF_CONTEXT — lebih banyak false positive traps =====
 # ===== OUT_OF_CONTEXT — traps (nanya tentang Nara, bukan ke Nara) =====
+
+# ===== POSITIVE_FEEDBACK — lebih banyak varian ====="
