@@ -108,15 +108,18 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
         clause += " AND dijawab = 0"
 
     logs = _rows(f"""
-        SELECT id, waktu, chat_id, pertanyaan, clf_domain, clf_confidence,
-               rrf_score, gate, gate_detail, dijawab, llm_model, llm_time_ms
-        FROM logs WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?
+        SELECT * FROM logs WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?
     """, params + [limit, offset])
     # Sanitize None values
     for l in logs:
         for k in l:
             if l[k] is None:
-                l[k] = 0 if k in ("rrf_score", "clf_confidence", "llm_time_ms") else ""
+                if k in ("rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"):
+                    l[k] = 0
+                elif k in ("dijawab", "multi_part", "session_baru"):
+                    l[k] = 0
+                else:
+                    l[k] = ""
     total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}", params)[0]["cnt"]
     return {"logs": logs, "total": total}
 
