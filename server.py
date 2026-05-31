@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 load_dotenv()
 # ===================== MODULES =====================
-from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
+from core.database import init_db, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
 from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
@@ -150,27 +150,33 @@ async def stop_session(req: StopRequest):
     }
 @app.get("/history")
 def list_all_history():
+    """Daftar semua chat_id dari query_log.db"""
     try:
-        rows = list_sessions()
-        wib = timezone(timedelta(hours=7))
+        from core.query_logger import SQLITE_FILE
+        db = sqlite3.connect(str(SQLITE_FILE))
+        rows = db.execute(
+            "SELECT chat_id, COUNT(*), MIN(waktu) FROM logs GROUP BY chat_id ORDER BY MIN(waktu) DESC"
+        ).fetchall()
+        db.close()
         result = []
-        for cid, total, first_ts in rows:
-            first_time = datetime.fromtimestamp(first_ts, wib).strftime("%Y-%m-%d %H:%M:%S")
-            result.append({"chat_id": cid, "total_chat": total, "pertama": first_time})
+        for cid, total, first in rows:
+            result.append({"chat_id": cid, "total_chat": total, "pertama": first})
         return {"total_sessions": len(result), "sessions": result}
     except Exception as e:
         return {"error": str(e)}
+
 @app.get("/history/{chat_id}")
 def get_one_history(chat_id: str):
+    """History per user dari query_log.db"""
     try:
-        rows = get_chat_history(chat_id)
-        if not rows:
-            return {"chat_id": chat_id, "total": 0, "messages": []}
-        wib = timezone(timedelta(hours=7))
-        formatted = []
-        for ts, user_q, bot_a in rows:
-            t = datetime.fromtimestamp(ts, wib).strftime("%Y-%m-%d %H:%M:%S")
-            formatted.append({"waktu": t, "user": user_q, "bot": bot_a})
+        from core.query_logger import SQLITE_FILE
+        db = sqlite3.connect(str(SQLITE_FILE))
+        rows = db.execute(
+            "SELECT waktu, pertanyaan, jawaban FROM logs WHERE chat_id=? ORDER BY waktu ASC LIMIT 200",
+            (chat_id,)
+        ).fetchall()
+        db.close()
+        formatted = [{"waktu": w, "user": q, "bot": a} for w, q, a in rows]
         return {"chat_id": chat_id, "total": len(formatted), "messages": formatted}
     except Exception as e:
         return {"error": str(e)}
@@ -268,7 +274,6 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
@@ -289,7 +294,6 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
@@ -300,7 +304,6 @@ async def chat(req: ChatRequest):
     if ft_domain == "positive_feedback":
         jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
@@ -310,7 +313,6 @@ async def chat(req: ChatRequest):
     if ft_domain == "negative_feedback":
         jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
@@ -380,7 +382,6 @@ async def chat(req: ChatRequest):
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf, top5_faq=[best_q] if best_q else [],
@@ -400,7 +401,6 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf,
@@ -430,7 +430,6 @@ async def chat(req: ChatRequest):
             jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
-            log_chat(cid, req.pertanyaan, jawaban)
             log_query(req.pertanyaan, cid,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                       rrf_score=top_rrf,
@@ -455,7 +454,6 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
-    log_chat(cid, req.pertanyaan, jawaban)
     top_faq = best_q if len(scores) > 0 else ""
     log_query(req.pertanyaan, cid,
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
