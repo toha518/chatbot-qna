@@ -30,6 +30,10 @@ timeout /t 1 /nobreak >nul
 echo [5/5] Telegram Bot...
 start "TELEGRAM" cmd /k python telegram_bot.py
 
+:: Tunggu semua service siap, lalu buka dashboard
+timeout /t 5 /nobreak >nul
+start http://localhost:8001
+
 echo.
 echo ===========================================
 echo   ✅ Semua service sudah dibuka!
