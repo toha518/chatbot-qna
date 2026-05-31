@@ -290,6 +290,24 @@ async def chat(req: ChatRequest):
                   bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
+    # Acknowledgment — respon langsung (makasih, ok, sip, dll)
+    if ft_domain == "acknowledgment":
+        jawaban = responses.get("acknowledgment", "Sama-sama! 😊")
+        api_rate_limit[cid]["last_active"] = time.time()
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
+                  bm25_status="ACKNOWLEDGMENT", dijawab=True, jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": 1.0}
+
+    # Negative feedback — respon langsung (kamu tidak membantu, dll)
+    if ft_domain == "negative_feedback":
+        jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
+        api_rate_limit[cid]["last_active"] = time.time()
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
+                  bm25_status="NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": 1.0}
+
     # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
     bm25_score = ft_conf
     context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)

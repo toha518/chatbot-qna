@@ -1,4 +1,66 @@
 
+# ===== ACKNOWLEDGMENT =====
+__label__acknowledgment makasih
+__label__acknowledgment terima kasih
+__label__acknowledgment terimakasih
+__label__acknowledgment thanks
+__label__acknowledgment thank you
+__label__acknowledgment makasih ya
+__label__acknowledgment makasih banyak
+__label__acknowledgment makasih kak
+__label__acknowledgment makasih min
+__label__acknowledgment terima kasih banyak
+__label__acknowledgment trims
+__label__acknowledgment ok
+__label__acknowledgment oke
+__label__acknowledgment sip
+__label__acknowledgment siap
+__label__acknowledgment oke sip
+__label__acknowledgment baik
+__label__acknowledgment baiklah
+__label__acknowledgment noted
+__label__acknowledgment oke kak
+__label__acknowledgment oke min
+__label__acknowledgment okee
+__label__acknowledgment ok deh
+__label__acknowledgment siap kak
+__label__acknowledgment thank you so much
+__label__acknowledgment makasih bang
+__label__acknowledgment makasih loh
+__label__acknowledgment tengkyu
+__label__acknowledgment makasih ya kak
+__label__acknowledgment mantap
+__label__acknowledgment thanks ya
+
+# ===== NEGATIVE FEEDBACK =====
+__label__negative_feedback kamu tidak membantu
+__label__negative_feedback ga membantu
+__label__negative_feedback tidak membantu
+__label__negative_feedback kamu gak guna
+__label__negative_feedback ga guna
+__label__negative_feedback kamu jelek
+__label__negative_feedback jelek banget
+__label__negative_feedback gak jelas
+__label__negative_feedback jawabanmu gak jelas
+__label__negative_feedback jawabanmu ga membantu
+__label__negative_feedback ga membantu jawabanmu
+__label__negative_feedback kamu payah
+__label__negative_feedback payah
+__label__negative_feedback bot jelek
+__label__negative_feedback bot sampah
+__label__negative_feedback igut2
+__label__negative_feedback gak guna lu
+__label__negative_feedback percuma
+__label__negative_feedback percuma nanya
+__label__negative_feedback sia sia
+__label__negative_feedback jawabanmu salah
+__label__negative_feedback salah semua
+__label__negative_feedback ngawur
+__label__negative_feedback jawabanmu ngawur
+__label__negative_feedback kamu bodoh
+__label__negative_feedback gak paham
+__label__negative_feedback ga paham
+
 # ===== CAPABILITY =====
 # ===== CAPABILITY — lebih banyak varian colloquial =====
 # ===== CAPABILITY — tanya tidak langsung =====

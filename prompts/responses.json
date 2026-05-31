@@ -3,6 +3,8 @@
 
   "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
   "capability": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa membantu pertanyaan seputar:\n{topics_list}\n\nAda yang bisa saya bantu? 😊",
+  "acknowledgment": "Sama-sama! 😊 Ada yang bisa saya bantu lagi?",
+  "negative_feedback": "Maaf ya kalau belum membantu. 🙏 Coba jelaskan kendalanya lebih detail — saya akan bantu semaksimal mungkin.",
   "rejection": "Maaf, saya tidak dapat menjawab pertanyaan tersebut. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
   "rejection_short": "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya.",
   "rejection_out_of_context": "Maaf, saya tidak bisa menjawab pertanyaan tersebut. Saya hanya bisa membantu pertanyaan seputar {topics_line}.",
