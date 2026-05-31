@@ -712,9 +712,13 @@
     // Top FAQ
     async function loadTopFAQ() {
       const data = await fetchAPI('top-faq');
+      const CAT_COLORS = ['bg-primary','bg-success','bg-info','bg-warning text-dark','bg-danger','bg-secondary','bg-dark','bg-primary bg-opacity-75','bg-success bg-opacity-75','bg-info bg-opacity-75'];
+      const catColorMap = {};
+      let colorIdx = 0;
       document.querySelector('#faqTable tbody').innerHTML = data.faqs?.map((f,i) => {
-        const catColor = f.category === 'greeting' ? 'bg-info' : f.category === 'capability' ? 'bg-primary' : f.category === 'feedback' ? 'bg-success' : f.category === 'luar_domain' ? 'bg-danger' : 'bg-secondary';
-        return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColor} gate-badge">${f.category||'-'}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
+        const cat = f.category||'-';
+        if (!catColorMap[cat]) catColorMap[cat] = CAT_COLORS[colorIdx++ % CAT_COLORS.length];
+        return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColorMap[cat]} gate-badge">${cat}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
       }).join('') || '<tr><td colspan="6" class="text-center py-3">No data</td></tr>';
     }
 

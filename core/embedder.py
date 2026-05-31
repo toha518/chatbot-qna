@@ -80,6 +80,15 @@ def load_from_gsheet(csv_url: str) -> int:
                 "categories": categories
             }, f)
 
+        # Save FAQ → category mapping for dashboard
+        try:
+            import json
+            with open("faq_categories.json", "w", encoding="utf-8") as f:
+                json.dump(dict(zip(questions, cats)), f, ensure_ascii=False, indent=2)
+            print(f"[RELOAD] Saved {len(cats)} FAQ categories to faq_categories.json")
+        except Exception as e:
+            print(f"[RELOAD] Gagal save FAQ categories: {e}")
+
         print(f"[RELOAD] {len(questions)} Q&A loaded from Google Sheets")
         from core.bm25 import build_bm25; build_bm25(questions)
         return len(questions)

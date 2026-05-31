@@ -337,6 +337,23 @@ async def api_start_all():
         return {"status": "error", "message": str(e)}
 
 
+# Load FAQ → category mapping dari faq_categories.json
+_FAQ_CATEGORIES = {}
+def _load_faq_categories():
+    global _FAQ_CATEGORIES
+    fp = Path(__file__).parent / "faq_categories.json"
+    if fp.exists():
+        try:
+            import json
+            _FAQ_CATEGORIES = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            _FAQ_CATEGORIES = {}
+    else:
+        _FAQ_CATEGORIES = {}
+
+_load_faq_categories()
+
+
 @app.get("/api/top-faq")
 def api_top_faq(days: int = 7, limit: int = 20):
     if not _table_exists():
@@ -355,14 +372,8 @@ def api_top_faq(days: int = 7, limit: int = 20):
     """, (limit,))
     for r in faqs:
         r["avg_rrf"] = round(r["avg_rrf"], 4) if r["avg_rrf"] else 0
-        # Cari kategori (clf_domain) paling sering untuk FAQ ini
-        rows = _rows(f"""
-            SELECT clf_domain, COUNT(*) as cnt
-            FROM logs, json_each(logs.top5_faq)
-            WHERE json_each.value = ? AND {clause} AND clf_domain != ''
-            GROUP BY clf_domain ORDER BY cnt DESC LIMIT 1
-        """, (r["faq"],))
-        r["category"] = rows[0]["clf_domain"] if rows else "-"
+        # Cari kategori dari spreadsheet FAQ (SOBAT, dll)
+        r["category"] = _FAQ_CATEGORIES.get(r["faq"], "-")
     return {"faqs": faqs}
 
 
