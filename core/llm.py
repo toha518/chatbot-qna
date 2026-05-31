@@ -2,6 +2,7 @@
 
 import os
 import json
+import time as _time
 import httpx
 
 # LLM config (diisi dari .env pas load_llm_config)
@@ -110,24 +111,22 @@ def build_system_prompt(system_template: str, identity: dict, acronyms: str = ""
 async def call_llm(messages: list[dict], timeout: int = 30):
     """
     Panggil LLM dengan failover chain.
-    Coba provider 1 → error? lanjut provider 2 → dst.
-    Returns string jawaban, atau None kalo semua gagal.
+    Returns tuple (jawaban, model_name, provider_name, time_ms).
     """
     for i in range(len(LLM_APIS)):
         try:
             api = LLM_APIS[i]
             key = LLM_KEYS[i]
             model = LLM_MODELS[i]
+            t0 = _time.time()
 
             # Pakai library ollama langsung kalo lokal
             if "localhost:11434" in api or "127.0.0.1:11434" in api:
                 from ollama import chat
-                response = chat(
-                    model=model,
-                    messages=messages,
-                )
-                print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal)")
-                return response.message.content
+                response = chat(model=model, messages=messages)
+                elapsed = int((_time.time() - t0) * 1000)
+                print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal) [{elapsed}ms]")
+                return response.message.content, model, f"ollama:{i+1}", elapsed
 
             # API eksternal — pake httpx
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -138,7 +137,6 @@ async def call_llm(messages: list[dict], timeout: int = 30):
                     "temperature": 0.1
                 }
 
-                # Kalo model DeepSeek — disable thinking biar full response
                 if "deepseek" in model.lower():
                     payload["thinking"] = {"type": "disabled"}
 
@@ -153,11 +151,12 @@ async def call_llm(messages: list[dict], timeout: int = 30):
                     err_msg = result.get("error", {}).get("message", str(result))
                     raise Exception(f"API {resp.status_code}: {err_msg}")
 
-                print(f"[LLM] ✅ Provider {i+1} — {model}")
-                return result["choices"][0]["message"]["content"]
+                elapsed = int((_time.time() - t0) * 1000)
+                print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
+                return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
 
         except Exception as e:
             print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")
             continue
 
-    return None
+    return None, "", "", 0

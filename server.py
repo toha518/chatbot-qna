@@ -252,12 +252,14 @@ async def chat(req: ChatRequest):
     history, session_baru = init_session(cid)
     # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
     ft_domain, ft_conf = ft_classify(req.pertanyaan)
+    from core.intent_classifier import _ready, _using_fallback
+    _clf_mode = "keyword_fallback" if _using_fallback else ("none" if not _ready else "scikit-learn")
     print(f"[DOMAIN] '{req.pertanyaan[:60]}' → {ft_domain} ({ft_conf:.3f})")
 
     # Greeting — respon langsung, skip retrieval
     if ft_domain == "greeting":
         messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-        jawaban = await call_llm(messages, timeout=30)
+        jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
         if not jawaban:
             topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
             jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
@@ -267,8 +269,10 @@ async def chat(req: ChatRequest):
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="GREETING", dijawab=True, greeting=True, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
+                  session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # Capability — respon langsung, skip retrieval
@@ -286,8 +290,10 @@ async def chat(req: ChatRequest):
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
+                  session_baru=session_baru)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # Acknowledgment — respon langsung (makasih, ok, sip, dll)
@@ -295,8 +301,9 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
         api_rate_limit[cid]["last_active"] = time.time()
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # Negative feedback — respon langsung (kamu tidak membantu, dll)
@@ -304,8 +311,9 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
         api_rate_limit[cid]["last_active"] = time.time()
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
@@ -373,10 +381,12 @@ async def chat(req: ChatRequest):
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                  bm25_status="ACCEPT", top_score=top_rrf,
-                  top_faq="", dijawab=bool(relevant_answers),
-                  multi_part=True, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  rrf_score=top_rrf, top5_faq=[best_q] if best_q else [],
+                  gate="MULTI_PART" if relevant_answers else "MULTI_PART_QNA",
+                  dijawab=bool(relevant_answers), jawaban=jawaban,
+                  multi_part=True, session_baru=session_baru)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
@@ -391,9 +401,11 @@ async def chat(req: ChatRequest):
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
-        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                  bm25_status="REJECT", top_score=top_rrf,
-                  top_faq="", dijawab=False, jawaban=jawaban)
+        log_query(req.pertanyaan, cid,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  rrf_score=top_rrf,
+                  gate="OUT_OF_CONTEXT", dijawab=False, jawaban=jawaban,
+                  session_baru=session_baru)
         return {"jawaban": jawaban, "skor": top_rrf}
 
     # Gate 2: RRF rendah tapi ada sinyal → cascade dulu, kalo gagal → QNA
@@ -419,9 +431,11 @@ async def chat(req: ChatRequest):
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
             log_chat(cid, req.pertanyaan, jawaban)
-            log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                      bm25_status="ACCEPT", top_score=top_rrf,
-                      top_faq=best_q, dijawab=False, jawaban=jawaban)
+            log_query(req.pertanyaan, cid,
+                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                      rrf_score=top_rrf,
+                      gate="CASCADE_QNA", dijawab=False, jawaban=jawaban,
+                      session_baru=session_baru)
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
@@ -435,16 +449,22 @@ async def chat(req: ChatRequest):
     for msg in history:
         messages.append(msg)
     messages.append({"role": "user", "content": req.pertanyaan})
-    jawaban = await call_llm(messages, timeout=30)
+    jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
     if not jawaban:
+        llm_model = llm_provider = ""; llm_time = 0
         jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     log_chat(cid, req.pertanyaan, jawaban)
     top_faq = best_q if len(scores) > 0 else ""
-    log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-              bm25_status="ACCEPT", top_score=top_rrf,
-              top_faq=top_faq, dijawab=True, jawaban=jawaban)
+    log_query(req.pertanyaan, cid,
+              clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+              rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores)>0 else 0,
+              bm25_raw=float(scores[1]) if len(scores)>1 else 0,
+              top5_faq=[best_q] if best_q else [],
+              gate="ANSWER", dijawab=True, jawaban=jawaban,
+              multi_part=False, session_baru=session_baru,
+              llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
     if session_baru:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")

@@ -1,117 +1,195 @@
 """
-query_logger.py — Logging evaluasi query Nara
-Mencatat tiap pertanyaan user + BM25 score + status + jawaban
-Format: JSONL (JSON Lines) — 1 baris per query
+query_logger.py — Dual-write logging Nara (JSONL + SQLite)
+Format: JSONL (1 baris JSON) + SQLite untuk analytics jangka panjang.
 """
 
 import json
 import os
+import sqlite3
+import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-LOG_FILE = Path(__file__).parent.parent / "query_log.jsonl"
-_MAX_LINES = 50000  # rotasi otomatis kalo udah 50ribu baris
+LOG_DIR = Path(__file__).parent.parent
+JSONL_FILE = LOG_DIR / "query_log.jsonl"
+SQLITE_FILE = LOG_DIR / "query_log.db"
+_MAX_JSONL_SIZE_KB = 500
+_sqlite_lock = threading.Lock()
 
 
 def _wib_now() -> str:
     return datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _init_sqlite():
+    """Buat table kalo belum ada"""
+    with _sqlite_lock:
+        db = sqlite3.connect(str(SQLITE_FILE))
+        db.execute("PRAGMA journal_mode=WAL")
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                waktu TEXT NOT NULL,
+                chat_id TEXT NOT NULL,
+                pertanyaan TEXT,
+                clf_domain TEXT,
+                clf_confidence REAL,
+                clf_mode TEXT,
+                rrf_score REAL,
+                e5_top REAL,
+                bm25_raw REAL,
+                top5_faq TEXT,
+                gate TEXT,
+                gate_detail TEXT,
+                dijawab INTEGER,
+                jawaban TEXT,
+                jawaban_length INTEGER,
+                llm_model TEXT,
+                llm_provider TEXT,
+                llm_time_ms INTEGER,
+                multi_part INTEGER,
+                session_baru INTEGER,
+                error TEXT
+            )
+        """)
+        db.execute("CREATE INDEX IF NOT EXISTS idx_waktu ON logs(waktu)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_gate ON logs(gate)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_clf ON logs(clf_domain)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_chat ON logs(chat_id)")
+        db.commit()
+        db.close()
+
+
+_init_sqlite()
+
+
 def log_query(
     pertanyaan: str,
     chat_id: str,
-    bm25_score: float,
-    bm25_status: str,       # "ACCEPT" | "REJECT"
-    top_score: float = 0.0,
-    top_faq: str = "",
+    *,
+    clf_domain: str = "",
+    clf_confidence: float = 0.0,
+    clf_mode: str = "scikit-learn",
+    rrf_score: float = 0.0,
+    e5_top: float = 0.0,
+    bm25_raw: float = 0.0,
+    top5_faq: list = None,
+    gate: str = "",
+    gate_detail: str = "",
     dijawab: bool = False,
     jawaban: str = "",
     multi_part: bool = False,
-    greeting: bool = False,
+    session_baru: bool = False,
+    llm_model: str = "",
+    llm_provider: str = "",
+    llm_time_ms: int = 0,
     error: str = "",
 ):
-    """Catat satu query ke file JSONL"""
+    """Catat satu request lengkap — dual write (JSONL + SQLite)"""
 
     entry = {
         "waktu": _wib_now(),
-        "chat_id": str(chat_id)[:16],
-        "pertanyaan": pertanyaan[:200],
-        "bm25_score": round(bm25_score, 2),
-        "bm25_status": bm25_status,
-        "top_score": round(top_score, 3),
-        "top_faq": top_faq[:100],
+        "chat_id": str(chat_id),
+        "pertanyaan": pertanyaan,
+        "clf_domain": clf_domain,
+        "clf_confidence": round(clf_confidence, 4),
+        "clf_mode": clf_mode,
+        "rrf_score": round(rrf_score, 4),
+        "e5_top": round(e5_top, 4),
+        "bm25_raw": round(bm25_raw, 2),
+        "top5_faq": top5_faq or [],
+        "gate": gate,
+        "gate_detail": gate_detail,
         "dijawab": dijawab,
+        "jawaban": jawaban,
+        "jawaban_length": len(jawaban),
+        "llm_model": llm_model,
+        "llm_provider": llm_provider,
+        "llm_time_ms": llm_time_ms,
         "multi_part": multi_part,
-        "greeting": greeting,
-        "error": error[:100],
+        "session_baru": session_baru,
+        "error": error[:200],
     }
 
-    # Ambil 100 karakter pertama jawaban
-    if jawaban:
-        entry["jawaban_preview"] = jawaban[:100]
-
+    # ── JSONL ──
     try:
-        # Cek rotasi
-        if LOG_FILE.exists() and LOG_FILE.stat().st_size > 500 * 1024:  # 500KB
-            _rotate()
-
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
+        if JSONL_FILE.exists() and JSONL_FILE.stat().st_size > _MAX_JSONL_SIZE_KB * 1024:
+            _rotate_jsonl()
+        with open(JSONL_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
     except Exception as e:
-        print(f"[LOG] Gagal nulis log: {e}")
+        print(f"[LOG] JSONL error: {e}")
+
+    # ── SQLite ──
+    try:
+        with _sqlite_lock:
+            db = sqlite3.connect(str(SQLITE_FILE))
+            db.execute("""
+                INSERT INTO logs (
+                    waktu, chat_id, pertanyaan,
+                    clf_domain, clf_confidence, clf_mode,
+                    rrf_score, e5_top, bm25_raw, top5_faq,
+                    gate, gate_detail, dijawab,
+                    jawaban, jawaban_length,
+                    llm_model, llm_provider, llm_time_ms,
+                    multi_part, session_baru, error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                entry["waktu"], entry["chat_id"], entry["pertanyaan"],
+                clf_domain, clf_confidence, clf_mode,
+                rrf_score, e5_top, bm25_raw, json.dumps(top5_faq or []),
+                gate, gate_detail, int(dijawab),
+                jawaban, len(jawaban),
+                llm_model, llm_provider, llm_time_ms,
+                int(multi_part), int(session_baru), error[:200],
+            ))
+            db.commit()
+            db.close()
+    except Exception as e:
+        print(f"[LOG] SQLite error: {e}")
 
 
-def _rotate():
-    """Rotasi file log kalo kegedean — rename + buat baru"""
-    if LOG_FILE.exists():
+def _rotate_jsonl():
+    """Rotasi JSONL — rename + buat baru"""
+    if JSONL_FILE.exists():
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup = LOG_FILE.with_name(f"query_log_{ts}.jsonl")
+        backup = JSONL_FILE.with_name(f"query_log_{ts}.jsonl")
         try:
-            LOG_FILE.rename(backup)
-            print(f"[LOG] Rotasi: {LOG_FILE.name} → {backup.name}")
+            JSONL_FILE.rename(backup)
+            print(f"[LOG] Rotasi: {JSONL_FILE.name} → {backup.name}")
         except Exception:
             pass
 
 
-def get_stats() -> dict:
-    """Baca file log dan kasi ringkasan statistik"""
-    if not LOG_FILE.exists():
-        return {"total": 0, "accepted": 0, "rejected": 0, "greetings": 0}
-
-    total = 0
-    accepted = 0
-    rejected = 0
-    greetings = 0
-    errors = 0
-
+def get_stats(days: int = 7) -> dict:
+    """Statistik dari SQLite (7 hari terakhir default)"""
     try:
-        with open(LOG_FILE, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                    total += 1
-                    if entry.get("greeting"):
-                        greetings += 1
-                    elif entry.get("bm25_status") == "ACCEPT":
-                        accepted += 1
-                    else:
-                        rejected += 1
-                    if entry.get("error"):
-                        errors += 1
-                except json.JSONDecodeError:
-                    continue
-    except Exception:
-        return {"total": total, "accepted": accepted, "rejected": rejected}
+        db = sqlite3.connect(str(SQLITE_FILE))
+        cutoff = (datetime.now(timezone(timedelta(hours=7)))
+                  .replace(hour=0, minute=0, second=0, microsecond=0))
+        from datetime import timedelta as td
+        cutoff = (cutoff - td(days=days - 1)).strftime("%Y-%m-%d")
 
-    return {
-        "total": total,
-        "accepted": accepted,
-        "rejected": rejected,
-        "greetings": greetings,
-        "errors": errors,
-        "file": str(LOG_FILE),
-        "size_kb": round(LOG_FILE.stat().st_size / 1024, 1) if LOG_FILE.exists() else 0,
-    }
+        total = db.execute("SELECT COUNT(*) FROM logs WHERE waktu >= ?", (cutoff,)).fetchone()[0]
+        by_gate = {}
+        for row in db.execute("SELECT gate, COUNT(*) FROM logs WHERE waktu >= ? GROUP BY gate", (cutoff,)):
+            by_gate[row[0]] = row[1]
+        by_clf = {}
+        for row in db.execute("SELECT clf_domain, COUNT(*) FROM logs WHERE waktu >= ? GROUP BY clf_domain", (cutoff,)):
+            by_clf[row[0]] = row[1]
+        avg_rrf = db.execute("SELECT AVG(rrf_score) FROM logs WHERE waktu >= ?", (cutoff,)).fetchone()[0]
+        unique_users = db.execute("SELECT COUNT(DISTINCT chat_id) FROM logs WHERE waktu >= ?", (cutoff,)).fetchone()[0]
+        db.close()
+
+        return {
+            "period": f"{days} hari",
+            "total_logs": total,
+            "unique_users": unique_users,
+            "avg_rrf_score": round(avg_rrf, 4) if avg_rrf else 0,
+            "by_gate": by_gate,
+            "by_clf": by_clf,
+            "jsonl_size_kb": round(JSONL_FILE.stat().st_size / 1024, 1) if JSONL_FILE.exists() else 0,
+            "sqlite_size_kb": round(SQLITE_FILE.stat().st_size / 1024, 1) if SQLITE_FILE.exists() else 0,
+        }
+    except Exception as e:
+        return {"error": str(e)}
