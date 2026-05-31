@@ -56,6 +56,27 @@ __label__greeting eh min
 __label__greeting min
 __label__greeting mas
 
+__label__greeting halo nara
+__label__greeting hai nara
+__label__greeting hi nara
+__label__greeting pagi nara
+__label__greeting siang nara
+__label__greeting sore nara
+__label__greeting malam nara
+__label__greeting nara
+__label__greeting nara bantu dong
+__label__greeting nara help
+__label__greeting helo nara
+__label__greeting selamat pagi nara
+__label__greeting selamat siang nara
+__label__greeting selamat sore nara
+__label__greeting selamat malam nara
+__label__greeting permisi nara
+__label__greeting assalamualaikum nara
+__label__greeting hy nara
+__label__greeting eh nara
+__label__greeting nara dong
+
 # ===== CAPABILITY =====
 __label__capability kamu bisa apa
 __label__capability kamu bisa apa aja
@@ -95,8 +116,16 @@ __label__capability ini bot apa
 __label__capability kamu ini apa
 __label__capability jelaskan tentang dirimu
 __label__capability ceritakan tentang dirimu
+__label__capability nara bisa apa
+__label__capability nara kamu bisa apa
+__label__capability nara siapa
+__label__capability nara kamu siapa
+__label__capability nara perkenalan
+__label__capability nara jelaskan tentang dirimu
+__label__capability hai nara kamu bisa apa
+__label__capability halo nara bisa bantu apa
 
-# ===== OUT_OF_CONTEXT (jebakan) =====
+# ===== OUT_OF_CONTEXT (bukan greeting/capability) =====
 __label__out_of_context siapa nama presiden Indonesia
 __label__out_of_context siapa presiden Indonesia
 __label__out_of_context siapa presiden sekarang
