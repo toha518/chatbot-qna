@@ -288,28 +288,26 @@ async def chat(req: ChatRequest):
                   bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # hybrid retrieval
+    # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
     bm25_score = ft_conf
     context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
-    top_score = float(scores[0]) if len(scores) > 0 else 0
-    top_bm25 = float(scores[1]) if len(scores) > 1 else 0
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
-    print(f"[QUERY] E5={top_score:.3f} | BM25={top_bm25:.1f} | RRF={top_rrf:.4f} (hybrid)")
+    print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25)")
+
+    # Gate 0: out-of-context (BM25=0 → RRF ≤ 0.0164, ga mungkin ≥ 0.018)
+    _OOC_THRESHOLD = 0.018   # < 0.018 = out of context total
+    _ANSWER_THRESHOLD = 0.025  # ≥ 0.025 = ada FAQ match yang jelas
 
     # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
-    # Step 1: heuristic split by conjunctions, question marks, sentence boundaries
     _SPLIT_PATTERN = re.compile(
-        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'  # conjunctions
-        r'|(?<=\?)\s+(?=[A-Za-z])'      # "? " diikuti kata
-        r'|\.\s+'                         # ". " — sentence boundary
-        r'|[,;]\s*'                       # comma or semicolon
+        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'
+        r'|(?<=\?)\s+(?=[A-Za-z])'
+        r'|\.\s+'
+        r'|[,;]\s*'
     )
     parts = _SPLIT_PATTERN.split(req.pertanyaan.strip())
     parts = [p.strip().rstrip('?.').strip() for p in parts if p.strip()]
 
-    # Step 2: E5 semantic merge — gabungin part yang masih 1 konteks
-    # Dua part di-merge kalo E5 cosine similarity-nya >= threshold
-    # (misal "cara daftar SOBAT dan ketentuannya" — semantically related)
     if len(parts) > 1:
         from sklearn.metrics.pairwise import cosine_similarity
         _SEMANTIC_MERGE_THRESHOLD = 0.55
@@ -321,11 +319,9 @@ async def chat(req: ChatRequest):
             if curr_vec.ndim == 1: curr_vec = curr_vec.reshape(1, -1)
             sim = float(cosine_similarity(prev_vec, curr_vec).flatten()[0])
             if sim >= _SEMANTIC_MERGE_THRESHOLD:
-                # Semantically related — merge
                 merged_parts[-1] = merged_parts[-1] + " " + parts[i]
                 print(f"[MERGE] Part {i-1}+{i}: sim={sim:.3f} -> '{merged_parts[-1][:60]}'")
             else:
-                # Different intents — keep separate
                 merged_parts.append(parts[i])
                 print(f"[SPLIT] Part {i-1} vs {i}: sim={sim:.3f} -> separate intents")
         parts = merged_parts
@@ -335,9 +331,9 @@ async def chat(req: ChatRequest):
         skipped_parts = []
         for part in parts:
             p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1)
-            ts_p = float(p_scores[0]) if len(p_scores) > 0 else 0
-            if ts_p < 0.50:
-                print(f"[QUERY] Part '{part[:30]}...' skip (score={ts_p:.3f})")
+            p_rrf = float(p_scores[2]) if len(p_scores) > 2 else 0
+            if p_rrf < _ANSWER_THRESHOLD:
+                print(f"[QUERY] Part '{part[:30]}...' skip (RRF={p_rrf:.4f})")
                 skipped_parts.append(part)
                 continue
             for line in p_ctx.split('\n'):
@@ -350,61 +346,69 @@ async def chat(req: ChatRequest):
                 jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
-            # Split out_of_context vs QNA: BM25=0 → ga ada keyword FAQ overlap = out of context
-            if top_rrf < 0.02:
+            if top_rrf < _OOC_THRESHOLD:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
-                # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                  bm25_status="ACCEPT", top_score=top_score,
+                  bm25_status="ACCEPT", top_score=top_rrf,
                   top_faq="", dijawab=bool(relevant_answers),
                   multi_part=True, jawaban=jawaban)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": top_score}
+        return {"jawaban": jawaban, "skor": top_rrf}
 
-    # ── SINGLE QUESTION — cascade fallback kalo score rendah ──
-    if top_score < 0.82:
+    # ── SINGLE QUESTION: gate out-of-context / cascade / answer ──
+    # Gate 1: out-of-context total → tolak
+    if top_rrf < _OOC_THRESHOLD:
+        print(f"[QUERY] Out of context (RRF={top_rrf:.4f})")
+        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=bm25_score,
+                  bm25_status="REJECT", top_score=top_rrf,
+                  top_faq="", dijawab=False, jawaban=jawaban)
+        return {"jawaban": jawaban, "skor": top_rrf}
+
+    # Gate 2: RRF rendah tapi ada sinyal → cascade dulu, kalo gagal → QNA
+    if top_rrf < _ANSWER_THRESHOLD:
         prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
-        fallback_success = False
+        cascade_ok = False
         for depth in range(1, min(3, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)
             print(f"[QUERY] Cascade depth={depth}: '{enhanced_query[:120]}'")
             ctx2, scores2, bq2 = hybrid_search(enhanced_query, top_k=5)
-            ts2 = float(scores2[0]) if len(scores2) > 0 else 0
-            if ts2 >= 0.82:
-                print(f"[QUERY] Cascade depth={depth} berhasil: {top_score:.3f} → {ts2:.3f}")
-                top_score = ts2
+            ts2 = float(scores2[2]) if len(scores2) > 2 else 0
+            if ts2 >= _ANSWER_THRESHOLD:
+                print(f"[QUERY] Cascade depth={depth} berhasil: RRF {top_rrf:.4f} → {ts2:.4f}")
+                top_rrf = ts2
                 context = ctx2
                 best_q = bq2
-                fallback_success = True
+                cascade_ok = True
                 break
-        if not fallback_success:
-            print(f"[QUERY] Cascade gagal (E5={top_score:.3f} | RRF={top_rrf:.4f})")
-            # Split: BM25=0 → out of context. BM25>0 → BPS tapi ga di DB → QNA
-            if top_rrf < 0.02:
-                jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
-            else:
-                jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
+        if not cascade_ok:
+            print(f"[QUERY] Cascade gagal → QNA link (RRF={top_rrf:.4f})")
+            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
             log_chat(cid, req.pertanyaan, jawaban)
             log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-                      bm25_status="ACCEPT", top_score=top_score,
+                      bm25_status="ACCEPT", top_score=top_rrf,
                       top_faq=best_q, dijawab=False, jawaban=jawaban)
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
                 jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-            return {"jawaban": jawaban, "skor": top_score}
+            return {"jawaban": jawaban, "skor": top_rrf}
 
+    # Gate 3: RRF ≥ ANSWER threshold → jawab pake LLM
     system_prompt = build_system_prompt(system_template, identity, acronyms)
     messages = [{"role": "system", "content": system_prompt}]
     messages.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=context)})
@@ -414,22 +418,15 @@ async def chat(req: ChatRequest):
     jawaban = await call_llm(messages, timeout=30)
     if not jawaban:
         jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
-    # Post-LLM: kalo LLM ga nemu jawaban & domain BPS → tempel link QNA
-    if jawaban and top_rrf >= 0.02:
-        _ga_ketemu = ["tidak menemukan", "tidak dapat menemukan", "belum tersedia", "tidak ada informasi",
-                      "tidak tersedia", "belum ada informasi", "tidak bisa menjawab"]
-        if any(k in jawaban.lower() for k in _ga_ketemu):
-            if "http://s.bps.go.id/nara-qna" not in jawaban and "s.bps.go.id/nara-qna" not in jawaban:
-                jawaban += "\n\nℹ️ Pertanyaan Anda akan kami catat. Anda juga bisa mengajukannya langsung di:\n📩 http://s.bps.go.id/nara-qna"
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     log_chat(cid, req.pertanyaan, jawaban)
     top_faq = best_q if len(scores) > 0 else ""
     log_query(req.pertanyaan, cid, bm25_score=bm25_score,
-              bm25_status="ACCEPT", top_score=top_score,
+              bm25_status="ACCEPT", top_score=top_rrf,
               top_faq=top_faq, dijawab=True, jawaban=jawaban)
     if session_baru:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")
         jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-    return {"jawaban": jawaban, "skor": top_score}
+    return {"jawaban": jawaban, "skor": top_rrf}
