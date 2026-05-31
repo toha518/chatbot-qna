@@ -1,29 +1,44 @@
 
 # ===== CAPABILITY =====
+# ===== CAPABILITY — lebih banyak varian colloquial =====
 # ===== CAPABILITY — tanya tidak langsung =====
 # FastText training data — domain filter Nara
 # Format: __label__<class> <text>
 # ===== GREETING =====
 # ===== GREETING — WA style & singkatan =====
 __label__capability ada yang bisa kamu bantu
+__label__capability anda bisa apa
+__label__capability anda bisa bantu apa
 __label__capability apa aja yang kamu tau
+__label__capability apa guna kamu
 __label__capability apa saja yang bisa kamu bantu
+__label__capability apa tujuan kamu
 __label__capability apa yang bisa kamu lakukan
 __label__capability apa yang bisa saya tanyakan
 __label__capability bantuan apa yang kamu berikan
+__label__capability bisa apa aja sih
+__label__capability bisa bantu apa bang
+__label__capability bisa bantu apa kak
+__label__capability bisa bantu apa mas
+__label__capability bisa ngapain aja
 __label__capability bot apa ini
 __label__capability bot ini bisa apa
+__label__capability buat apa ini
 __label__capability ceritakan tentang dirimu
 __label__capability dengan nara ya
 __label__capability fitur apa aja
 __label__capability fitur apa saja yang kamu punya
 __label__capability fungsi kamu apa
+__label__capability fungsinya apa
+__label__capability gunanya apa
 __label__capability hai nara kamu bisa apa
 __label__capability halo nara bisa bantu apa
 __label__capability ini bot apa
+__label__capability ini buat apa
 __label__capability ini nara kah
 __label__capability jelaskan tentang dirimu
 __label__capability kakak siapa
+__label__capability kamu berguna buat apa
 __label__capability kamu bisa apa
 __label__capability kamu bisa apa aja
 __label__capability kamu bisa bantu apa
@@ -31,19 +46,24 @@ __label__capability kamu bisa bantu apa saja
 __label__capability kamu bisa jawab apa
 __label__capability kamu bisa jawab pertanyaan apa
 __label__capability kamu bisa melakukan apa
+__label__capability kamu bisa ngapain
 __label__capability kamu bot apa
 __label__capability kamu ini apa
 __label__capability kamu nara ya
+__label__capability kamu ngapain aja
 __label__capability kamu punya fitur apa
 __label__capability kamu siapa
 __label__capability kamu tahu apa saja
 __label__capability keahlian kamu apa
 __label__capability kenalan
+__label__capability lo bisa apa
+__label__capability lu bisa apa
 __label__capability nama kamu
 __label__capability nama kamu siapa
 __label__capability nara bantu saya
 __label__capability nara bisa apa
 __label__capability nara bisa bantu saya
+__label__capability nara bisa ngapain
 __label__capability nara itu apaan sih
 __label__capability nara jelaskan tentang dirimu
 __label__capability nara kamu bisa apa
@@ -52,12 +72,14 @@ __label__capability nara perkenalan
 __label__capability nara siapa
 __label__capability nara singkatan dari apa
 __label__capability nara tolong bantu
+__label__capability ngapain aja bisa
 __label__capability peran kamu apa
 __label__capability perkenalan dulu
 __label__capability perkenalkan
 __label__capability perkenalkan dirimu
 __label__capability siapa kamu
 __label__capability siapa nama kamu
+__label__capability situ bisa apa
 __label__capability tugas kamu apa
 __label__capability what can you do
 __label__greeting apa kabar
