@@ -105,10 +105,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /help"""
     chat_id = str(update.effective_chat.id)
+    topics_line = ", ".join(_IDENTITY.get("topics", []))
     await update.message.reply_text(
-        "Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
-        "dari database mengenai SOBAT, GC PBI, GC PLN, FASIH, "
-        "dan Pengolahan SE2026.",
+        f"Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
+        f"dari database mengenai {topics_line}.",
         reply_markup=MENU_MARKUP
     )
 
@@ -116,13 +116,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /topics — daftar topik"""
     chat_id = str(update.effective_chat.id)
+    topics = _IDENTITY.get("topics", [])
+    topics_text = "\n".join(f"{i+1}. {t}" for i, t in enumerate(topics))
     await update.message.reply_text(
-        "Topik yang saya kuasai:\n"
-        "1. SOBAT\n"
-        "2. GC PBI\n"
-        "3. GC PLN\n"
-        "4. FASIH\n"
-        "5. Pengolahan SE2026",
+        f"Topik yang saya kuasai:\n{topics_text}",
         reply_markup=MENU_MARKUP
     )
 
