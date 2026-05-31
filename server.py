@@ -290,7 +290,7 @@ async def chat(req: ChatRequest):
 
     # out_of_context → tolak langsung (pertanyaan di luar BPS)
     if ft_domain == "out_of_context" and ft_conf >= 0.6:
-        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG)
+        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
