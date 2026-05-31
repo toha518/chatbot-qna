@@ -293,7 +293,8 @@ async def chat(req: ChatRequest):
     context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
     top_bm25 = float(scores[1]) if len(scores) > 1 else 0
-    print(f"[QUERY] top_score={top_score:.3f} | BM25={top_bm25:.1f} (hybrid E5+BM25)")
+    top_rrf = float(scores[2]) if len(scores) > 2 else 0
+    print(f"[QUERY] E5={top_score:.3f} | BM25={top_bm25:.1f} | RRF={top_rrf:.4f} (hybrid)")
 
     # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
     # Step 1: heuristic split by conjunctions, question marks, sentence boundaries
@@ -350,7 +351,7 @@ async def chat(req: ChatRequest):
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
             # Split out_of_context vs QNA: BM25=0 → ga ada keyword FAQ overlap = out of context
-            if top_bm25 < 1.0:
+            if top_rrf < 0.02:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
                 # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
@@ -386,9 +387,9 @@ async def chat(req: ChatRequest):
                 fallback_success = True
                 break
         if not fallback_success:
-            print(f"[QUERY] Cascade gagal (top_score={top_score:.3f} | BM25={top_bm25:.1f})")
+            print(f"[QUERY] Cascade gagal (E5={top_score:.3f} | RRF={top_rrf:.4f})")
             # Split: BM25=0 → out of context. BM25>0 → BPS tapi ga di DB → QNA
-            if top_bm25 < 1.0:
+            if top_rrf < 0.02:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
@@ -414,7 +415,7 @@ async def chat(req: ChatRequest):
     if not jawaban:
         jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
     # Post-LLM: kalo LLM ga nemu jawaban & domain BPS → tempel link QNA
-    if jawaban and top_bm25 >= 1.0:
+    if jawaban and top_rrf >= 0.02:
         _ga_ketemu = ["tidak menemukan", "tidak dapat menemukan", "belum tersedia", "tidak ada informasi",
                       "tidak tersedia", "belum ada informasi", "tidak bisa menjawab"]
         if any(k in jawaban.lower() for k in _ga_ketemu):

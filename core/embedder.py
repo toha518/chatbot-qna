@@ -222,11 +222,14 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
 
     # ── RRF fusion ──
     K = 60  # smoothing constant
+    bm25_max = float(np.max(bm25_scores))
     rrf_scores = np.zeros(len(questions))
     for i, idx in enumerate(e5_rank):
         rrf_scores[idx] += 1.0 / (i + K)
-    for i, idx in enumerate(bm25_rank):
-        rrf_scores[idx] += 1.0 / (i + K)
+    # JANGAN tambah BM25 ke RRF kalo BM25=0 (arbitrary ranking noise)
+    if bm25_max > 0:
+        for i, idx in enumerate(bm25_rank):
+            rrf_scores[idx] += 1.0 / (i + K)
 
     # ── Top-K by RRF ──
     best_idx = np.argsort(-rrf_scores)[:top_k]
@@ -263,8 +266,9 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
             context = (f"PERTANYAAN: {questions[idx0]}\n"
                        f"JAWABAN: {answers[idx0]}\n\n")
 
-    # ── Return E5 top score + BM25 top score → server.py bisa split out-of-context vs QNA ──
+    # ── Return: [E5, BM25, RRF] — RRF buat domain filter, E5 buat cascade threshold ──
     best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
     top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_bm25 = float(bm25_scores[best_idx[0]]) if len(best_idx) > 0 else 0
-    return context, np.array([top_e5, top_bm25]), best_q
+    top_rrf = float(rrf_scores[best_idx[0]]) if len(best_idx) > 0 else 0
+    return context, np.array([top_e5, top_bm25, top_rrf]), best_q
