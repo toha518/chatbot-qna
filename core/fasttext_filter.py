@@ -1,51 +1,28 @@
 """
-FastText-based domain classifier — Nara Layer 1 filter
+Text classifier — Nara Layer 1 filter
 Membedakan: greeting, capability, positive_feedback, negative_feedback, out_of_context.
 
 Dual mode:
-  - Primary: FastText (4MB, <0.5ms) — model.ftz
-  - Fallback: keyword heuristic — auto aktif kalo FastText error
+  - Primary: SGDClassifier + TF-IDF (<10KB model, <1ms inferensi)
+  - Fallback: keyword heuristic — auto aktif kalo scikit-learn gagal import
 """
 
 import os
 import re
-import numpy as np
-
-# ── PATCH: FastText numpy 2.x compatibility ──
-# FastText.py line 232: `np.array(probs, copy=False)` → gagal di numpy 2.x
-# Patch: intercept ValueError, retry tanpa copy=False.
-# Tetap aktif sepanjang runtime — negligible overhead.
-_NP_ARRAY = np.array
-def _patched_array(obj, *a, **kw):
-    try:
-        return _NP_ARRAY(obj, *a, **kw)
-    except ValueError:
-        kw.pop('copy', None)
-        return _NP_ARRAY(obj, *a, **kw)
-np.array = _patched_array
+import pickle
 
 _FT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FT_TRAIN_PATH = os.path.join(_FT_DIR, "fasttext_train.txt")
 _FT_MODEL_PATH = os.path.join(_FT_DIR, "domain_filter.ftz")
 
 _model = None
+_vectorizer = None
 _ready = False
 _using_fallback = False
 
-# ── Fallback keyword patterns (extracted from fasttext_train.txt) ──
-_GREETING_KEYWORDS = [
-    "halo", "hai", "hy", "hey", "hi", "helo", "hallo", "hello",
-    "pagi", "siang", "sore", "malam",
-    "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
-    "permisi", "assalamualaikum", "assalamu'alaikum",
-    "good morning", "good afternoon", "good evening",
-    "apa kabar",
-    "tes", "test",
-    "coba",
-    "min", "mas",
-    "eh", "hii", "hei",
-    "p",
-]
+# ═══════════════════════════════════════════════════════════════
+# FALLBACK — keyword matching (safety net kalo sklearn gak ada)
+# ═══════════════════════════════════════════════════════════════
 
 _CAPABILITY_KEYWORDS = [
     "kamu bisa apa", "bisa apa",
@@ -87,7 +64,6 @@ _NEGATIVE_FEEDBACK_KEYWORDS = [
     "kamu bodoh", "gak paham", "ga paham",
 ]
 
-# ── Compiled regex patterns ──
 _GREETING_PATTERNS = [
     "selamat pagi", "selamat siang", "selamat sore", "selamat malam",
     "good morning", "good afternoon", "good evening",
@@ -113,128 +89,141 @@ _GREETING_TOKEN_RE = re.compile(
     re.IGNORECASE
 )
 
+_LABELS = [
+    "positive_feedback",
+    "negative_feedback",
+    "capability",
+    "greeting",
+    "out_of_context",
+]
+
 
 def _keyword_classify(text: str) -> tuple[str, float]:
-    """Fallback classifier pake keyword matching.
-    Cek positive/negative feedback dulu, baru capability, baru greeting.
-    """
+    """Fallback classifier pake keyword matching."""
     t = text.strip().lower()
 
-    # ── Positive feedback — "makasih", "ok", "sip" ──
     for kw in _POSITIVE_FEEDBACK_KEYWORDS:
         if kw in t:
             return "positive_feedback", 0.95
-
-    # ── Negative feedback — "ga membantu", "jelek" ──
     for kw in _NEGATIVE_FEEDBACK_KEYWORDS:
         if kw in t:
             return "negative_feedback", 0.95
-
-    # ── Capability — exact phrase match ──
     for kw in _CAPABILITY_KEYWORDS:
         if kw in t:
             return "capability", 0.95
 
-    # ── Greeting: prefix match ──
     words = t.split()
     for w in words:
         for prefix in _GREETING_PREFIX:
             if w.startswith(prefix):
                 return "greeting", 0.90
-
-    # ── Greeting: multi-word substring ──
     for phrase in _GREETING_PATTERNS:
         if phrase in t:
             return "greeting", 0.90
-
-    # ── Greeting: single token word boundary ──
     if _GREETING_TOKEN_RE.search(t):
         return "greeting", 0.85
 
     return "out_of_context", 0.0
 
 
+# ═══════════════════════════════════════════════════════════════
+# PRIMARY — scikit-learn SGDClassifier + TF-IDF
+# ═══════════════════════════════════════════════════════════════
+
+def _load_training_data(path: str) -> tuple[list[str], list[str]]:
+    """Parse fasttext_train.txt → (texts, labels)"""
+    texts, labels = [], []
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            # Format: __label__<class> <text>
+            parts = line.split(' ', 1)
+            if len(parts) < 2:
+                continue
+            label = parts[0].replace('__label__', '')
+            text = parts[1]
+            texts.append(text)
+            labels.append(label)
+    return texts, labels
+
+
 def init_classifier() -> None:
-    """Load atau train FastText model.
-    Panggil SEKALI di startup.
-
-    PRIMARY: FastText model (domain_filter.ftz)
-    FALLBACK: keyword heuristic (kalo FastText gagal load/predict)
-
-    Windows + numpy 2.x users:
-      pip uninstall fasttext -y
-      pip install fasttext-numpy2
-      (drop-in replacement — gak perlu ubah kode)
+    """Load atau train classifier.
+    PRIMARY: SGDClassifier + TF-IDF (pure Python, zero C++ compiler)
+    FALLBACK: keyword heuristic
     """
-    global _model, _ready, _using_fallback
+    global _model, _vectorizer, _ready, _using_fallback
 
-    # Step 1: Coba import fasttext (atau fasttext-numpy2)
-    _ft_module = None
-    for name in ("fasttext", "fasttext_numpy2"):
-        try:
-            _ft_module = __import__(name)
-            break
-        except ImportError:
-            continue
-
-    if _ft_module is None:
-        print("[FASTTEXT] ⚠️ fasttext tidak terinstall. Install dengan:")
-        print("           pip install fasttext-numpy2")
-        print("           → Menggunakan keyword fallback untuk saat ini.")
-        _using_fallback = True
-        _ready = True
-        return
-
-    fasttext = _ft_module
-
-    # Step 2: Coba load model yang udah ada
+    # Step 1: Coba load model yang udah ada
     if os.path.exists(_FT_MODEL_PATH):
         try:
-            _model = fasttext.load_model(_FT_MODEL_PATH)
-            # Test predict — make sure inference works
-            labels, probs = _model.predict("test")
+            with open(_FT_MODEL_PATH, 'rb') as f:
+                data = pickle.load(f)
+            _vectorizer = data['vectorizer']
+            _model = data['model']
+            # Test predict
+            _model.predict(_vectorizer.transform(["test"]))
             _ready = True
             ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
-            print(f"[FASTTEXT] ✅ Loaded from {os.path.basename(_FT_MODEL_PATH)} ({ftz_size}KB)")
+            print(f"[CLF] ✅ Loaded from {os.path.basename(_FT_MODEL_PATH)} ({ftz_size}KB)")
             return
         except Exception as e:
-            print(f"[FASTTEXT] ⚠️ Gagal load/predict: {str(e)[:80]}...")
-            print(f"           → Coba: pip install fasttext-numpy2")
-            print(f"           → Menggunakan keyword fallback.")
-            _model = None
-            _using_fallback = True
-            _ready = True
-            return
+            print(f"[CLF] ⚠️ Gagal load model: {str(e)[:60]}...")
 
-    # Step 3: Train dari scratch kalo model belum ada
+    # Step 2: Train dari scratch
     if not os.path.exists(_FT_TRAIN_PATH):
-        print("[FASTTEXT] ⚠️ Training data tidak ditemukan — keyword fallback")
+        print("[CLF] ⚠️ Training data tidak ditemukan — keyword fallback")
         _using_fallback = True
         _ready = True
         return
 
     try:
-        print(f"[FASTTEXT] Training from {os.path.basename(_FT_TRAIN_PATH)}...")
-        _model = fasttext.train_supervised(
-            input=_FT_TRAIN_PATH, dim=100, epoch=25, lr=0.5,
-            wordNgrams=2, minCount=1, bucket=10000, loss='softmax'
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.linear_model import SGDClassifier
+
+        texts, labels = _load_training_data(_FT_TRAIN_PATH)
+        unique_labels = len(set(labels))
+        print(f"[CLF] Training from {os.path.basename(_FT_TRAIN_PATH)} "
+              f"({len(texts)} samples, {unique_labels} classes)...")
+
+        # Char n-gram + word n-gram — mirip FastText subword
+        _vectorizer = TfidfVectorizer(
+            analyzer='char_wb', ngram_range=(2, 4),
+            max_features=5000, lowercase=True
         )
-        _model.save_model(_FT_MODEL_PATH)
-        _ready = True
+        X = _vectorizer.fit_transform(texts)
+
+        _model = SGDClassifier(
+            loss='log_loss', penalty='l2', alpha=1e-4,
+            max_iter=500, tol=1e-4, random_state=42
+        )
+        _model.fit(X, labels)
+
+        # Accuracy check
+        acc = _model.score(X, labels)
+        print(f"[CLF] Training accuracy: {acc*100:.1f}%")
+
+        # Save
+        with open(_FT_MODEL_PATH, 'wb') as f:
+            pickle.dump({'vectorizer': _vectorizer, 'model': _model}, f)
         ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
-        print(f"[FASTTEXT] Ready — {ftz_size}KB model saved")
+        print(f"[CLF] Ready — {ftz_size}KB model saved")
+        _ready = True
+
+    except ImportError:
+        print("[CLF] ⚠️ scikit-learn tidak terinstall — keyword fallback")
+        _using_fallback = True
+        _ready = True
     except Exception as e:
-        print(f"[FASTTEXT] ⚠️ Training gagal: {str(e)[:60]} — keyword fallback")
+        print(f"[CLF] ⚠️ Training gagal: {str(e)[:60]} — keyword fallback")
         _using_fallback = True
         _ready = True
 
 
-def classify(text: str, threshold: float = 0.60) -> tuple[str, float]:
-    """Predict intent — FastText model / keyword fallback.
-
-    Args:
-        text: raw user query
-        threshold: minimum confidence (default 0.60)
+def classify(text: str, threshold: float = 0.40) -> tuple[str, float]:
+    """Predict intent — SGDClassifier / keyword fallback.
 
     Returns:
         (domain, confidence):
@@ -250,16 +239,18 @@ def classify(text: str, threshold: float = 0.60) -> tuple[str, float]:
             return "out_of_context", confidence
         return domain, confidence
 
-    # FastText mode — model.predict() langsung
+    # Scikit-learn mode
     try:
-        labels, scores = _model.predict(text.strip().lower())
-        domain = labels[0].replace("__label__", "")
-        confidence = float(scores[0])
+        X = _vectorizer.transform([text.strip().lower()])
+        probs = _model.predict_proba(X)[0]
+        best_idx = probs.argmax()
+        confidence = float(probs[best_idx])
+        domain = _model.classes_[best_idx]
 
         if confidence < threshold:
             return "out_of_context", confidence
         return domain, confidence
 
     except Exception as e:
-        print(f"[FASTTEXT] Predict error: {str(e)[:60]} — fallback keyword")
+        print(f"[CLF] Predict error: {str(e)[:60]} — fallback keyword")
         return _keyword_classify(text)
