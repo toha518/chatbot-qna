@@ -263,8 +263,8 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
             context = (f"PERTANYAAN: {questions[idx0]}\n"
                        f"JAWABAN: {answers[idx0]}\n\n")
 
-    # ── Return E5 top score sebagai skor utama ──
-    # (threshold 0.82 tetap relevan karena E5 skor asli)
+    # ── Return E5 top score + BM25 top score → server.py bisa split out-of-context vs QNA ──
     best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
     top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
-    return context, np.array([top_e5]), best_q
+    top_bm25 = float(bm25_scores[best_idx[0]]) if len(best_idx) > 0 else 0
+    return context, np.array([top_e5, top_bm25]), best_q

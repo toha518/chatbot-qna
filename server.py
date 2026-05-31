@@ -292,7 +292,8 @@ async def chat(req: ChatRequest):
     bm25_score = ft_conf
     context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
-    print(f"[QUERY] top_score={top_score:.3f} (hybrid E5+BM25)")
+    top_bm25 = float(scores[1]) if len(scores) > 1 else 0
+    print(f"[QUERY] top_score={top_score:.3f} | BM25={top_bm25:.1f} (hybrid E5+BM25)")
 
     # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
     # Step 1: heuristic split by conjunctions, question marks, sentence boundaries
@@ -348,8 +349,8 @@ async def chat(req: ChatRequest):
                 jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
-            # Cek: top_score sangat rendah = out of context, ada sinyal = BPS tp ga di DB
-            if top_score < 0.35:
+            # Split out_of_context vs QNA: BM25=0 → ga ada keyword FAQ overlap = out of context
+            if top_bm25 == 0:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
                 # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
@@ -385,12 +386,11 @@ async def chat(req: ChatRequest):
                 fallback_success = True
                 break
         if not fallback_success:
-            print(f"[QUERY] Cascade gagal (top_score={top_score:.3f})")
-            # Cek: top_score sangat rendah = out of context
-            if top_score < 0.35:
+            print(f"[QUERY] Cascade gagal (top_score={top_score:.3f} | BM25={top_bm25:.1f})")
+            # Split: BM25=0 → out of context. BM25>0 → BPS tapi ga di DB → QNA
+            if top_bm25 == 0:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
-                # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
