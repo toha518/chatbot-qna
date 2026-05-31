@@ -146,7 +146,7 @@ SERVICES = {
     "server": {"name": "Server API", "url": "http://localhost:8000/health", "port": 8000},
     "wa_handler": {"name": "WA Handler", "url": "http://localhost:3001/health", "port": 3001},
     "bridge": {"name": "WA Bridge", "url": "http://localhost:3000/status", "port": 3000},
-    "telegram": {"name": "Telegram Bot", "url": None, "port": None},
+    "telegram": {"name": "Telegram Bot", "url": "http://localhost:3002/", "port": 3002},
 }
 
 
@@ -192,6 +192,7 @@ SERVICE_PROCESSES = {
     8000: "Server API (server.py)",
     3000: "WA Bridge (bridge.js)",
     3001: "WA Handler (wa_handler.py)",
+    3002: "Telegram Bot (telegram_bot.py)",
 }
 
 

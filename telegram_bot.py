@@ -8,6 +8,8 @@ import os
 import io
 import tempfile
 import json
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 from collections import defaultdict
 
@@ -220,8 +222,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ===================== MAIN =====================
 
+# ===================== HEALTH SERVER (port 3002) =====================
+HEALTH_PORT = int(os.getenv("TELEGRAM_HEALTH_PORT", "3002"))
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok","service":"telegram_bot"}')
+    def log_message(self, format, *args):
+        pass  # silent
+
+def start_health_server():
+    server = HTTPServer(("0.0.0.0", HEALTH_PORT), HealthHandler)
+    print(f"[HEALTH] Health endpoint on http://localhost:{HEALTH_PORT}")
+    server.serve_forever()
+
+
 def main():
     """Set up bot dan mulai polling"""
+    # Start health endpoint di background thread
+    t = threading.Thread(target=start_health_server, daemon=True)
+    t.start()
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # Daftarin handler
