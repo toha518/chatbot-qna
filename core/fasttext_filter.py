@@ -10,6 +10,29 @@ Dual mode:
 
 import os
 import re
+import numpy as np
+
+# ── PATCH: numpy 2.x + FastText C extension incompatibility ──
+# FastText internals call np.array(buf, copy=False) — numpy 2.x on
+# Windows can't do zero-copy on that buffer type → ValueError.
+# Patch: intercept, retry with copy=True. Tetap aktif sepanjang
+# runtime karena model.predict() dipanggil setiap chat.
+# https://github.com/facebookresearch/fastText/issues/1067
+_np_array_original = np.array
+_np_patched = [False]
+def _np_array_fasttext_compat(obj, *args, **kwargs):
+    try:
+        return _np_array_original(obj, *args, **kwargs)
+    except ValueError:
+        _np_patched[0] = True
+        kwargs['copy'] = True
+        return _np_array_original(obj, *args, **kwargs)
+
+def _patch_numpy():
+    np.array = _np_array_fasttext_compat
+
+def _unpatch_numpy():
+    np.array = _np_array_original
 
 _FT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FT_TRAIN_PATH = os.path.join(_FT_DIR, "fasttext_train.txt")
@@ -126,26 +149,34 @@ def init_classifier() -> None:
         _ready = True
         return
 
+    # ── Patch numpy untuk FastText (Windows numpy 2.x compatibility) ──
+    # FastText C extension internals call np.array(buf, copy=False)
+    # Patch ini tetap aktif sepanjang runtime — hanya ngaruh saat
+    # np.array gagal zero-copy (kasus FastText aja, bukan numpy normal)
+    _patch_numpy()
+
     # Coba load model
     if os.path.exists(_FT_MODEL_PATH):
         try:
             _model = fasttext.load_model(_FT_MODEL_PATH)
-            # Test predict — kalo gagal (Windows numpy bug), fallback
-            try:
-                _model.predict("test")
-            except Exception as e:
-                print(f"[FASTTEXT] ⚠️ Predict error: {str(e)[:60]}... — using keyword fallback")
-                _model = None
-                _using_fallback = True
-                _ready = True
-                return
+            # Test predict
+            _model.predict("test")
 
+            if _np_patched[0]:
+                print(f"[FASTTEXT] ✅ Loaded with numpy compatibility patch")
             _ready = True
             ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
             print(f"[FASTTEXT] Loaded from {os.path.basename(_FT_MODEL_PATH)} ({ftz_size}KB)")
             return
         except Exception as e:
-            print(f"[FASTTEXT] ⚠️ Gagal load: {str(e)[:60]}... — using keyword fallback")
+            _unpatch_numpy()
+            print(f"[FASTTEXT] ⚠️ Predict error: {str(e)[:60]}... — using keyword fallback")
+            _model = None
+            _using_fallback = True
+            _ready = True
+            return
+
+    _unpatch_numpy()
 
     # Train dari scratch
     if not os.path.exists(_FT_TRAIN_PATH):
