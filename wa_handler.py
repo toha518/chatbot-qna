@@ -123,23 +123,18 @@ def wa_message():
             )
         })
     if cmd == '/help':
+        topics_line = ", ".join(_IDENTITY.get("topics", []))
         return jsonify({
             "jawaban": (
                 "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya "
-                "dari database mengenai SOBAT, GC PBI, GC PLN, FASIH, "
-                "dan Pengolahan SE2026."
+                f"dari database mengenai {topics_line}."
             )
         })
     if cmd == '/topics':
+        topics = _IDENTITY.get("topics", [])
+        topics_text = "\n".join(f"{i+1}. {t}" for i, t in enumerate(topics))
         return jsonify({
-            "jawaban": (
-                "Topik permasalahan IT yang saya kuasai:\n"
-                "1. SOBAT\n"
-                "2. GC PBI\n"
-                "3. GC PLN\n"
-                "4. FASIH\n"
-                "5. Pengolahan SE2026"
-            )
+            "jawaban": f"Topik permasalahan IT yang saya kuasai:\n{topics_text}"
         })
     if cmd == '/stop':
         # Ambil base URL (strip /chat kalau ada)
