@@ -349,7 +349,7 @@ async def chat(req: ChatRequest):
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
             # Cek: top_score sangat rendah = out of context, ada sinyal = BPS tp ga di DB
-            if top_score < 0.3:
+            if top_score < 0.35:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
                 # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
@@ -387,7 +387,7 @@ async def chat(req: ChatRequest):
         if not fallback_success:
             print(f"[QUERY] Cascade gagal (top_score={top_score:.3f})")
             # Cek: top_score sangat rendah = out of context
-            if top_score < 0.3:
+            if top_score < 0.35:
                 jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
             else:
                 # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
