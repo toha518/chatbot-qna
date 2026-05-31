@@ -195,16 +195,16 @@
       <div class="chart-card mb-3 py-2 px-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <span class="small fw-semibold me-1">👁️ Columns:</span>
-          <span class="text-muted small me-1">Basic</span>
+          <span class="text-muted small me-1 fw-semibold">📋 Data</span>
           <label class="log-col-toggle" title="ID"><input type="checkbox" data-col="id" checked onchange="toggleLogColumn(this)"><span>ID</span></label>
           <label class="log-col-toggle" title="Waktu"><input type="checkbox" data-col="waktu" checked onchange="toggleLogColumn(this)"><span>Waktu</span></label>
           <label class="log-col-toggle" title="Chat ID"><input type="checkbox" data-col="chat_id" checked onchange="toggleLogColumn(this)"><span>Chat ID</span></label>
           <label class="log-col-toggle" title="Pertanyaan"><input type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span>Pertanyaan</span></label>
           <label class="log-col-toggle" title="Jawaban"><input type="checkbox" data-col="jawaban" onchange="toggleLogColumn(this)"><span>Jawaban</span></label>
           <label class="log-col-toggle" title="Gate"><input type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span>Gate</span></label>
-          <label class="log-col-toggle" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>✅</span></label>
+          <label class="log-col-toggle" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>Answered</span></label>
 
-          <span class="text-muted small me-1 ms-2">Scores</span>
+          <span class="text-muted small me-1 ms-2 fw-semibold">📊 Scoring</span>
           <label class="log-col-toggle" title="Gate Detail"><input type="checkbox" data-col="gate_detail" onchange="toggleLogColumn(this)"><span>Gate Detail</span></label>
           <label class="log-col-toggle" title="CLF Domain"><input type="checkbox" data-col="clf_domain" checked onchange="toggleLogColumn(this)"><span>CLF Domain</span></label>
           <label class="log-col-toggle" title="CLF Confidence"><input type="checkbox" data-col="clf_confidence" onchange="toggleLogColumn(this)"><span>CLF Conf</span></label>
@@ -213,13 +213,13 @@
           <label class="log-col-toggle" title="E5 Top Score"><input type="checkbox" data-col="e5_top" onchange="toggleLogColumn(this)"><span>E5 Top</span></label>
           <label class="log-col-toggle" title="BM25 Raw"><input type="checkbox" data-col="bm25_raw" onchange="toggleLogColumn(this)"><span>BM25</span></label>
 
-          <span class="text-muted small me-1 ms-2">LLM</span>
+          <span class="text-muted small me-1 ms-2 fw-semibold">🤖 LLM</span>
           <label class="log-col-toggle" title="LLM Model"><input type="checkbox" data-col="llm_model" checked onchange="toggleLogColumn(this)"><span>Model</span></label>
           <label class="log-col-toggle" title="LLM Provider"><input type="checkbox" data-col="llm_provider" onchange="toggleLogColumn(this)"><span>Provider</span></label>
           <label class="log-col-toggle" title="LLM Time (ms)"><input type="checkbox" data-col="llm_time_ms" onchange="toggleLogColumn(this)"><span>LLM ms</span></label>
           <label class="log-col-toggle" title="Jawaban Length"><input type="checkbox" data-col="jawaban_length" onchange="toggleLogColumn(this)"><span>Jwb Len</span></label>
 
-          <span class="text-muted small me-1 ms-2">Meta</span>
+          <span class="text-muted small me-1 ms-2 fw-semibold">📎 Meta</span>
           <label class="log-col-toggle" title="Top5 FAQ"><input type="checkbox" data-col="top5_faq" onchange="toggleLogColumn(this)"><span>Top5 FAQ</span></label>
           <label class="log-col-toggle" title="Multi Part"><input type="checkbox" data-col="multi_part" onchange="toggleLogColumn(this)"><span>Multi</span></label>
           <label class="log-col-toggle" title="Session Baru"><input type="checkbox" data-col="session_baru" onchange="toggleLogColumn(this)"><span>Sesi Baru</span></label>
@@ -420,7 +420,7 @@
       { key: 'pertanyaan', label: 'Pertanyaan', render: l => `<span title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}" class="detail">${(l.pertanyaan||'').slice(0,120)}</span>`, group: 'basic' },
       { key: 'jawaban', label: 'Jawaban', render: l => `<span title="${(l.jawaban||'').replace(/"/g,'&quot;')}" class="detail">${(l.jawaban||'').slice(0,80)}</span>`, group: 'basic' },
       { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':l.gate==='REJECT'?'bg-danger':'bg-secondary'} gate-badge">${l.gate||'-'}</span>`, group: 'basic' },
-      { key: 'dijawab', label: '✅', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>', group: 'basic' },
+      { key: 'dijawab', label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>', group: 'basic' },
       { key: 'gate_detail', label: 'Gate Detail', render: l => `<span class="text-muted small">${l.gate_detail||'-'}</span>`, group: 'scores' },
       { key: 'clf_domain', label: 'CLF Domain', render: l => `<span class="badge bg-secondary gate-badge">${l.clf_domain||'-'}</span>`, group: 'scores' },
       { key: 'clf_confidence', label: 'CLF Conf', render: l => (l.clf_confidence||0).toFixed(4), group: 'scores' },
