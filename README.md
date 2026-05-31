@@ -489,11 +489,24 @@ Query: "linknya udah dicoba"  → hybrid score 0.65 ❌
 
 Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt terlalu panjang.
 
-> 🔑 **Kenapa hybrid search bisa jadi domain filter?** Karena hybrid score = E5 (semantic) + BM25 (keyword). Query di luar BPS otomatis skor rendah dari **keduanya** — E5 gak dapet sinyal semantik, BM25 gak dapet keyword overlap. Cascade sebagai jaring terakhir. Gak perlu layer filter terpisah seperti BM25 domain checker yang lama.
-
 ---
 
-## 🆚 Perbandingan: BM25 vs E5 vs Hybrid
+## 🆚 Perbandingan & Arsitektur Pipeline
+
+### Saling Melengkapi: BM25 vs E5 vs Hybrid
+
+BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja berarti mewarisi semua blindspot-nya.
+
+| Skenario | BM25 sendiri | E5 sendiri | Hybrid RRF |
+|----------|:------------:|:----------:|:----------:|
+| User nanya "aktivasi FASIH" | ✅ Skor tinggi (exact match "FASIH") | ✅ Skor tinggi (paham konteks aktivasi) | ✅ Keduanya setuju → aman |
+| User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
+| User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
+| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-5 masih include yang bener |
+| User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih | ❌ Skor 0.77 (mirip vektor dengan FAQ pendek) | ✅ BM25=0 → RRF < 0.018 → out of context |
+| User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih | ❌ Skor 0.80 (cukup tinggi karena kata umum) | ✅ BM25=0 → RRF < 0.018 → out of context |
+
+### 📊 Tabel Perbandingan
 
 | Aspek | BM25 | E5-base | Hybrid (RRF) |
 |-------|:----:|:-------:|:------------:|
@@ -505,52 +518,27 @@ Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt 
 | **Ukuran memori** | ~10 KB | ~278 MB | — |
 | **Ketangguhan follow-up** | ❌ (kata kunci aja) | ⚠️ (lumayan) | ✅ + cascade |
 
----
-
-### 🤝 Kenapa BM25 dan E5 Harus Digabung?
-
-BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja berarti mewarisi semua blindspot-nya.
-
-| Skenario | BM25 sendiri | E5 sendiri | Hybrid RRF |
-|----------|:------------:|:----------:|:----------:|
-| User nanya "aktivasi FASIH" | ✅ Skor tinggi (exact match "FASIH") | ✅ Skor tinggi (paham konteks aktivasi) | ✅ Keduanya setuju → aman |
-| User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
-| User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
-| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-5 masih include yang bener |
-| User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih | ❌ Skor 0.77 (mirip vektor dengan FAQ pendek karena kata doang) | ✅ Domain filter BM25 tolak duluan sebelum E5 diproses |
-| User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih | ❌ Skor 0.80 (cukup tinggi karena kata umum) | ✅ BM25 reject duluan, E5 gak sempat diproses |
-
-**Intinya:**
+### 🎯 Analogi Lengkap
 
 ```
-scikit-learn = resepsionis → sapa tamu / arahin ke bagian lain
-BM25     = jaring keyword → kecepatan & kepastian
-E5       = jaring halus semantik → pemahaman konteks
-RRF      = penyatu ranking → ambil yang terbaik dari keduanya
-Cascade  = jaring terakhir → follow-up & konteks percakapan
+scikit-learn CLF = resepsionis → sapa tamu, arahin ke bagian terkait
+BM25     = petugas arsip → jago nyari dokumen pake kata kunci
+E5       = kolega senior → hafal isi dokumen, nyari berdasarkan kesamaan topik
+RRF      = manager → gabungin rekomendasi arsip + kolega buat ranking final
+Cascade  = follow-up pintu belakang → "eh ini rombongan yang tadi udah masuk kan?"
 ```
 
-- **scikit-learn classifier menyaring greeting & capability** — sebelum hybrid search dipanggil. Respon langsung, hemat token & latency
-- **Hybrid score (E5+BM25 RRF) otomatis jadi domain filter** — query di luar BPS dapet E5 rendah + BM25 0 → RRF jeblok → cascade reject. **Gak perlu BM25 domain checker terpisah** seperti arsitektur sebelumnya
-- **E5 mencegah false negative** — pertanyaan yang pake sinonim, variasi bahasa, atau kalimat panjang tetap dapet FAQ yang relevan meskipun gak ada keyword yang cocok
-- **RRF menyatukan** — tanpa training, tanpa tuning bobot, cukup ranking dari dua sistem digabung. FAQ yang rank 1 di BM25 tapi rank 10 di E5 tetap dianggep
-- **Cascade fallback jadi jaring terakhir** — follow-up pendek yang jeblok di hybrid masih bisa diselamatkan dengan concat history
+### 💡 Kenapa gak pake model embedding / tool lain?
 
-**Analoginya:**
-> scikit-learn classifier kayak resepsionis yang nyapa "halo, ada yang bisa dibantu?" — kalo user cuma nyapa, resepsionis jawab langsung. Kalo user nanya sesuatu, resepsionis arahin ke bagian terkait. BM25 kayak petugas arsip yang jago nyari dokumen pake kata kunci. E5 kayak kolega yang hafal isi dokumen — bisa nyari berdasarkan kemiripan topik. RRF adalah manager yang gabungin masukan keduanya buat ranking final. Cascade? Follow-up sampe ke pintu belakang — manager nanya "oh, ini rombongan yang tadi udah masuk?" — cek history.
-
----
-
-### 💡 Kenapa gak pake model embedding lain?
-
-| Model | Alasan gak dipakai |
+| Model / Tool | Alasan gak dipakai |
 |-------|-------------------|
 | **OpenAI text-embedding-3-small** | API key tambahan, biaya per query, latency jaringan |
 | **BAAI/bge-base-en-v1.5** | Inggris doang, gak optimal untuk Indonesia |
 | **Qwen2.5-embedding** | Baru, belum mature, komunitas kecil |
-| **ChromaDB / LangChain** | Overkill untuk skala saat ini (127 FAQ) — setup overhead gak sebanding |
+| **ChromaDB / LangChain** | Overkill untuk skala saat ini (113 FAQ) — setup overhead gak sebanding |
+| **FastText (classifier)** | Butuh C++ compiler di Windows, numpy 2.x incompatible — diganti scikit-learn |
 
-E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk 127 FAQ, dan terbukti di berbagai benchmark retrieval.**
+E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk 113 FAQ, dan terbukti di berbagai benchmark retrieval.** Scikit-learn dipilih sebagai classifier karena: **pure Python, zero dependency, 97.4% accuracy, 185KB model.**
 
 ---
 
