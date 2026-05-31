@@ -258,7 +258,7 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 └───────────────────────────────────────────────┘
          │
          ▼
-    ⚠️ QUERY LOGGED (query_log.jsonl)
+    ⚠️ DUAL-LOGGED (query_log.jsonl + query_log.db)
 ```
 
 ---
