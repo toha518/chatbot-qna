@@ -85,21 +85,39 @@ def api_stats(days: int = 7):
 
 
 @app.get("/api/logs")
-def api_logs(days: int = 7, limit: int = 100, offset: int = 0):
+def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
+             search: str = "", gate: str = "", clf: str = "", dijawab: str = ""):
     if not _table_exists():
         return {"logs": [], "total": 0}
     clause = _period_clause(days)
+    params = []
+
+    if search:
+        clause += " AND (pertanyaan LIKE ? OR chat_id LIKE ? OR jawaban LIKE ?)"
+        s = f"%{search}%"
+        params.extend([s, s, s])
+    if gate:
+        clause += " AND gate = ?"
+        params.append(gate)
+    if clf:
+        clause += " AND clf_domain = ?"
+        params.append(clf)
+    if dijawab == "1":
+        clause += " AND dijawab = 1"
+    elif dijawab == "0":
+        clause += " AND dijawab = 0"
+
     logs = _rows(f"""
         SELECT id, waktu, chat_id, pertanyaan, clf_domain, clf_confidence,
                rrf_score, gate, gate_detail, dijawab, llm_model, llm_time_ms
         FROM logs WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?
-    """, (limit, offset))
+    """, params + [limit, offset])
     # Sanitize None values
     for l in logs:
         for k in l:
             if l[k] is None:
                 l[k] = 0 if k in ("rrf_score", "clf_confidence", "llm_time_ms") else ""
-    total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}")[0]["cnt"]
+    total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}", params)[0]["cnt"]
     return {"logs": logs, "total": total}
 
 

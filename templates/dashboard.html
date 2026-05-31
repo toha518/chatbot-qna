@@ -136,14 +136,118 @@
     <!-- ===== LOGS PAGE ===== -->
     <div id="page-logs" style="display:none">
       <h5 class="mb-3 fw-bold">📝 Query Log</h5>
+
+      <!-- Search & Filter Bar -->
+      <div class="chart-card mb-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label class="form-label small text-muted mb-1">🔍 Search</label>
+            <input type="text" class="form-control form-control-sm" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">🚪 Gate</label>
+            <select class="form-select form-select-sm" id="logGate" onchange="debounceLogs()">
+              <option value="">All</option>
+              <option value="ANSWER">ANSWER</option>
+              <option value="REJECT">REJECT</option>
+              <option value="GREETING">GREETING</option>
+              <option value="CLF_GREETING">CLF_GREETING</option>
+              <option value="CLF_CAPABILITY">CLF_CAPABILITY</option>
+              <option value="CLF_POSITIVE_FEEDBACK">CLF_POSITIVE_FEEDBACK</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">🧠 CLF Domain</label>
+            <select class="form-select form-select-sm" id="logClf" onchange="debounceLogs()">
+              <option value="">All</option>
+              <option value="greeting">greeting</option>
+              <option value="capability">capability</option>
+              <option value="feedback">feedback</option>
+              <option value="tokopedia">tokopedia</option>
+              <option value="permendagri">permendagri</option>
+              <option value="bps_publikasi">bps_publikasi</option>
+              <option value="bps_umum">bps_umum</option>
+              <option value="bps_variabel">bps_variabel</option>
+              <option value="luar_domain">luar_domain</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">✅ Status</label>
+            <select class="form-select form-select-sm" id="logStatus" onchange="debounceLogs()">
+              <option value="">All</option>
+              <option value="1">Answered</option>
+              <option value="0">Unanswered</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex gap-1 flex-wrap">
+            <label class="form-label small text-muted mb-1 w-100">&nbsp;</label>
+            <button class="btn btn-sm btn-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
+            <button class="btn btn-sm btn-outline-secondary" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Column Visibility Toggle -->
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="small text-muted me-1">👁️ Columns:</span>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="ID">
+            <input class="form-check-input" type="checkbox" data-col="id" checked onchange="toggleLogColumn(this)"><span class="form-check-label">ID</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Waktu">
+            <input class="form-check-input" type="checkbox" data-col="waktu" checked onchange="toggleLogColumn(this)"><span class="form-check-label">Waktu</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Chat ID">
+            <input class="form-check-input" type="checkbox" data-col="chat_id" checked onchange="toggleLogColumn(this)"><span class="form-check-label">Chat ID</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Pertanyaan">
+            <input class="form-check-input" type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span class="form-check-label">Pertanyaan</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="CLF Domain">
+            <input class="form-check-input" type="checkbox" data-col="clf_domain" checked onchange="toggleLogColumn(this)"><span class="form-check-label">CLF</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="CLF Confidence">
+            <input class="form-check-input" type="checkbox" data-col="clf_confidence" onchange="toggleLogColumn(this)"><span class="form-check-label">CLF %</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="RRF Score">
+            <input class="form-check-input" type="checkbox" data-col="rrf_score" checked onchange="toggleLogColumn(this)"><span class="form-check-label">RRF</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Gate">
+            <input class="form-check-input" type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span class="form-check-label">Gate</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Gate Detail">
+            <input class="form-check-input" type="checkbox" data-col="gate_detail" onchange="toggleLogColumn(this)"><span class="form-check-label">Gate Detail</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="Dijawab">
+            <input class="form-check-input" type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span class="form-check-label">✅</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="LLM Model">
+            <input class="form-check-input" type="checkbox" data-col="llm_model" checked onchange="toggleLogColumn(this)"><span class="form-check-label">LLM</span>
+          </label>
+          <label class="form-check form-check-inline form-switch mb-0" style="font-size:.75rem" title="LLM Time (ms)">
+            <input class="form-check-input" type="checkbox" data-col="llm_time_ms" onchange="toggleLogColumn(this)"><span class="form-check-label">ms</span>
+          </label>
+        </div>
+        <span class="badge bg-secondary" id="logCountBadge">0</span>
+      </div>
+
+      <!-- Table -->
       <div class="chart-card">
         <div class="table-responsive">
           <table class="table table-sm log-table mb-0" id="logTable">
-            <thead><tr><th>Waktu</th><th>Chat ID</th><th>Pertanyaan</th><th>CLF</th><th>RRF</th><th>Gate</th><th>LLM</th><th>ms</th></tr></thead>
+            <thead><tr id="logTableHead"></tr></thead>
             <tbody></tbody>
           </table>
         </div>
-        <div class="text-center py-3" id="logLoader">Loading...</div>
+        <div class="d-flex justify-content-between align-items-center py-2">
+          <div class="text-muted small" id="logInfo"></div>
+          <div>
+            <button class="btn btn-sm btn-outline-secondary me-1" id="logPrev" onclick="prevLogPage()" disabled>← Prev</button>
+            <span class="small text-muted mx-1" id="logPageInfo">1</span>
+            <button class="btn btn-sm btn-outline-secondary ms-1" id="logNext" onclick="nextLogPage()" disabled>Next →</button>
+          </div>
+        </div>
+        <div class="text-center py-3" id="logLoader" style="display:none"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>
       </div>
     </div>
 
@@ -303,23 +407,110 @@
       });
     }
 
-    // Logs table
+    // ── Logs Table ──
+    let logPage = 0;
+    const LOG_LIMIT = 50;
+    let logDebounceTimer = null;
+
+    function debounceLogs() {
+      clearTimeout(logDebounceTimer);
+      logDebounceTimer = setTimeout(() => { logPage = 0; loadLogs(); }, 400);
+    }
+
+    const LOG_COLUMNS = [
+      { key: 'id', label: 'ID', render: l => l.id },
+      { key: 'waktu', label: 'Waktu', render: l => l.waktu?.slice(5,19)||'' },
+      { key: 'chat_id', label: 'Chat ID', render: l => l.chat_id||'' },
+      { key: 'pertanyaan', label: 'Pertanyaan', render: l => `<span title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}" class="detail">${(l.pertanyaan||'').slice(0,120)}</span>` },
+      { key: 'clf_domain', label: 'CLF', render: l => `<span class="badge bg-secondary gate-badge">${l.clf_domain||'-'}</span>` },
+      { key: 'clf_confidence', label: 'CLF %', render: l => (l.clf_confidence||0).toFixed(3) },
+      { key: 'rrf_score', label: 'RRF', render: l => (l.rrf_score||0).toFixed(4) },
+      { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':'bg-danger'} gate-badge">${l.gate||'-'}</span>` },
+      { key: 'gate_detail', label: 'Gate Detail', render: l => `<span class="text-muted small">${l.gate_detail||'-'}</span>` },
+      { key: 'dijawab', label: '✅', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>' },
+      { key: 'llm_model', label: 'LLM', render: l => l.llm_model?.split('/').pop()||'-' },
+      { key: 'llm_time_ms', label: 'ms', render: l => l.llm_time_ms||'-' },
+    ];
+
+    function getLogFilterParams() {
+      const search = document.getElementById('logSearch').value.trim();
+      const gate = document.getElementById('logGate').value;
+      const clf = document.getElementById('logClf').value;
+      const status = document.getElementById('logStatus').value;
+      const days = document.getElementById('timeRange').value;
+      return `days=${days}&limit=${LOG_LIMIT}&offset=${logPage * LOG_LIMIT}`
+        + (search ? `&search=${encodeURIComponent(search)}` : '')
+        + (gate ? `&gate=${encodeURIComponent(gate)}` : '')
+        + (clf ? `&clf=${encodeURIComponent(clf)}` : '')
+        + (status ? `&dijawab=${status}` : '');
+    }
+
+    function renderLogTableHead() {
+      const cols = LOG_COLUMNS.filter(c => {
+        const cb = document.querySelector(`input[type="checkbox"][data-col="${c.key}"]`);
+        return cb && cb.checked;
+      });
+      document.getElementById('logTableHead').innerHTML = cols.map(c => `<th>${c.label}</th>`).join('');
+      return cols;
+    }
+
+    function toggleLogColumn(el) {
+      localStorage.setItem('logCol_' + el.dataset.col, el.checked ? '1' : '0');
+      loadLogs();
+    }
+
+    function initLogColumnStates() {
+      document.querySelectorAll('input[type="checkbox"][data-col]').forEach(cb => {
+        const saved = localStorage.getItem('logCol_' + cb.dataset.col);
+        if (saved !== null) cb.checked = saved === '1';
+      });
+    }
+
+    function resetLogFilters() {
+      document.getElementById('logSearch').value = '';
+      document.getElementById('logGate').value = '';
+      document.getElementById('logClf').value = '';
+      document.getElementById('logStatus').value = '';
+      logPage = 0;
+      loadLogs();
+    }
+
+    function prevLogPage() {
+      if (logPage > 0) { logPage--; loadLogs(); }
+    }
+
+    function nextLogPage() {
+      logPage++; loadLogs();
+    }
+
     async function loadLogs() {
-      document.getElementById('logLoader').style.display = 'block';
-      const data = await fetchAPI('logs');
+      const loader = document.getElementById('logLoader');
       const tbody = document.querySelector('#logTable tbody');
-      tbody.innerHTML = data.logs?.map(l => `
-        <tr>
-          <td>${l.waktu?.slice(5,16)||''}</td>
-          <td>${l.chat_id||''}</td>
-          <td class="detail" title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}">${l.pertanyaan||''}</td>
-          <td><span class="badge bg-secondary gate-badge">${l.clf_domain||''}</span></td>
-          <td>${(l.rrf_score||0).toFixed(4)}</td>
-          <td><span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':'bg-danger'} gate-badge">${l.gate||''}</span></td>
-          <td>${l.llm_model?.split('/').pop()||'-'}</td>
-          <td>${l.llm_time_ms||'-'}</td>
-        </tr>`).join('') || '<tr><td colspan="8" class="text-center py-3">No data yet</td></tr>';
-      document.getElementById('logLoader').style.display = 'none';
+      loader.style.display = 'block';
+
+      const visibleCols = renderLogTableHead();
+      const params = getLogFilterParams();
+
+      try {
+        const resp = await fetch(`/api/logs?${params}`);
+        const data = await resp.json();
+        const logs = data.logs || [];
+        const total = data.total || 0;
+
+        tbody.innerHTML = logs.length
+          ? logs.map(l => `<tr>${visibleCols.map(c => `<td>${c.render(l)}</td>`).join('')}</tr>`).join('')
+          : `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-muted">No matching logs found</td></tr>`;
+
+        document.getElementById('logCountBadge').textContent = total;
+        document.getElementById('logInfo').textContent = `Showing ${logPage * LOG_LIMIT + 1}-${Math.min((logPage + 1) * LOG_LIMIT, total)} of ${total}`;
+        document.getElementById('logPageInfo').textContent = logPage + 1;
+        document.getElementById('logPrev').disabled = logPage === 0;
+        document.getElementById('logNext').disabled = (logPage + 1) * LOG_LIMIT >= total;
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-danger">Error loading logs</td></tr>`;
+      } finally {
+        loader.style.display = 'none';
+      }
     }
 
     // System Health
@@ -524,6 +715,7 @@
       if (document.getElementById('page-topfaq').style.display !== 'none') loadTopFAQ();
     }
 
+    initLogColumnStates();
     loadStats();
   </script>
 </body>
