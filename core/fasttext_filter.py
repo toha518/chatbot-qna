@@ -9,6 +9,20 @@ Dual mode:
 
 import os
 import re
+import numpy as np
+
+# ── PATCH: FastText numpy 2.x compatibility ──
+# FastText.py line 232: `np.array(probs, copy=False)` → gagal di numpy 2.x
+# Patch: intercept ValueError, retry tanpa copy=False.
+# Tetap aktif sepanjang runtime — negligible overhead.
+_NP_ARRAY = np.array
+def _patched_array(obj, *a, **kw):
+    try:
+        return _NP_ARRAY(obj, *a, **kw)
+    except ValueError:
+        kw.pop('copy', None)
+        return _NP_ARRAY(obj, *a, **kw)
+np.array = _patched_array
 
 _FT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FT_TRAIN_PATH = os.path.join(_FT_DIR, "fasttext_train.txt")
