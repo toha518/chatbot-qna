@@ -12,7 +12,7 @@ import re
 import pickle
 
 _FT_DIR = os.path.dirname(os.path.abspath(__file__))
-_FT_TRAIN_PATH = os.path.join(_FT_DIR, "fasttext_train.txt")
+_FT_TRAIN_PATH = os.path.join(_FT_DIR, "classifier_train.txt")
 _FT_MODEL_PATH = os.path.join(_FT_DIR, "domain_filter.ftz")
 
 _model = None
@@ -131,7 +131,7 @@ def _keyword_classify(text: str) -> tuple[str, float]:
 # ═══════════════════════════════════════════════════════════════
 
 def _load_training_data(path: str) -> tuple[list[str], list[str]]:
-    """Parse fasttext_train.txt → (texts, labels)"""
+    """Parse classifier_train.txt → (texts, labels)"""
     texts, labels = [], []
     with open(path, 'r', encoding='utf-8') as f:
         for line in f:
