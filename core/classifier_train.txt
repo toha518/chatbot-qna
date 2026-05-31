@@ -232,247 +232,247 @@ __label__greeting tes
 __label__greeting tes dulu
 __label__greeting test
 __label__greeting test aja
-__label__out_of_context 1 ditambah 1
-__label__out_of_context akses internet
-__label__out_of_context aku bosan
-__label__out_of_context aku butuh teman
-__label__out_of_context aku capek
-__label__out_of_context aku galau
-__label__out_of_context aku marah
-__label__out_of_context aku mau curhat
-__label__out_of_context aku sayang kamu
-__label__out_of_context aku sedih
-__label__out_of_context aku senang
-__label__out_of_context anak
-__label__out_of_context apa itu nara
-__label__out_of_context apa kabar kamu
-__label__out_of_context apa pendapatmu
-__label__out_of_context apa warna langit
-__label__out_of_context apotik
-__label__out_of_context artis
-__label__out_of_context asuransi
-__label__out_of_context bagaimana menurutmu
-__label__out_of_context baik
-__label__out_of_context bantuin dong
-__label__out_of_context beli
-__label__out_of_context beneran
-__label__out_of_context bener ga sih
-__label__out_of_context benua
-__label__out_of_context berapa 1 tambah 1
-__label__out_of_context berapa provinsi di Indonesia
-__label__out_of_context berita bola
-__label__out_of_context berita terbaru
-__label__out_of_context bisnis online
-__label__out_of_context bitcoin
-__label__out_of_context bpjs
-__label__out_of_context cara akses nara
-__label__out_of_context cara buat kue
-__label__out_of_context cara daftar kartu
-__label__out_of_context cara daftar nara
-__label__out_of_context cara dapat uang
-__label__out_of_context cara jadi
-__label__out_of_context cara jadi youtuber
-__label__out_of_context cara login nara
-__label__out_of_context cara main game
-__label__out_of_context cara masak ayam
-__label__out_of_context cara membuat nasi goreng
-__label__out_of_context cara menjadi kaya
-__label__out_of_context cara pake nara
-__label__out_of_context cara pinjam uang
-__label__out_of_context cari kerja
-__label__out_of_context cerita lucu
-__label__out_of_context ceritanya gimana
-__label__out_of_context chat nara
-__label__out_of_context crypto
-__label__out_of_context cuaca besok
-__label__out_of_context cuaca hari ini
-__label__out_of_context curhat
-__label__out_of_context dari mana
-__label__out_of_context darimana asal kamu
-__label__out_of_context dimana ibu kota Indonesia
-__label__out_of_context dimana indonesia
-__label__out_of_context dimana pasar
-__label__out_of_context dimana rumah sakit
-__label__out_of_context diskon
-__label__out_of_context dokter gigi
-__label__out_of_context download nara
-__label__out_of_context facebook
-__label__out_of_context film terbaru
-__label__out_of_context gaji
-__label__out_of_context gajian
-__label__out_of_context gak
-__label__out_of_context game
-__label__out_of_context gimana caranya biar
-__label__out_of_context gojek
-__label__out_of_context gosip
-__label__out_of_context grab
-__label__out_of_context hamil
-__label__out_of_context happy birthday
-__label__out_of_context harga
-__label__out_of_context harga emas
-__label__out_of_context harga saham
-__label__out_of_context hari apa sekarang
-__label__out_of_context hitung
-__label__out_of_context hubungi nara
-__label__out_of_context ibu kota Indonesia
-__label__out_of_context ibukota Indonesia dimana
-__label__out_of_context i love you
-__label__out_of_context info terkini
-__label__out_of_context instagram
-__label__out_of_context install nara
-__label__out_of_context iya
-__label__out_of_context jadwal sholat
-__label__out_of_context jam berapa
-__label__out_of_context jawab pr
-__label__out_of_context jodoh
-__label__out_of_context jokes
-__label__out_of_context jokowi
-__label__out_of_context jual
-__label__out_of_context judi
-__label__out_of_context kamu bodoh
-__label__out_of_context kamu cantik
-__label__out_of_context kamu dimana
-__label__out_of_context kamu ganteng
-__label__out_of_context kamu jelek
-__label__out_of_context kamu lagi apa
-__label__out_of_context kamu pintar
-__label__out_of_context kamu punya pacar
-__label__out_of_context kamu sibuk apa
-__label__out_of_context kamu suka aku
-__label__out_of_context kamu udah makan
-__label__out_of_context kapan Indonesia merdeka
-__label__out_of_context kapan lebaran
-__label__out_of_context kapan puasa
-__label__out_of_context kenal nara
-__label__out_of_context kenapa langit biru
-__label__out_of_context koran
-__label__out_of_context kredit
-__label__out_of_context ktp
-__label__out_of_context kuliah
-__label__out_of_context lagi ngapain
-__label__out_of_context lagu apa yang bagus
-__label__out_of_context lagu daerah
-__label__out_of_context lagu favorit
-__label__out_of_context lawak
-__label__out_of_context loker
-__label__out_of_context lowongan kerja
-__label__out_of_context main game
-__label__out_of_context main yuk
-__label__out_of_context makanan khas
-__label__out_of_context makasih
-__label__out_of_context mall
-__label__out_of_context menikah
-__label__out_of_context nara ada dimana
-__label__out_of_context nara adalah
-__label__out_of_context nara apa
-__label__out_of_context nara apaan
-__label__out_of_context nara desktop
-__label__out_of_context nara down
-__label__out_of_context nara dulu
-__label__out_of_context nara error
-__label__out_of_context nara ga bisa
-__label__out_of_context nara gabisa
-__label__out_of_context nara ga jalan
-__label__out_of_context nara itu
-__label__out_of_context nara lambat
-__label__out_of_context nara lemot
-__label__out_of_context nara mati
-__label__out_of_context nara merupakan
-__label__out_of_context nara rusak
-__label__out_of_context nara sangat
-__label__out_of_context nara tugas
-__label__out_of_context nara tugas matkul
-__label__out_of_context negara mana
-__label__out_of_context nggak
-__label__out_of_context ngobrol yuk
-__label__out_of_context nikah
-__label__out_of_context ojek
-__label__out_of_context ok
-__label__out_of_context oke
-__label__out_of_context online shop
-__label__out_of_context pajak
-__label__out_of_context pakaian adat
-__label__out_of_context paket data
-__label__out_of_context penyanyi
-__label__out_of_context pesan makanan
-__label__out_of_context pesan tiket
-__label__out_of_context pinjaman online
-__label__out_of_context pinjol
-__label__out_of_context plis
-__label__out_of_context pr
-__label__out_of_context prabowo
-__label__out_of_context presiden
-__label__out_of_context presiden amerika siapa
-__label__out_of_context presiden Indonesia siapa
-__label__out_of_context promo
-__label__out_of_context provider
-__label__out_of_context pukul berapa sekarang
-__label__out_of_context pulsa
-__label__out_of_context ramalan bintang
-__label__out_of_context ramalan cuaca
-__label__out_of_context resep kue
-__label__out_of_context resep masakan
-__label__out_of_context resep nasi goreng
-__label__out_of_context rumah kamu dimana
-__label__out_of_context rumah sakit terdekat
-__label__out_of_context rumus fisika
-__label__out_of_context rumus matematika
-__label__out_of_context saya bingung
-__label__out_of_context saya lapar
-__label__out_of_context saya mau makan
-__label__out_of_context sekolah
-__label__out_of_context selamat ulang tahun
-__label__out_of_context sepak bola
-__label__out_of_context serius
-__label__out_of_context setuju ga
-__label__out_of_context shopee
-__label__out_of_context siap
-__label__out_of_context siapa itu jokowi
-__label__out_of_context siapa nama artis
-__label__out_of_context siapa nama gubernur
-__label__out_of_context siapa nama ibu kota
-__label__out_of_context siapa nama menteri
-__label__out_of_context siapa nama presiden
-__label__out_of_context siapa nama presiden amerika
-__label__out_of_context siapa nama presiden Indonesia
-__label__out_of_context siapa pacar kamu
-__label__out_of_context siapa pacarmu
-__label__out_of_context siapa pahlawan nasional
-__label__out_of_context siapa penemu listrik
-__label__out_of_context siapa presiden amerika
-__label__out_of_context siapa presiden Indonesia
-__label__out_of_context siapa presiden rusia
-__label__out_of_context siapa presiden sekarang
-__label__out_of_context sim
-__label__out_of_context sinetron
-__label__out_of_context sip
-__label__out_of_context skripsi
-__label__out_of_context sma
-__label__out_of_context stnk
-__label__out_of_context suku di indonesia
-__label__out_of_context supermarket
-__label__out_of_context tanggal berapa hari ini
-__label__out_of_context tari tradisional
-__label__out_of_context terima kasih
-__label__out_of_context terjemahkan
-__label__out_of_context thanks
-__label__out_of_context tidak
-__label__out_of_context tidur dimana kamu
-__label__out_of_context tiktok
-__label__out_of_context togel
-__label__out_of_context tokopedia
-__label__out_of_context tolong dong
-__label__out_of_context translate
-__label__out_of_context tugas kuliah
-__label__out_of_context tv
-__label__out_of_context twitter
-__label__out_of_context udah makan belum
-__label__out_of_context umur kamu berapa
-__label__out_of_context wa
-__label__out_of_context wifi
-__label__out_of_context y
-__label__out_of_context ya
-__label__out_of_context zodiak
+__label__forward 1 ditambah 1
+__label__forward akses internet
+__label__forward aku bosan
+__label__forward aku butuh teman
+__label__forward aku capek
+__label__forward aku galau
+__label__forward aku marah
+__label__forward aku mau curhat
+__label__forward aku sayang kamu
+__label__forward aku sedih
+__label__forward aku senang
+__label__forward anak
+__label__forward apa itu nara
+__label__forward apa kabar kamu
+__label__forward apa pendapatmu
+__label__forward apa warna langit
+__label__forward apotik
+__label__forward artis
+__label__forward asuransi
+__label__forward bagaimana menurutmu
+__label__forward baik
+__label__forward bantuin dong
+__label__forward beli
+__label__forward beneran
+__label__forward bener ga sih
+__label__forward benua
+__label__forward berapa 1 tambah 1
+__label__forward berapa provinsi di Indonesia
+__label__forward berita bola
+__label__forward berita terbaru
+__label__forward bisnis online
+__label__forward bitcoin
+__label__forward bpjs
+__label__forward cara akses nara
+__label__forward cara buat kue
+__label__forward cara daftar kartu
+__label__forward cara daftar nara
+__label__forward cara dapat uang
+__label__forward cara jadi
+__label__forward cara jadi youtuber
+__label__forward cara login nara
+__label__forward cara main game
+__label__forward cara masak ayam
+__label__forward cara membuat nasi goreng
+__label__forward cara menjadi kaya
+__label__forward cara pake nara
+__label__forward cara pinjam uang
+__label__forward cari kerja
+__label__forward cerita lucu
+__label__forward ceritanya gimana
+__label__forward chat nara
+__label__forward crypto
+__label__forward cuaca besok
+__label__forward cuaca hari ini
+__label__forward curhat
+__label__forward dari mana
+__label__forward darimana asal kamu
+__label__forward dimana ibu kota Indonesia
+__label__forward dimana indonesia
+__label__forward dimana pasar
+__label__forward dimana rumah sakit
+__label__forward diskon
+__label__forward dokter gigi
+__label__forward download nara
+__label__forward facebook
+__label__forward film terbaru
+__label__forward gaji
+__label__forward gajian
+__label__forward gak
+__label__forward game
+__label__forward gimana caranya biar
+__label__forward gojek
+__label__forward gosip
+__label__forward grab
+__label__forward hamil
+__label__forward happy birthday
+__label__forward harga
+__label__forward harga emas
+__label__forward harga saham
+__label__forward hari apa sekarang
+__label__forward hitung
+__label__forward hubungi nara
+__label__forward ibu kota Indonesia
+__label__forward ibukota Indonesia dimana
+__label__forward i love you
+__label__forward info terkini
+__label__forward instagram
+__label__forward install nara
+__label__forward iya
+__label__forward jadwal sholat
+__label__forward jam berapa
+__label__forward jawab pr
+__label__forward jodoh
+__label__forward jokes
+__label__forward jokowi
+__label__forward jual
+__label__forward judi
+__label__forward kamu bodoh
+__label__forward kamu cantik
+__label__forward kamu dimana
+__label__forward kamu ganteng
+__label__forward kamu jelek
+__label__forward kamu lagi apa
+__label__forward kamu pintar
+__label__forward kamu punya pacar
+__label__forward kamu sibuk apa
+__label__forward kamu suka aku
+__label__forward kamu udah makan
+__label__forward kapan Indonesia merdeka
+__label__forward kapan lebaran
+__label__forward kapan puasa
+__label__forward kenal nara
+__label__forward kenapa langit biru
+__label__forward koran
+__label__forward kredit
+__label__forward ktp
+__label__forward kuliah
+__label__forward lagi ngapain
+__label__forward lagu apa yang bagus
+__label__forward lagu daerah
+__label__forward lagu favorit
+__label__forward lawak
+__label__forward loker
+__label__forward lowongan kerja
+__label__forward main game
+__label__forward main yuk
+__label__forward makanan khas
+__label__forward makasih
+__label__forward mall
+__label__forward menikah
+__label__forward nara ada dimana
+__label__forward nara adalah
+__label__forward nara apa
+__label__forward nara apaan
+__label__forward nara desktop
+__label__forward nara down
+__label__forward nara dulu
+__label__forward nara error
+__label__forward nara ga bisa
+__label__forward nara gabisa
+__label__forward nara ga jalan
+__label__forward nara itu
+__label__forward nara lambat
+__label__forward nara lemot
+__label__forward nara mati
+__label__forward nara merupakan
+__label__forward nara rusak
+__label__forward nara sangat
+__label__forward nara tugas
+__label__forward nara tugas matkul
+__label__forward negara mana
+__label__forward nggak
+__label__forward ngobrol yuk
+__label__forward nikah
+__label__forward ojek
+__label__forward ok
+__label__forward oke
+__label__forward online shop
+__label__forward pajak
+__label__forward pakaian adat
+__label__forward paket data
+__label__forward penyanyi
+__label__forward pesan makanan
+__label__forward pesan tiket
+__label__forward pinjaman online
+__label__forward pinjol
+__label__forward plis
+__label__forward pr
+__label__forward prabowo
+__label__forward presiden
+__label__forward presiden amerika siapa
+__label__forward presiden Indonesia siapa
+__label__forward promo
+__label__forward provider
+__label__forward pukul berapa sekarang
+__label__forward pulsa
+__label__forward ramalan bintang
+__label__forward ramalan cuaca
+__label__forward resep kue
+__label__forward resep masakan
+__label__forward resep nasi goreng
+__label__forward rumah kamu dimana
+__label__forward rumah sakit terdekat
+__label__forward rumus fisika
+__label__forward rumus matematika
+__label__forward saya bingung
+__label__forward saya lapar
+__label__forward saya mau makan
+__label__forward sekolah
+__label__forward selamat ulang tahun
+__label__forward sepak bola
+__label__forward serius
+__label__forward setuju ga
+__label__forward shopee
+__label__forward siap
+__label__forward siapa itu jokowi
+__label__forward siapa nama artis
+__label__forward siapa nama gubernur
+__label__forward siapa nama ibu kota
+__label__forward siapa nama menteri
+__label__forward siapa nama presiden
+__label__forward siapa nama presiden amerika
+__label__forward siapa nama presiden Indonesia
+__label__forward siapa pacar kamu
+__label__forward siapa pacarmu
+__label__forward siapa pahlawan nasional
+__label__forward siapa penemu listrik
+__label__forward siapa presiden amerika
+__label__forward siapa presiden Indonesia
+__label__forward siapa presiden rusia
+__label__forward siapa presiden sekarang
+__label__forward sim
+__label__forward sinetron
+__label__forward sip
+__label__forward skripsi
+__label__forward sma
+__label__forward stnk
+__label__forward suku di indonesia
+__label__forward supermarket
+__label__forward tanggal berapa hari ini
+__label__forward tari tradisional
+__label__forward terima kasih
+__label__forward terjemahkan
+__label__forward thanks
+__label__forward tidak
+__label__forward tidur dimana kamu
+__label__forward tiktok
+__label__forward togel
+__label__forward tokopedia
+__label__forward tolong dong
+__label__forward translate
+__label__forward tugas kuliah
+__label__forward tv
+__label__forward twitter
+__label__forward udah makan belum
+__label__forward umur kamu berapa
+__label__forward wa
+__label__forward wifi
+__label__forward y
+__label__forward ya
+__label__forward zodiak
 # ===== OUT_OF_CONTEXT (bukan greeting/capability) =====
 # ===== OUT_OF_CONTEXT — lebih banyak false positive traps =====
 # ===== OUT_OF_CONTEXT — traps (nanya tentang Nara, bukan ke Nara) =====
