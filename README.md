@@ -1065,7 +1065,12 @@ sudo lsof -i :8000              # Linux
   - Gate 1: Cascade gagal + RRF ≥ 0.018 → link QNA
   - Gate 2: Multi-part semua gagal + RRF ≥ 0.018 → link QNA
 - `responses.json`: 2 template baru — `rejection_out_of_context`, `rejection_no_answer`
-- System prompt diperkuat — checklist topik BPS + larangan eksplisit menjawab out-of-scope
+- Template `capability` statis — gak panggil LLM (cegah ngarang definisi)
+- FastText training data massive expansion: 265 → 417 baris
+  - +greeting: WA style (pagi bang, met malem, bro, sis, gan) + varian "nara"
+  - +capability: colloquial (ngapain, lo, lu, situ, buat apa, guna apa)
+  - +out_of_context: traps (nanya TENTANG Nara), curhat, casual, e-commerce, pendidikan
+- System prompt diperkuat — checklist topik BPS + larangan ngarang definisi
 
 **Changed**
 - **Semua threshold pake RRF score** (bukan E5 atau BM25 doang)
@@ -1075,12 +1080,14 @@ sudo lsof -i :8000              # Linux
 - **BM25=0 di RRF fusion di-skip** — cegah ranking noise dari out-of-context query
 - `hybrid_search()` now returns `[E5, BM25, RRF]` — skor RRF dipake di server.py
 - **Merge threshold multi-part**: `0.55 → 0.78` — cegah false merge antar topik beda
-- Pipeline domain filter: `E5 0.82` → `RRF 0.018/0.025`
+- **Capability → template statis** — gak panggil LLM (hemat ~200-500ms + token cost)
+- Emoji dibebaskan — hapus aturan maksimal 3 emoji & jenis tertentu
+- System prompt: "data referensi tidak menjawab" sekarang include link QNA
+- **Hapus semua hardcode daftar topik** — `/help`, `/topics`, greeting, rejection semua dynamic dari `identity.json`
 
 **Fixed**
 - **FastText numpy 2.x compatibility** — monkey-patch `np.array()` untuk intercept `ValueError` di Windows
-  - FastText C extension panggil `np.array(buf, copy=False)` — gagal di Windows + numpy 2.x
-  - Patch intercept & retry dengan `copy=True`, tetap aktif sepanjang runtime
+- LLM ngarang definisi "GC PBI = Penggunaan Bahan Bakar Industri" — system prompt larang + capability template statis
 
 **Docs**
 - README section "Domain Filter Pipeline" diupdate ke RRF-based
