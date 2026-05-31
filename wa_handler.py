@@ -169,7 +169,7 @@ def wa_message():
     try:
         # CHATBOT_URL udah include /chat, jadi jangan ditambahin lagi
         api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
-        payload = {"pertanyaan": pertanyaan, "chat_id": sender}
+        payload = {"pertanyaan": pertanyaan, "chat_id": sender, "source": "wa"}
         if is_image:
             payload["is_ocr"] = True
         resp = requests.post(

@@ -72,6 +72,7 @@ class ChatRequest(BaseModel):
     chat_id: str = "default"
     image_path: str = ""  # path file gambar buat OCR (dari WA bridge)
     is_ocr: bool = False   # flag kalo teks berasal dari OCR (Telegram)
+    source: str = "api"   # "wa" | "telegram" | "api" — diisi oleh handler masing-masing
 class StopRequest(BaseModel):
     chat_id: str
 # ===================== BACKGROUND TASKS =====================
@@ -274,7 +275,7 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
                   session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
@@ -294,7 +295,7 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
                   session_baru=session_baru)
@@ -304,7 +305,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "positive_feedback":
         jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
@@ -313,7 +314,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "negative_feedback":
         jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
@@ -382,7 +383,7 @@ async def chat(req: ChatRequest):
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf, top5_faq=top5_all,
                   gate="MULTI_PART" if relevant_answers else "MULTI_PART_QNA",
@@ -401,7 +402,7 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_query(req.pertanyaan, cid,
+        log_query(req.pertanyaan, cid, source=req.source,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf,
                   gate="OUT_OF_CONTEXT", dijawab=False, jawaban=jawaban,
@@ -430,7 +431,7 @@ async def chat(req: ChatRequest):
             jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
-            log_query(req.pertanyaan, cid,
+            log_query(req.pertanyaan, cid, source=req.source,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                       rrf_score=top_rrf,
                       gate="CASCADE_QNA", dijawab=False, jawaban=jawaban,
@@ -455,7 +456,7 @@ async def chat(req: ChatRequest):
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     top_faq = best_q if len(scores) > 0 else ""
-    log_query(req.pertanyaan, cid,
+    log_query(req.pertanyaan, cid, source=req.source,
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
               rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores)>0 else 0,
               bm25_raw=float(scores[1]) if len(scores)>1 else 0,

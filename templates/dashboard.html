@@ -176,6 +176,15 @@
             </select>
           </div>
           <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">📱 Source</label>
+            <select class="form-select form-select-sm" id="logSource" onchange="debounceLogs()">
+              <option value="">All</option>
+              <option value="wa">WhatsApp</option>
+              <option value="telegram">Telegram</option>
+              <option value="api">API</option>
+            </select>
+          </div>
+          <div class="col-md-2">
             <label class="form-label small text-muted mb-1">✅ Status</label>
             <select class="form-select form-select-sm" id="logStatus" onchange="debounceLogs()">
               <option value="">All</option>
@@ -202,6 +211,7 @@
           <label class="log-col-toggle" title="Pertanyaan"><input type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span>Pertanyaan</span></label>
           <label class="log-col-toggle" title="Jawaban"><input type="checkbox" data-col="jawaban" onchange="toggleLogColumn(this)"><span>Jawaban</span></label>
           <label class="log-col-toggle" title="Gate"><input type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span>Gate</span></label>
+          <label class="log-col-toggle" title="Source"><input type="checkbox" data-col="source" checked onchange="toggleLogColumn(this)"><span>Source</span></label>
           <label class="log-col-toggle" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>Answered</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📊 Scoring</span>
@@ -423,6 +433,7 @@
       { key: 'pertanyaan', label: 'Pertanyaan', render: l => `<span title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}" class="detail">${(l.pertanyaan||'').slice(0,120)}</span>`, group: 'basic' },
       { key: 'jawaban', label: 'Jawaban', render: l => `<span title="${(l.jawaban||'').replace(/"/g,'&quot;')}" class="detail">${(l.jawaban||'').slice(0,80)}</span>`, group: 'basic' },
       { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':l.gate==='REJECT'?'bg-danger':'bg-secondary'} gate-badge">${l.gate||'-'}</span>`, group: 'basic' },
+      { key: 'source', label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'bg-success':l.source==='telegram'?'bg-info':'bg-secondary'} gate-badge">${l.source||'-'}</span>`, group: 'basic' },
       { key: 'dijawab', label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>', group: 'basic' },
       { key: 'gate_detail', label: 'Gate Detail', render: l => `<span class="text-muted small">${l.gate_detail||'-'}</span>`, group: 'scores' },
       { key: 'clf_domain', label: 'CLF Domain', render: l => `<span class="badge bg-secondary gate-badge">${l.clf_domain||'-'}</span>`, group: 'scores' },
@@ -445,12 +456,14 @@
       const search = document.getElementById('logSearch').value.trim();
       const gate = document.getElementById('logGate').value;
       const clf = document.getElementById('logClf').value;
+      const source = document.getElementById('logSource').value;
       const status = document.getElementById('logStatus').value;
       const days = document.getElementById('timeRange').value;
       return `days=${days}&limit=${LOG_LIMIT}&offset=${logPage * LOG_LIMIT}`
         + (search ? `&search=${encodeURIComponent(search)}` : '')
         + (gate ? `&gate=${encodeURIComponent(gate)}` : '')
         + (clf ? `&clf=${encodeURIComponent(clf)}` : '')
+        + (source ? `&source=${encodeURIComponent(source)}` : '')
         + (status ? `&dijawab=${status}` : '');
     }
 
@@ -479,6 +492,7 @@
       document.getElementById('logSearch').value = '';
       document.getElementById('logGate').value = '';
       document.getElementById('logClf').value = '';
+      document.getElementById('logSource').value = '';
       document.getElementById('logStatus').value = '';
       logPage = 0;
       loadLogs();

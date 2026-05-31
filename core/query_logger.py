@@ -22,7 +22,7 @@ def _wib_now() -> str:
 
 
 def _init_sqlite():
-    """Buat table kalo belum ada"""
+    """Buat table kalo belum ada + migrasi kolom baru"""
     with _sqlite_lock:
         db = sqlite3.connect(str(SQLITE_FILE))
         db.execute("PRAGMA journal_mode=WAL")
@@ -39,6 +39,7 @@ def _init_sqlite():
                 e5_top REAL,
                 bm25_raw REAL,
                 top5_faq TEXT,
+                source TEXT,
                 gate TEXT,
                 gate_detail TEXT,
                 dijawab INTEGER,
@@ -52,10 +53,16 @@ def _init_sqlite():
                 error TEXT
             )
         """)
+        # Migrasi: tambah kolom source kalo belum ada
+        try:
+            db.execute("ALTER TABLE logs ADD COLUMN source TEXT DEFAULT ''")
+        except Exception:
+            pass  # kolom sudah ada
         db.execute("CREATE INDEX IF NOT EXISTS idx_waktu ON logs(waktu)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_gate ON logs(gate)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_clf ON logs(clf_domain)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat ON logs(chat_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_source ON logs(source)")
         db.commit()
         db.close()
 
@@ -67,6 +74,7 @@ def log_query(
     pertanyaan: str,
     chat_id: str,
     *,
+    source: str = "",
     clf_domain: str = "",
     clf_confidence: float = 0.0,
     clf_mode: str = "scikit-learn",
@@ -91,6 +99,7 @@ def log_query(
         "waktu": _wib_now(),
         "chat_id": str(chat_id),
         "pertanyaan": pertanyaan,
+        "source": source,
         "clf_domain": clf_domain,
         "clf_confidence": round(clf_confidence, 4),
         "clf_mode": clf_mode,
@@ -129,16 +138,16 @@ def log_query(
                     waktu, chat_id, pertanyaan,
                     clf_domain, clf_confidence, clf_mode,
                     rrf_score, e5_top, bm25_raw, top5_faq,
-                    gate, gate_detail, dijawab,
+                    source, gate, gate_detail, dijawab,
                     jawaban, jawaban_length,
                     llm_model, llm_provider, llm_time_ms,
                     multi_part, session_baru, error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 entry["waktu"], entry["chat_id"], entry["pertanyaan"],
                 clf_domain, clf_confidence, clf_mode,
                 rrf_score, e5_top, bm25_raw, json.dumps(top5_faq or []),
-                gate, gate_detail, int(dijawab),
+                source, gate, gate_detail, int(dijawab),
                 jawaban, len(jawaban),
                 llm_model, llm_provider, llm_time_ms,
                 int(multi_part), int(session_baru), error[:200],

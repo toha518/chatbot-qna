@@ -86,7 +86,7 @@ def api_stats(days: int = 7):
 
 @app.get("/api/logs")
 def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
-             search: str = "", gate: str = "", clf: str = "", dijawab: str = ""):
+             search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
     if not _table_exists():
         return {"logs": [], "total": 0}
     clause = _period_clause(days)
@@ -102,6 +102,9 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
     if clf:
         clause += " AND clf_domain = ?"
         params.append(clf)
+    if source:
+        clause += " AND source = ?"
+        params.append(source)
     if dijawab == "1":
         clause += " AND dijawab = 1"
     elif dijawab == "0":

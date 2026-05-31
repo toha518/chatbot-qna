@@ -201,7 +201,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(
                 CHATBOT_URL,
-                json={"pertanyaan": text, "chat_id": chat_id}
+                json={"pertanyaan": text, "chat_id": chat_id, "source": "telegram"}
             )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
@@ -311,7 +311,7 @@ def main():
             async with httpx.AsyncClient(timeout=120) as client:
                 resp = await client.post(
                     CHATBOT_URL,
-                    json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True}
+                    json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True, "source": "telegram"}
                 )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
