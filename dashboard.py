@@ -107,9 +107,15 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
     elif dijawab == "0":
         clause += " AND dijawab = 0"
 
-    logs = _rows(f"""
-        SELECT * FROM logs WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?
-    """, params + [limit, offset])
+    try:
+        logs = _rows(f"""
+            SELECT * FROM logs WHERE {clause} ORDER BY id DESC LIMIT ? OFFSET ?
+        """, params + [limit, offset])
+    except Exception as e:
+        import traceback
+        print(f"[LOGS-ERROR] Query failed: {e}")
+        traceback.print_exc()
+        return {"logs": [], "total": 0, "error": str(e)}
     # Sanitize None values
     for l in logs:
         for k in l:
@@ -120,7 +126,13 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
                     l[k] = 0
                 else:
                     l[k] = ""
-    total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}", params)[0]["cnt"]
+    try:
+        total = _rows(f"SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE {clause}", params)[0]["cnt"]
+    except Exception as e:
+        import traceback
+        print(f"[LOGS-ERROR] {e}")
+        traceback.print_exc()
+        return {"logs": logs, "total": 0, "error": str(e), "sql": f"SELECT COUNT(*) FROM logs WHERE {clause}"}
     return {"logs": logs, "total": total}
 
 
