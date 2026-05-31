@@ -4,6 +4,8 @@
   "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
   "rejection": "Maaf, saya tidak dapat menjawab pertanyaan tersebut. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
   "rejection_short": "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
+  "rejection_out_of_context": "Maaf, pertanyaan Anda di luar lingkup BPS Provinsi Kepulauan Bangka Belitung. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
+  "rejection_no_answer": "Maaf, pertanyaan Anda belum tersedia di database saya. Silakan ajukan pertanyaan melalui form berikut agar kami dapat menambahkannya:\n\n📩 http://s.bps.go.id/nara-qna\n\nKami akan mereview dan menambahkan jawaban Anda segera.",
   "error_llm": "Maaf, terjadi error. Silakan coba lagi.",
   "question_too_long": "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.",
   "question_empty": "⚠️ Pesan kosong setelah penyaringan.",

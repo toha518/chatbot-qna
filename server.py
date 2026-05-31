@@ -288,7 +288,21 @@ async def chat(req: ChatRequest):
                   bm25_status="CAPABILITY", dijawab=True, greeting=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # out_of_context → hybrid retrieval (biar cascade & hybrid score yg nentuin)
+    # out_of_context → tolak langsung (pertanyaan di luar BPS)
+    if ft_domain == "out_of_context" and ft_conf >= 0.6:
+        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG)
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
+        log_chat(cid, req.pertanyaan, jawaban)
+        log_query(req.pertanyaan, cid, bm25_score=ft_conf,
+                  bm25_status="OUT_OF_CONTEXT", dijawab=False, jawaban=jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": 0}
+
+    # hybrid retrieval
     bm25_score = ft_conf
     context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
     top_score = float(scores[0]) if len(scores) > 0 else 0
@@ -348,7 +362,8 @@ async def chat(req: ChatRequest):
                 jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
         else:
-            jawaban = REJECTION_MSG
+            # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
+            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
         log_chat(cid, req.pertanyaan, jawaban)
@@ -380,8 +395,9 @@ async def chat(req: ChatRequest):
                 fallback_success = True
                 break
         if not fallback_success:
-            print(f"[QUERY] Cascade gagal — tolak (top_score={top_score:.3f})")
-            jawaban = REJECTION_MSG
+            print(f"[QUERY] Cascade gagal — link QNA (top_score={top_score:.3f})")
+            # Domain BPS, relevant tapi ga ada di DB → kasih link QNA
+            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
             log_chat(cid, req.pertanyaan, jawaban)
