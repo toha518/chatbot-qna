@@ -1058,6 +1058,37 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.3.1 — 2026-05-31
+
+**Added**
+- **QNA Form Link** — `http://s.bps.go.id/nara-qna` untuk pertanyaan domain BPS tapi belum ada di FAQ
+  - Gate 1: Cascade gagal + RRF ≥ 0.018 → link QNA
+  - Gate 2: Multi-part semua gagal + RRF ≥ 0.018 → link QNA
+- `responses.json`: 2 template baru — `rejection_out_of_context`, `rejection_no_answer`
+- System prompt diperkuat — checklist topik BPS + larangan eksplisit menjawab out-of-scope
+
+**Changed**
+- **Semua threshold pake RRF score** (bukan E5 atau BM25 doang)
+  - `RRF < 0.018` → out of context (tolak)
+  - `0.018 ≤ RRF < 0.025` → cascade → gagal? QNA link
+  - `RRF ≥ 0.025` → LLM jawab
+- **BM25=0 di RRF fusion di-skip** — cegah ranking noise dari out-of-context query
+- `hybrid_search()` now returns `[E5, BM25, RRF]` — skor RRF dipake di server.py
+- **Merge threshold multi-part**: `0.55 → 0.78` — cegah false merge antar topik beda
+- Pipeline domain filter: `E5 0.82` → `RRF 0.018/0.025`
+
+**Fixed**
+- **FastText numpy 2.x compatibility** — monkey-patch `np.array()` untuk intercept `ValueError` di Windows
+  - FastText C extension panggil `np.array(buf, copy=False)` — gagal di Windows + numpy 2.x
+  - Patch intercept & retry dengan `copy=True`, tetap aktif sepanjang runtime
+
+**Docs**
+- README section "Domain Filter Pipeline" diupdate ke RRF-based
+- README: tambah section "QNA Form Link" + response template
+- README: update diagram pipeline dan tabel threshold
+
+---
+
 #### v2.3.0 — 2026-05-30
 
 **Added**
