@@ -273,11 +273,13 @@ async def chat(req: ChatRequest):
 
     # Capability — respon langsung, skip retrieval
     if ft_domain == "capability":
-        messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-        jawaban = await call_llm(messages, timeout=30)
-        if not jawaban:
-            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+        # Template statis — gak panggil LLM (cegah ngarang definisi)
+        topics_list = "\n".join(f"  {t}" for t in identity['topics'])
+        jawaban = responses.get("capability", "").format(
+            name=identity['name'],
+            role=identity['role'],
+            topics_list=topics_list
+        )
         api_rate_limit[cid]["last_active"] = time.time()
         if session_baru:
             wib = timezone(timedelta(hours=7))
