@@ -93,11 +93,14 @@ def build_greeting_prompt(greeting_template: str, identity: dict, user_query: st
 
 def build_system_prompt(system_template: str, identity: dict, acronyms: str = "") -> str:
     """Render system prompt dengan identitas bot"""
-    topics_str = ", ".join(identity["topics"])
+    topics_line = ", ".join(identity["topics"])
+    # Build dynamic checklist dari identity
+    topics_checklist = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity["topics"]))
     return system_template.format(
         name=identity["name"],
         role=identity["role"],
-        topics=topics_str,
+        topics=topics_line,
+        topics_checklist=topics_checklist,
         acronyms=acronyms
     )
 
