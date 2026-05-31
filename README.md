@@ -99,7 +99,7 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **scikit-learn Intent Classifier** | `core/fasttext_filter.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
+| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
 | 5 | 🔍 **Domain Filter (RRF-based)** | `server.py` | **Hybrid search (E5+BM25 via RRF) jadi domain filter.** Semua threshold pake RRF score (bukan E5/BM25 doang). 3 gate: RRF < 0.018 → out-of-context (tolak). 0.018 ≤ RRF < 0.025 → cascade → gagal? QNA link. RRF ≥ 0.025 → LLM jawab |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
@@ -178,7 +178,7 @@ chatbot-qna/
 │   ├── database.py           ←   SQLite: init, log chat, query history
 │   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
 │   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
-│   ├── fasttext_filter.py    ←   scikit-learn SGDClassifier + TF-IDF intent classifier
+│   ├── intent_classifier.py  ←   scikit-learn SGDClassifier + TF-IDF intent classifier
 │   ├── classifier_train.txt  ←   Training data (478 sampel, 5 kelas)
 │   ├── domain_filter.ftz     ←   Pickle model scikit-learn (185KB, load instant)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
@@ -375,19 +375,46 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 
 ---
 
-### 🏷️ scikit-learn — Intent Classifier
+### 🏷️ scikit-learn — Intent Classifier (CLF)
 
-Sebelum hybrid search dijalankan, scikit-learn SGDClassifier (atau keyword fallback) menyaring 5 jenis pertanyaan yang **gak perlu retrieval**:
+Sebelum hybrid search dijalankan, **CLF (Classifier)** menyaring 5 jenis intent user yang **gak perlu retrieval** — langsung respon dengan template / LLM greeting:
 
-| Domain | Contoh | Aksi |
-|--------|--------|------|
-| **greeting** | "halo", "pagi min", "assalamualaikum" | Respon salam langsung, skip LLM & retrieval |
-| **capability** | "kamu bisa apa", "siapa kamu", "fitur apa aja" | Respon identitas & fitur langsung, skip LLM |
-| **out_of_context** | "siapa presiden", "resep nasi goreng" | Lanjut ke hybrid search + cascade |
+**Arsitektur:**
+```
+Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
+              ├─ greeting            → LLM menjawab dengan sapaan ramah
+              ├─ capability          → Template statis: "Saya bisa membantu: ..."
+              ├─ positive_feedback   → Template: "Sama-sama! 😊 Ada yang bisa saya bantu lagi?"
+              ├─ negative_feedback   → Template + link QNA: "Maaf ya... silakan ajukan lewat form"
+              └─ out_of_context      → Lanjut ke hybrid search + domain filter (RRF gate)
+```
 
-**Dual-mode:**
-- **scikit-learn SGDClassifier (185KB)** — pure Python, semua OS. Load instant, inferensi < 1ms
+| Domain | Deskripsi | Contoh Input | Respon | Handler |
+|--------|-----------|-------------|--------|---------|
+| **greeting** | User menyapa | "halo", "pagi nara", "assalamualaikum", "met malem", "hi bang" | LLM — sapaan ramah + tawarkan bantuan | `prompts/greeting.md` |
+| **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
+| **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Sama-sama! 😊 Ada yang bisa saya bantu lagi?" | `responses.json → positive_feedback` |
+| **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
+| **out_of_context** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke hybrid search → RRF gate system | RRF domain filter |
+
+**Kenapa perlu 5 kelas?**
+- Tanpa `positive_feedback`: "makasih" masuk out_of_context → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
+- Tanpa `negative_feedback`: "kamu ga membantu" masuk out_of_context → hybrid search → LLM dengan system prompt ketat → malah kasih link QNA dengan nada formal — padahal harusnya empati dulu.
+- Tanpa `capability` terpisah: LLM suka ngarang definisi palsu ("GC PBI = Ground Check Penggunaan Bahan Bakar Industri"). Template statis mencegah hal ini.
+
+**Model:**
+- **SGDClassifier + TF-IDF (185KB)** — pure Python, semua OS. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%, inferensi < 1ms
 - **Keyword fallback** — auto aktif kalo scikit-learn gak terinstall. Akurasi: ~95%
+
+**Training data:** `core/classifier_train.txt` — 478 baris, format:
+```
+__label__greeting halo
+__label__greeting pagi nara
+__label__capability kamu bisa apa
+__label__positive_feedback makasih
+__label__negative_feedback kamu tidak membantu
+__label__out_of_context siapa presiden
+```
 
 ### 🧩 Multi-Part Split (E5 Semantic Boundary)
 
