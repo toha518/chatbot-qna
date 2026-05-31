@@ -320,7 +320,7 @@ async def chat(req: ChatRequest):
 
     # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
     bm25_score = ft_conf
-    context, scores, best_q = hybrid_search(req.pertanyaan, top_k=5)
+    context, scores, best_q, top5_all = hybrid_search(req.pertanyaan, top_k=5)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25)")
 
@@ -384,7 +384,7 @@ async def chat(req: ChatRequest):
         history.append({"role": "assistant", "content": jawaban})
         log_query(req.pertanyaan, cid,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  rrf_score=top_rrf, top5_faq=[best_q] if best_q else [],
+                  rrf_score=top_rrf, top5_faq=top5_all,
                   gate="MULTI_PART" if relevant_answers else "MULTI_PART_QNA",
                   dijawab=bool(relevant_answers), jawaban=jawaban,
                   multi_part=True, session_baru=session_baru)
@@ -459,7 +459,7 @@ async def chat(req: ChatRequest):
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
               rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores)>0 else 0,
               bm25_raw=float(scores[1]) if len(scores)>1 else 0,
-              top5_faq=[best_q] if best_q else [],
+              top5_faq=top5_all,
               gate="ANSWER", dijawab=True, jawaban=jawaban,
               multi_part=False, session_baru=session_baru,
               llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)

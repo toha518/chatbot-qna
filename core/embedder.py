@@ -266,9 +266,10 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
             context = (f"PERTANYAAN: {questions[idx0]}\n"
                        f"JAWABAN: {answers[idx0]}\n\n")
 
-    # ── Return: [E5, BM25, RRF] — RRF buat domain filter, E5 buat cascade threshold ──
+    # ── Return: scores array [E5, BM25, RRF] + top-5 FAQ list ──
     best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
+    top5 = [questions[i] for i in best_idx[:5]]  # semua 5 FAQ
     top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_bm25 = float(bm25_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_rrf = float(rrf_scores[best_idx[0]]) if len(best_idx) > 0 else 0
-    return context, np.array([top_e5, top_bm25, top_rrf]), best_q
+    return context, np.array([top_e5, top_bm25, top_rrf]), best_q, top5
