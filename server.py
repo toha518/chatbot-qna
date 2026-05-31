@@ -291,12 +291,12 @@ async def chat(req: ChatRequest):
         return {"jawaban": jawaban, "skor": 1.0}
 
     # Acknowledgment — respon langsung (makasih, ok, sip, dll)
-    if ft_domain == "acknowledgment":
-        jawaban = responses.get("acknowledgment", "Sama-sama! 😊")
+    if ft_domain == "positive_feedback":
+        jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
         api_rate_limit[cid]["last_active"] = time.time()
         log_chat(cid, req.pertanyaan, jawaban)
         log_query(req.pertanyaan, cid, bm25_score=ft_conf,
-                  bm25_status="ACKNOWLEDGMENT", dijawab=True, jawaban=jawaban)
+                  bm25_status="POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # Negative feedback — respon langsung (kamu tidak membantu, dll)

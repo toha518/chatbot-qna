@@ -1,36 +1,36 @@
 
 # ===== ACKNOWLEDGMENT =====
-__label__acknowledgment makasih
-__label__acknowledgment terima kasih
-__label__acknowledgment terimakasih
-__label__acknowledgment thanks
-__label__acknowledgment thank you
-__label__acknowledgment makasih ya
-__label__acknowledgment makasih banyak
-__label__acknowledgment makasih kak
-__label__acknowledgment makasih min
-__label__acknowledgment terima kasih banyak
-__label__acknowledgment trims
-__label__acknowledgment ok
-__label__acknowledgment oke
-__label__acknowledgment sip
-__label__acknowledgment siap
-__label__acknowledgment oke sip
-__label__acknowledgment baik
-__label__acknowledgment baiklah
-__label__acknowledgment noted
-__label__acknowledgment oke kak
-__label__acknowledgment oke min
-__label__acknowledgment okee
-__label__acknowledgment ok deh
-__label__acknowledgment siap kak
-__label__acknowledgment thank you so much
-__label__acknowledgment makasih bang
-__label__acknowledgment makasih loh
-__label__acknowledgment tengkyu
-__label__acknowledgment makasih ya kak
-__label__acknowledgment mantap
-__label__acknowledgment thanks ya
+__label__positive_feedback makasih
+__label__positive_feedback terima kasih
+__label__positive_feedback terimakasih
+__label__positive_feedback thanks
+__label__positive_feedback thank you
+__label__positive_feedback makasih ya
+__label__positive_feedback makasih banyak
+__label__positive_feedback makasih kak
+__label__positive_feedback makasih min
+__label__positive_feedback terima kasih banyak
+__label__positive_feedback trims
+__label__positive_feedback ok
+__label__positive_feedback oke
+__label__positive_feedback sip
+__label__positive_feedback siap
+__label__positive_feedback oke sip
+__label__positive_feedback baik
+__label__positive_feedback baiklah
+__label__positive_feedback noted
+__label__positive_feedback oke kak
+__label__positive_feedback oke min
+__label__positive_feedback okee
+__label__positive_feedback ok deh
+__label__positive_feedback siap kak
+__label__positive_feedback thank you so much
+__label__positive_feedback makasih bang
+__label__positive_feedback makasih loh
+__label__positive_feedback tengkyu
+__label__positive_feedback makasih ya kak
+__label__positive_feedback mantap
+__label__positive_feedback thanks ya
 
 # ===== NEGATIVE FEEDBACK =====
 __label__negative_feedback kamu tidak membantu
