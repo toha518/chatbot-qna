@@ -15,7 +15,7 @@ load_dotenv()
 # ===================== MODULES =====================
 from core.database import init_db, log_chat, get_chat_history, list_sessions, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
-from core.fasttext_filter import init_classifier, classify as ft_classify
+from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
 from core.llm import (
