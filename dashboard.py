@@ -355,6 +355,14 @@ def api_top_faq(days: int = 7, limit: int = 20):
     """, (limit,))
     for r in faqs:
         r["avg_rrf"] = round(r["avg_rrf"], 4) if r["avg_rrf"] else 0
+        # Cari kategori (clf_domain) paling sering untuk FAQ ini
+        rows = _rows(f"""
+            SELECT clf_domain, COUNT(*) as cnt
+            FROM logs, json_each(logs.top5_faq)
+            WHERE json_each.value = ? AND {clause} AND clf_domain != ''
+            GROUP BY clf_domain ORDER BY cnt DESC LIMIT 1
+        """, (r["faq"],))
+        r["category"] = rows[0]["clf_domain"] if rows else "-"
     return {"faqs": faqs}
 
 

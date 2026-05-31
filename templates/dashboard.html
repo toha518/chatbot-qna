@@ -306,7 +306,7 @@
       <h5 class="mb-3 fw-bold">🏆 Top FAQ</h5>
       <div class="chart-card"><div class="table-responsive">
         <table class="table table-sm mb-0" id="faqTable">
-          <thead><tr><th>#</th><th>FAQ</th><th>Hits</th><th>Avg RRF</th><th>Last Seen</th></tr></thead>
+          <thead><tr><th>#</th><th>FAQ</th><th>Category</th><th>Hits</th><th>Avg RRF</th><th>Last Seen</th></tr></thead>
           <tbody></tbody>
         </table>
       </div></div>
@@ -712,9 +712,10 @@
     // Top FAQ
     async function loadTopFAQ() {
       const data = await fetchAPI('top-faq');
-      document.querySelector('#faqTable tbody').innerHTML = data.faqs?.map((f,i) => `
-        <tr><td>${i+1}</td><td>${f.faq||''}</td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last||''}</td></tr>
-      `).join('') || '<tr><td colspan="5" class="text-center py-3">No data</td></tr>';
+      document.querySelector('#faqTable tbody').innerHTML = data.faqs?.map((f,i) => {
+        const catColor = f.category === 'greeting' ? 'bg-info' : f.category === 'capability' ? 'bg-primary' : f.category === 'feedback' ? 'bg-success' : f.category === 'luar_domain' ? 'bg-danger' : 'bg-secondary';
+        return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColor} gate-badge">${f.category||'-'}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
+      }).join('') || '<tr><td colspan="6" class="text-center py-3">No data</td></tr>';
     }
 
     function refreshAll() {
