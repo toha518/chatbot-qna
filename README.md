@@ -61,7 +61,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
 | **Hybrid Retrieval + Domain Filter** | E5+BM25 via RRF fusion — cascade fallback otomatis jadi filter domain |
-| **Greeting/Capability Detector** | FastText (dual-mode: model 4MB / keyword fallback) |
+| **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) |
 | **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
 | **Telegram** | python-telegram-bot (Polling) |
@@ -77,7 +77,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Hybrid Search + Domain Filter (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. **Hybrid score otomatis jadi domain filter** — query di luar BPS dapet E5+BM25 rendah → cascade reject. Gak perlu layer filter tambahan |
-| 🏷️ **FastText Greeting / Sentiment Detector** | FastText model (4MB) / keyword fallback. 5 kelas: **greeting**, **capability**, **positive_feedback**, **negative_feedback**, **out_of_context**. 4 kelas spesifik respon langsung tanpa retrieval & LLM. **Windows numpy 2.x compatibility patched** |
+| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. 4 kelas spesifik respon langsung, skip retrieval & LLM. Keyword fallback sbg safety net |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
 | 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
@@ -99,14 +99,14 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **FastText Greeting Detector** | `core/fasttext_filter.py` | FastText model (4MB) / keyword fallback menyaring **greeting** & **capability**. Bukan FAQ? Langsung respon salam/identitas, skip LLM & retrieval. Dual-mode: model langsung atau keyword fallback auto. **Windows numpy 2.x compatibility patched** |
+| 4 | 🎯 **scikit-learn Intent Classifier** | `core/fasttext_filter.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, out_of_context. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
 | 5 | 🔍 **Domain Filter (RRF-based)** | `server.py` | **Hybrid search (E5+BM25 via RRF) jadi domain filter.** Semua threshold pake RRF score (bukan E5/BM25 doang). 3 gate: RRF < 0.018 → out-of-context (tolak). 0.018 ≤ RRF < 0.025 → cascade → gagal? QNA link. RRF ≥ 0.025 → LLM jawab |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Pipeline Domain Filter (RRF-based)
 
 ```
-Input → FastText → greeting / capability → respon langsung (skip LLM)
+Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
                  → lainnya → hybrid_search (E5+BM25 via RRF)
                               ├─ RRF < 0.018 → ❌ OUT OF CONTEXT (tolak)
                               ├─ 0.018 ≤ RRF < 0.025 → cascade → gagal? 📩 QNA link
@@ -178,9 +178,9 @@ chatbot-qna/
 │   ├── database.py           ←   SQLite: init, log chat, query history
 │   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
 │   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
-│   ├── fasttext_filter.py    ←   FastText: greeting/capability classifier (dual-mode: model / keyword fallback)
-│   ├── fasttext_train.txt    ←   Training data FastText (215 sampel, 3 kelas)
-│   ├── domain_filter.ftz     ←   Pre-trained model FastText (4MB, load instant)
+│   ├── fasttext_filter.py    ←   scikit-learn SGDClassifier + TF-IDF intent classifier
+│   ├── classifier_train.txt  ←   Training data (478 sampel, 5 kelas)
+│   ├── domain_filter.ftz     ←   Pickle model scikit-learn (185KB, load instant)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL)
 │
@@ -292,7 +292,7 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 |-------|--------|-----------|--------|
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
-> **Catatan:** BM25 **tidak lagi berfungsi sebagai domain filter** seperti di versi sebelumnya. Domain filtering sekarang di-handle oleh **FastText** (greeting/capability detector) + **hybrid cascade** (otomatis reject kalo E5+BM25 score rendah).
+> **Catatan:** BM25 **tidak lagi berfungsi sebagai domain filter** seperti di versi sebelumnya. Domain filtering sekarang di-handle oleh **scikit-learn classifier** (greeting/capability detector) + **hybrid cascade** (otomatis reject kalo E5+BM25 score rendah).
 
 **✅ Kelebihan:**
 - ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
@@ -375,9 +375,9 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 
 ---
 
-### 🏷️ FastText — Greeting & Capability Detector
+### 🏷️ scikit-learn — Intent Classifier
 
-Sebelum hybrid search dijalankan, FastText (atau keyword fallback di Windows) menyaring 2 jenis pertanyaan yang **gak perlu retrieval**:
+Sebelum hybrid search dijalankan, scikit-learn SGDClassifier (atau keyword fallback) menyaring 5 jenis pertanyaan yang **gak perlu retrieval**:
 
 | Domain | Contoh | Aksi |
 |--------|--------|------|
@@ -386,8 +386,8 @@ Sebelum hybrid search dijalankan, FastText (atau keyword fallback di Windows) me
 | **out_of_context** | "siapa presiden", "resep nasi goreng" | Lanjut ke hybrid search + cascade |
 
 **Dual-mode:**
-- **FastText model (4MB)** — jalan di Linux / VPS. Load instant, inferensi < 0.5ms
-- **Keyword fallback** — auto aktif kalo FastText model gagal load (Windows numpy 2.x bug). Akurasi test: 24/25 = 96%
+- **scikit-learn SGDClassifier (185KB)** — pure Python, semua OS. Load instant, inferensi < 1ms
+- **Keyword fallback** — auto aktif kalo scikit-learn gak terinstall. Akurasi: ~95%
 
 ### 🧩 Multi-Part Split (E5 Semantic Boundary)
 
@@ -496,21 +496,21 @@ BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja bera
 **Intinya:**
 
 ```
-FastText = resepsionis → sapa tamu / arahin ke bagian lain
+scikit-learn = resepsionis → sapa tamu / arahin ke bagian lain
 BM25     = jaring keyword → kecepatan & kepastian
 E5       = jaring halus semantik → pemahaman konteks
 RRF      = penyatu ranking → ambil yang terbaik dari keduanya
 Cascade  = jaring terakhir → follow-up & konteks percakapan
 ```
 
-- **FastText menyaring greeting & capability** — sebelum hybrid search dipanggil. Respon langsung, hemat token & latency
+- **scikit-learn classifier menyaring greeting & capability** — sebelum hybrid search dipanggil. Respon langsung, hemat token & latency
 - **Hybrid score (E5+BM25 RRF) otomatis jadi domain filter** — query di luar BPS dapet E5 rendah + BM25 0 → RRF jeblok → cascade reject. **Gak perlu BM25 domain checker terpisah** seperti arsitektur sebelumnya
 - **E5 mencegah false negative** — pertanyaan yang pake sinonim, variasi bahasa, atau kalimat panjang tetap dapet FAQ yang relevan meskipun gak ada keyword yang cocok
 - **RRF menyatukan** — tanpa training, tanpa tuning bobot, cukup ranking dari dua sistem digabung. FAQ yang rank 1 di BM25 tapi rank 10 di E5 tetap dianggep
 - **Cascade fallback jadi jaring terakhir** — follow-up pendek yang jeblok di hybrid masih bisa diselamatkan dengan concat history
 
 **Analoginya:**
-> FastText kayak resepsionis yang nyapa "halo, ada yang bisa dibantu?" — kalo user cuma nyapa, resepsionis jawab langsung. Kalo user nanya sesuatu, resepsionis arahin ke bagian terkait. BM25 kayak petugas arsip yang jago nyari dokumen pake kata kunci. E5 kayak kolega yang hafal isi dokumen — bisa nyari berdasarkan kemiripan topik. RRF adalah manager yang gabungin masukan keduanya buat ranking final. Cascade? Follow-up sampe ke pintu belakang — manager nanya "oh, ini rombongan yang tadi udah masuk?" — cek history.
+> scikit-learn classifier kayak resepsionis yang nyapa "halo, ada yang bisa dibantu?" — kalo user cuma nyapa, resepsionis jawab langsung. Kalo user nanya sesuatu, resepsionis arahin ke bagian terkait. BM25 kayak petugas arsip yang jago nyari dokumen pake kata kunci. E5 kayak kolega yang hafal isi dokumen — bisa nyari berdasarkan kemiripan topik. RRF adalah manager yang gabungin masukan keduanya buat ranking final. Cascade? Follow-up sampe ke pintu belakang — manager nanya "oh, ini rombongan yang tadi udah masuk?" — cek history.
 
 ---
 
@@ -606,11 +606,11 @@ TRUSTED_CHAT_IDS=1267972859
 ### 5. Install Python Dependencies
 
 ```cmd
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask fasttext-wheel
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
-> **FastText di Windows:** `fasttext` asli butuh C++ Build Tools. Gunakan `fasttext-wheel` (pre-built binary) — import tetap `import fasttext`.
+> **scikit-learn classifier:** pure Python — gak perlu C++ compiler. Training auto dari `classifier_train.txt`.
 
 ### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
@@ -763,11 +763,11 @@ TRUSTED_CHAT_IDS=1267972859
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask fasttext
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
-> Jika `fasttext` gagal build, alternatif: `pip install fasttext-wheel`
+> scikit-learn included by default — no extra setup needed
 
 ### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
@@ -1062,39 +1062,31 @@ sudo lsof -i :8000              # Linux
 
 **Added**
 - **QNA Form Link** — `http://s.bps.go.id/nara-qna` untuk pertanyaan domain BPS tapi belum ada di FAQ
-  - Gate 1: Cascade gagal + RRF ≥ 0.018 → link QNA
-  - Gate 2: Multi-part semua gagal + RRF ≥ 0.018 → link QNA
-- `responses.json`: 3 template baru — `rejection_out_of_context`, `rejection_no_answer`, `capability` (template statis)
-- **FastText positive_feedback + negative_feedback detection** — 2 kelas baru:
+- **scikit-learn Intent Classifier** — ganti FastText → SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy)
+  - Training dari `classifier_train.txt` (478 baris, 5 kelas)
+  - Zero C++ compiler dependency — auto-train di semua platform
+- `responses.json`: 3 template baru — `rejection_out_of_context`, `rejection_no_answer`, `capability` (statis)
+- **positive_feedback & negative_feedback detection** — 2 kelas baru classifier:
   - `positive_feedback`: "makasih", "ok", "sip", "mantap" → "Sama-sama! 😊"
   - `negative_feedback`: "kamu tidak membantu", "jelek" → link QNA form
   - Keduanya respon template statis (skip LLM, 0ms, $0)
-- FastText training data massive expansion: 215 → 478 baris
-- Template `capability` statis — gak panggil LLM (cegah ngarang definisi)
 - System prompt diperkuat — checklist topik BPS + larangan ngarang definisi
 
 **Changed**
 - **Semua threshold pake RRF score** (bukan E5 atau BM25 doang)
-  - `RRF < 0.018` → out of context (tolak)
-  - `0.018 ≤ RRF < 0.025` → cascade → gagal? QNA link
-  - `RRF ≥ 0.025` → LLM jawab
-- **BM25=0 di RRF fusion di-skip** — cegah ranking noise dari out-of-context query
-- `hybrid_search()` now returns `[E5, BM25, RRF]` — skor RRF dipake di server.py
-- **Merge threshold multi-part**: `0.55 → 0.78` — cegah false merge antar topik beda
-- **Capability → template statis** — gak panggil LLM (hemat ~200-500ms + token cost)
-- **Personality pindah ke identity.json** — `{personality}` placeholder di system.md
-- Emoji dibebaskan — hapus batasan (maks 3) di greeting.md & system.md
-- System prompt: "data referensi tidak menjawab" sekarang include link QNA
-- **Hapus semua hardcode daftar topik** — `/help`, `/topics`, greeting, rejection semua dynamic dari `identity.json`
+- **BM25=0 di RRF fusion di-skip** — cegah ranking noise
+- **Merge threshold multi-part**: `0.55 → 0.78` — cegah false merge
+- **Capability → template statis** — gak panggil LLM (hemat token cost)
+- **Personality pindah ke identity.json** — `{personality}` placeholder
+- Emoji dibebaskan — hapus batasan di greeting.md & system.md
+- **Hapus semua hardcode daftar topik** — semua dari `identity.json`
+- **Scikit-learn ganti FastText** — pure Python, zero C++ compiler, akurasi 97.4%
 
 **Fixed**
-- **FastText numpy 2.x compatibility** — monkey-patch `np.array()` untuk intercept `ValueError` di Windows
-- LLM ngarang definisi "GC PBI = Penggunaan Bahan Bakar Industri" — system prompt larang + capability template statis
+- LLM ngarang definisi "GC PBI = Penggunaan Bahan Bakar Industri" — capability template statis
 
 **Docs**
-- README section "Domain Filter Pipeline" diupdate ke RRF-based
-- README: tambah section "QNA Form Link" + response template
-- README: update diagram pipeline dan tabel threshold
+- README: Domain Filter RRF-based + QNA Form Link + scikit-learn classifier
 
 ---
 
