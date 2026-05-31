@@ -43,8 +43,9 @@ def _table_exists() -> bool:
 
 def _rows(sql: str, params=()):
     db = _cn()
-    rows = db.execute(sql, params).fetchall()
-    cols = [d[0] for d in db.description]
+    cur = db.execute(sql, params)
+    cols = [d[0] for d in cur.description]
+    rows = cur.fetchall()
     db.close()
     return [dict(zip(cols, r)) for r in rows]
 
