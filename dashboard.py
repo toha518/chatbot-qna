@@ -8,6 +8,8 @@ import sqlite3
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+import httpx
+import asyncio
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -133,6 +135,52 @@ def api_analytics(days: int = 7):
     llm_usage = {r["llm_model"] or "unknown": r["cnt"] for r in _rows(f"SELECT COALESCE(llm_model,'unknown') as llm_model, COUNT(*) as cnt FROM logs WHERE {clause} AND llm_model != '' GROUP BY llm_model")}
 
     return {"trend": trend, "hourly": hourly, "llm_usage": llm_usage}
+
+
+# ── System Health ──
+
+SERVICES = {
+    "server": {"name": "Server API", "url": "http://localhost:8000/health", "port": 8000},
+    "wa_handler": {"name": "WA Handler", "url": "http://localhost:3001/health", "port": 3001},
+    "bridge": {"name": "WA Bridge", "url": "http://localhost:3000/status", "port": 3000},
+    "telegram": {"name": "Telegram Bot", "url": None, "port": None},
+}
+
+
+@app.get("/api/system")
+async def api_system():
+    results = {}
+    all_ok = True
+    for key, svc in SERVICES.items():
+        if not svc["url"]:
+            # Telegram bot — gak punya HTTP endpoint, cek proses via port aja
+            results[key] = {"name": svc["name"], "status": "unknown", "detail": "No HTTP endpoint — running as process"}
+            continue
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(svc["url"])
+            if resp.status_code == 200:
+                results[key] = {"name": svc["name"], "status": "ok", "detail": f":{svc['port']} ✅"}
+            else:
+                results[key] = {"name": svc["name"], "status": "error", "detail": f"HTTP {resp.status_code}"}
+                all_ok = False
+        except httpx.RequestError as e:
+            results[key] = {"name": svc["name"], "status": "down", "detail": str(e)}
+            all_ok = False
+    return {"services": results, "overall": "ok" if all_ok else "degraded"}
+
+
+@app.get("/api/system/check")
+async def api_system_check():
+    """Quick ping — just returns overall status, lightweight."""
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            tasks = [client.get(svc["url"]) for svc in SERVICES.values() if svc["url"]]
+            responses = await asyncio.gather(*tasks, return_exceptions=True)
+            ok = sum(1 for r in responses if isinstance(r, httpx.Response) and r.status_code == 200)
+    except Exception:
+        ok = 0
+    return {"total": len([s for s in SERVICES.values() if s["url"]]), "healthy": ok}
 
 
 @app.get("/api/top-faq")

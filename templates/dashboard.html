@@ -90,6 +90,7 @@
       <a class="nav-link" href="#" data-page="logs"><i class="bi bi-journal-text"></i> Query Log <span class="badge bg-primary rounded-pill" id="logCount">-</span></a>
       <a class="nav-link" href="#" data-page="terminal"><i class="bi bi-terminal"></i> Live Terminal</a>
       <a class="nav-link" href="#" data-page="analytics"><i class="bi bi-graph-up"></i> Analytics</a>
+      <a class="nav-link" href="#" data-page="system"><i class="bi bi-hdd-rack"></i> System Health</a>
       <a class="nav-link" href="#" data-page="topfaq"><i class="bi bi-list-ol"></i> Top FAQ</a>
     </nav>
     <div class="sidebar-footer">
@@ -170,6 +171,30 @@
       </div>
     </div>
 
+    <!-- ===== SYSTEM HEALTH PAGE ===== -->
+    <div id="page-system" style="display:none">
+      <h5 class="mb-3 fw-bold">🖥️ System Health</h5>
+      <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-sm btn-outline-primary" onclick="loadSystem()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <span class="text-muted ms-2 small" id="sysStatus">-</span>
+        <span class="text-muted ms-auto small" id="sysUpdate"></span>
+      </div>
+      <div class="row g-3" id="sysCards"></div>
+      <div class="row g-3 mt-2">
+        <div class="col-12">
+          <div class="chart-card">
+            <h6>📋 Service Status Summary</h6>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead><tr><th>Service</th><th>Port</th><th>Status</th><th>Detail</th></tr></thead>
+                <tbody id="sysTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== TOP FAQ PAGE ===== -->
     <div id="page-topfaq" style="display:none">
       <h5 class="mb-3 fw-bold">🏆 Top FAQ</h5>
@@ -212,9 +237,13 @@
         this.classList.add('active');
         document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display = 'none');
         document.getElementById('page-' + this.dataset.page).style.display = 'block';
+        // Stop timers when switching pages
+        stopSystemPoll();
+        stopTerminal();
         if (this.dataset.page === 'terminal') loadTerminal();
         if (this.dataset.page === 'logs') loadLogs();
         if (this.dataset.page === 'analytics') loadAnalytics();
+        if (this.dataset.page === 'system') startSystemPoll();
         if (this.dataset.page === 'topfaq') loadTopFAQ();
       });
     });
@@ -288,6 +317,69 @@
           <td>${l.llm_time_ms||'-'}</td>
         </tr>`).join('') || '<tr><td colspan="8" class="text-center py-3">No data yet</td></tr>';
       document.getElementById('logLoader').style.display = 'none';
+    }
+
+    // System Health
+    let sysTimer = null;
+
+    async function loadSystem() {
+      const btn = document.querySelector('[data-page="system"]');
+      document.getElementById('sysStatus').textContent = '🔄 Checking...';
+      document.getElementById('sysUpdate').textContent = '';
+      try {
+        const resp = await fetch(`${API}/system`);
+        const data = await resp.json();
+        document.getElementById('sysStatus').textContent = data.overall === 'ok' ? '✅ All systems operational' : '⚠️ Degraded — some services down';
+        document.getElementById('sysUpdate').textContent = 'Last checked: ' + new Date().toLocaleTimeString('id-ID', {hour12:false});
+
+        const cards = document.getElementById('sysCards');
+        const tbody = document.getElementById('sysTableBody');
+        cards.innerHTML = '';
+        tbody.innerHTML = '';
+
+        let idx = 0;
+        const colors = ['#3b82f6','#22c55e','#f59e0b','#8b5cf6'];
+        for (const [key, svc] of Object.entries(data.services)) {
+          const status = svc.status;
+          let icon, bgClass, textClass;
+          if (status === 'ok') { icon = 'bi-check-circle-fill'; bgClass = 'bg-success bg-opacity-10'; textClass = 'text-success'; }
+          else if (status === 'unknown') { icon = 'bi-question-circle-fill'; bgClass = 'bg-secondary bg-opacity-10'; textClass = 'text-secondary'; }
+          else if (status === 'down') { icon = 'bi-x-circle-fill'; bgClass = 'bg-danger bg-opacity-10'; textClass = 'text-danger'; }
+          else { icon = 'bi-exclamation-triangle-fill'; bgClass = 'bg-warning bg-opacity-10'; textClass = 'text-warning'; }
+
+          cards.innerHTML += `
+            <div class="col-6 col-lg-3">
+              <div class="stat-card">
+                <div class="stat-icon ${bgClass} ${textClass}"><i class="bi ${icon}"></i></div>
+                <div>
+                  <div class="stat-label">${svc.name}</div>
+                  <div class="stat-value small">${status.toUpperCase()}</div>
+                </div>
+              </div>
+            </div>`;
+
+          const rowClass = status === 'down' ? 'table-danger' : status === 'error' ? 'table-warning' : status === 'unknown' ? 'table-secondary' : '';
+          tbody.innerHTML += `
+            <tr class="${rowClass}">
+              <td><span class="badge ${bgClass} ${textClass} me-1" style="width:8px;height:8px;padding:0;border-radius:50%;display:inline-block"></span> ${svc.name}</td>
+              <td>${svc.detail?.includes(':') ? svc.detail.match(/:\d+/)?.[0] || '-' : '-'}</td>
+              <td><span class="badge ${status==='ok'?'bg-success':status==='unknown'?'bg-secondary':status==='down'?'bg-danger':'bg-warning'} gate-badge">${status}</span></td>
+              <td class="text-muted small">${svc.detail||''}</td>
+            </tr>`;
+          idx++;
+        }
+      } catch(e) {
+        document.getElementById('sysStatus').textContent = '❌ Error fetching system status';
+      }
+    }
+
+    function startSystemPoll() {
+      stopSystemPoll();
+      loadSystem();
+      sysTimer = setInterval(loadSystem, 15000);
+    }
+    function stopSystemPoll() {
+      if (sysTimer) { clearInterval(sysTimer); sysTimer = null; }
     }
 
     // Terminal
