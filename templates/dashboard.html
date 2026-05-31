@@ -236,7 +236,10 @@
           </table>
         </div>
         <div class="d-flex justify-content-between align-items-center py-2">
-          <div class="text-muted small" id="logInfo"></div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary" id="logCountBadge">0</span>
+            <div class="text-muted small" id="logInfo"></div>
+          </div>
           <div>
             <button class="btn btn-sm btn-outline-secondary me-1" id="logPrev" onclick="prevLogPage()" disabled>← Prev</button>
             <span class="small text-muted mx-1" id="logPageInfo">1</span>
