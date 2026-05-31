@@ -99,38 +99,57 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **FastText Domain Classifier** | `core/fasttext_filter.py` | FastText model (atau keyword fallback di Windows) menyaring **greeting** & **capability**. Bukan FAQ? Langsung respon salam/identitas, skip LLM & retrieval |
-| 5 | 🔍 **Hybrid Score + Cascade Fallback** | `server.py` | **Hybrid search (E5+BM25 RRF) otomatis jadi domain filter.** Query di luar BPS → E5 cosim rendah + BM25 = 0 → top_score < 0.82 → cascade concat 1-2 prev query → masih < 0.82? **TOLAK**. Query FAQ beneran → top_score tinggi → jawab. **Gak perlu layer filter tambahan** |
+| 4 | 🎯 **FastText Greeting Detector** | `core/fasttext_filter.py` | FastText model (4MB) / keyword fallback menyaring **greeting** & **capability**. Bukan FAQ? Langsung respon salam/identitas, skip LLM & retrieval. Dual-mode: model langsung atau keyword fallback auto. **Windows numpy 2.x compatibility patched** |
+| 5 | 🔍 **Domain Filter (RRF-based)** | `server.py` | **Hybrid search (E5+BM25 via RRF) jadi domain filter.** Semua threshold pake RRF score (bukan E5/BM25 doang). 3 gate: RRF < 0.018 → out-of-context (tolak). 0.018 ≤ RRF < 0.025 → cascade → gagal? QNA link. RRF ≥ 0.025 → LLM jawab |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
-### Detail Pipeline Domain
+### Detail Pipeline Domain Filter (RRF-based)
 
 ```
 Input → FastText → greeting / capability → respon langsung (skip LLM)
-                 → out_of_context → hybrid_search (E5+BM25 RRF) → top_score ≥ 0.82? → LLM jawab
-                                                                  → < 0.82 → cascade concat 1-2 prev query
-                                                                             → masih < 0.82? → ❌ REJECT
+                 → lainnya → hybrid_search (E5+BM25 via RRF)
+                              ├─ RRF < 0.018 → ❌ OUT OF CONTEXT (tolak)
+                              ├─ 0.018 ≤ RRF < 0.025 → cascade → gagal? 📩 QNA link
+                              └─ RRF ≥ 0.025 → ✅ LLM jawab
 ```
 
+**Semua threshold pake RRF score** — bukan E5 cosine atau BM25 doang. RRF adalah skor unified dari hybrid search (E5 semantic + BM25 keyword via Reciprocal Rank Fusion).
+
+**Threshold matematika:**
+| RRF Range | Arti | Contoh Query |
+|:---------:|------|--------------|
+| **< 0.018** | BM25=0 → pure E5 only → out of context total | "siapa presiden amerika" |
+| **0.018 – 0.025** | Ada sinyal BPS lemah | "cara menjadi pegawai bps" |
+| **≥ 0.025** | E5+BM25 combo → FAQ match jelas | "verifikasi NIK gagal" |
+
+```
+RRF = 1/(K + rank_E5) + (BM25 > 0 ? 1/(K + rank_BM25) : 0)
+     K = 60
+
+Pure E5 (BM25=0):    1/(1+60)               = 0.0164
+E5#1 + BM25#20:      1/61 + 1/80            = 0.0289
+E5#1 + BM25#1:       1/61 + 1/61            = 0.0328
+
+Out-of-context gate:  0.0164 × 1.10 = 0.018
+Answer gate:          midpoint ≈ 0.022 → safety 0.025
+```
+
+### 📩 QNA Form Link
+
+Ketika hybrid search mendeteksi pertanyaan **domain BPS tapi belum ada di FAQ**, NARA memberikan link:
+
+**http://s.bps.go.id/nara-qna**
+
+Link keluar di 2 situasi:
+1. **Cascade gagal** — RRF ≥ 0.018 tapi < 0.025 (ada sinyal BPS, FAQ ga ketemu)
+2. **Multi-part gagal** — semua part di-skip (tidak ada FAQ match) tapi RRF ≥ 0.018
+
+Response templates di `prompts/responses.json`:
+- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (RRF < 0.018)
+- `rejection_no_answer` — "Silakan ajukan lewat form..." (RRF ≥ 0.018, ga ada FAQ)
+
 **Kenapa hybrid search bisa jadi domain filter?**
-Karena hybrid score gabungan E5 (semantic) + BM25 (keyword). Query di luar domain BPS otomatis dapet skor rendah dari **keduanya** — E5 gak dapet sinyal semantik yang cocok, BM25 gak dapet keyword overlap. RRF fusion-nya jeblok. Cascade fallback sebagai jaring terakhir.
-
-> 🔑 **Yang penting:** Saat `top_score < 0.82`, sistem **LANGSUNG TOLAK tanpa memanggil LLM**. Jadi meskipun hybrid search tetap jalan (E5 encode, hitung similarity, BM25 scoring, RRF fusion), LLM cuma dipanggil kalau ada FAQ relevan yang ketemu. **Gak ada biaya LLM untuk pertanyaan di luar domain.**
-
-| Contoh | E5 cosim | BM25 | top_score | Panggil LLM? | Hasil |
-|--------|:--------:|:----:|:---------:|:------------:|:-----:|
-| "cara daftar SOBAT" | 0.86 | ✅ (daftar) | **≥ 0.82** | ✅ **Ya** (dengan konteks FAQ) | ✅ Dijawab |
-| "se2026 prelist" | 0.89 | ✅ (prelist) | **≥ 0.82** | ✅ **Ya** (dengan konteks FAQ) | ✅ Dijawab |
-| "siapa presiden indonesia" | 0.25 | ❌ 0.0 | **~0.15** | ❌ **Tidak** | ❌ REJECT (langsung) |
-| "resep nasi goreng" | 0.18 | ❌ 0.0 | **~0.10** | ❌ **Tidak** | ❌ REJECT (langsung) |
-| "hi" (tanpa fasttext) | 0.18 | ❌ 0.0 | **~0.10** | ❌ **Tidak** | ❌ REJECT (tapi FastText tangkap sbg greeting) |
-| Multi-part campuran | — | — | — | ✅ Tiap bagian dicek individu | ✅ Bagian FAQ dijawab, sisanya di-skip |
-
-**LLM cuma dipanggil di 2 situasi:**
-1. **FastText** mendeteksi greeting/capability → LLM jawab tanpa retrieval
-2. **top_score ≥ 0.82** (langsung atau setelah cascade) → LLM jawab dengan konteks FAQ
-
-Di luar itu? `REJECTION_MSG` — **string statis dari file `responses.json`**, bukan hasil LLM. Zero cost token.
+Karena RRF = E5 (semantic) + BM25 (keyword). Query di luar domain BPS → BM25 = 0 + E5 rendah → RRF < 0.018 → **tolak tanpa panggil LLM**. Query BPS → BM25 > 0 + E5 sinyal → RRF ≥ 0.025 → **jawab**. **Zero LLM cost untuk out-of-context.**
 
 ### Trusted User
 
@@ -220,17 +239,16 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 ┌─ 5. HYBRID RETRIEVAL + DOMAIN FILTER (E5+BM25 RRF) ─┐
 │  E5 semantic similarity (cosine)                      │
 │  BM25 keyword overlap (per-doc)                       │
-│  RRF fusion: 1/(rank_E5+60) + 1/(rank_BM25+60)       │
+│  RRF fusion: BM25=0? skip BM25 rank                   │
+│    → 1/(rank_E5+60) + (BM25>0 ? 1/(rank_BM25+60) : 0)│
 │  top-5 berdasarkan RRF score                          │
-│  ┌─── INI JUGA JADI DOMAIN FILTER ───┐               │
-│  │ top_score < 0.82? → Cascade        │               │
-│  │   depth=1: concat 1 prev query     │               │
-│  │   depth=2: concat 2 prev query     │               │
-│  │   Masih < 0.82? → ❌ REJECT        │               │
-│  │ top_score ≥ 0.82? → ✅ LANJUT LLM  │               │
-│  └────────────────────────────────────┘               │
-│  Gak perlu layer filter terpisah — hybrid score       │
-│  otomatis rendah kalo query di luar domain BPS ✅     │
+│  ┌─── DOMAIN FILTER (3 gate) ─────────┐               │
+│  │ RRF < 0.018 → ❌ OUT OF CONTEXT     │               │
+│  │ 0.018 ≤ RRF < 0.025 → cascade       │               │
+│  │   gagal? → 📩 QNA link              │               │
+│  │ RRF ≥ 0.025 → ✅ LANJUT LLM         │               │
+│  └─────────────────────────────────────┘               │
+│  Semua threshold pake RRF — bukan E5/BM25 doang ✅     │
 └───────────────────────────────────────────────────────┘
          │
          ▼
@@ -333,9 +351,13 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 2. E5 meng*ranking* semua FAQ → tiap FAQ dapat rank_E5 (1 = paling cocok semantik)
 3. RRF menghitung **skor gabungan** per FAQ:
    ```
-   RRF_score(d) = 1 / (K + rank_E5(d))  +  1 / (K + rank_BM25(d))
    ```
-   **K = 60** — konstanta smoothing. Semakin besar K, semakin rata bobot antar sistem.
+   Kalo BM25_max > 0:
+     RRF_score(d) = 1/(K+rank_E5(d)) + 1/(K+rank_BM25(d))
+   Kalo BM25_max == 0 (out of context):
+     RRF_score(d) = 1/(K+rank_E5(d))  ← skip BM25, hindari ranking noise
+   ```
+   **K = 60** — konstanta smoothing industry standard.
 4. Ambil **top-5** FAQ berdasarkan RRF_score tertinggi
 
 **Visual sederhana (2 FAQ):**
@@ -395,10 +417,10 @@ vec_a = E5_encode(part_a)
 vec_b = E5_encode(part_b)
 sim = cosine_similarity(vec_a, vec_b)
 
-if sim >= 0.55:
-    MERGE → masih 1 konteks ("daftar SOBAT" + "ketentuannya" → 0.72)
+if sim >= 0.78:
+    MERGE → masih 1 konteks ("daftar SOBAT" + "ketentuannya" → 0.85)
 else:
-    SPLIT → beda intent ("daftar SOBAT" + "aktivasi FASIH" → 0.35)
+    SPLIT → beda intent ("verifikasi NIK" + "siapa presiden" → 0.77)
 ```
 
 **E5 encode tiap part** — ini **reuse** dari pipeline yang udah jalan, jadi zero additional model cost.
