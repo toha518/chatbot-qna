@@ -175,7 +175,7 @@ chatbot-qna/
 ├── start-all.bat             ← 1 klik buka 4 terminal
 │
 ├── core/                     ← 🔧 Mesin utama
-│   ├── database.py           ←   SQLite: init, log chat, query history
+│   ├── database.py           ←   SQLite: session chat history, daily limit
 │   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
 │   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
 │   ├── intent_classifier.py  ←   scikit-learn SGDClassifier + TF-IDF intent classifier
@@ -958,23 +958,74 @@ Response:
 
 ## 📊 Logging & Evaluasi
 
-Semua pertanyaan user dicatat otomatis ke `query_log.jsonl` (format JSONL — 1 baris per query).
+Setiap request user dicatat otomatis ke **dual storage**:
 
-### Contoh isi log:
+| Storage | File | Fungsi |
+|---------|------|--------|
+| **JSONL** | `query_log.jsonl` | Debug real-time — `tail -f` langsung keliatan |
+| **SQLite** | `query_log.db` | Analytics jangka panjang — SQL query instant |
+
+### Format Log (21 field per entry)
 
 ```json
-{"waktu":"2026-05-25 20:30:00","chat_id":"62xxx","pertanyaan":"siapa nama ibu jokowi","bm25_score":0.0,"bm25_status":"REJECT","top_score":0.773,"top_faq":"GC PLN eror ya Bapak ibu?","dijawab":false,"multi_part":false,"greeting":false,"error":""}
-{"waktu":"2026-05-25 20:31:00","chat_id":"62xxx","pertanyaan":"aktivasi FASIH","bm25_score":5.04,"bm25_status":"ACCEPT","top_score":0.876,"top_faq":"Link Aktivasi Tidak Berlaku","dijawab":true,"multi_part":false,"greeting":false,"error":"","jawaban_preview":"Untuk aktivasi FASIH..."}
+{
+  "waktu": "2026-06-01 00:15:30",
+  "chat_id": "1267972859",
+  "pertanyaan": "Kenapa mitra ga bisa verifikasi NIK",
+  "clf_domain": "forward",
+  "clf_confidence": 0.876,
+  "clf_mode": "scikit-learn",
+  "rrf_score": 0.0331,
+  "e5_top": 0.86,
+  "bm25_raw": 10.7,
+  "top5_faq": ["Verifikasi NIK Gagal", "Email aktivasi"],
+  "gate": "ANSWER",
+  "gate_detail": "",
+  "dijawab": true,
+  "jawaban": "Coba cek dulu...",
+  "jawaban_length": 342,
+  "llm_model": "llama-3.3-70b-versatile",
+  "llm_provider": "provider 1",
+  "llm_time_ms": 850,
+  "multi_part": false,
+  "session_baru": false,
+  "error": ""
+}
 ```
 
-### Kegunaan:
-- **Monitor performa** — berapa % pertanyaan diterima vs ditolak
-- **False positive detection** — ada pertanyaan BPS yang salah ditolak?
-- **Threshold tuning** — distribusi BM25 score untuk domain in vs out
-- **Audit** — riwayat lengkap tiap query
+### Gate Labels
 
-### Rotasi otomatis:
-File log dirotate saat mencapai ~500KB (~2500 query). File lama diberi timestamp.
+| Gate | Arti |
+|------|------|
+| `CLF_GREETING` / `CLF_CAPABILITY` | CLF deteksi → respon langsung |
+| `CLF_POSITIVE_FEEDBACK` | "makasih" → "Sama-sama! 😊" |
+| `CLF_NEGATIVE_FEEDBACK` | "ga membantu" → link QNA |
+| `OUT_OF_CONTEXT` | RRF < 0.018 → tolak |
+| `CASCADE_QNA` / `MULTI_PART_QNA` | RRF 0.018-0.025 → link QNA |
+| `ANSWER` | RRF ≥ 0.025 → LLM jawab |
+
+### Built-in Analytics (`GET /log-stats`)
+
+```json
+{
+  "period": "7 hari",
+  "total_logs": 342,
+  "unique_users": 12,
+  "avg_rrf_score": 0.0241,
+  "by_gate": {"ANSWER": 200, "CLF_GREETING": 80, ...},
+  "by_clf": {"forward": 250, "greeting": 82, ...}
+}
+```
+
+### Rotasi
+- **JSONL**: dirotate saat ~500KB → file lama ditimestamp
+- **SQLite**: gaperlu rotasi — query data historis langsung
+
+### Chat History (Per-User)
+
+Tersimpan di SQLite (`chatbot.db`) — akses via:
+- `GET /history` — list semua sesi
+- `GET /history/{chat_id}` — detail per user
 
 ---
 
