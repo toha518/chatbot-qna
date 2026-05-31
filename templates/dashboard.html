@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NARA Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --sidebar-width: 260px;
+    }
+    body { min-height: 100vh; background: var(--bs-body-bg); }
+    .sidebar {
+      width: var(--sidebar-width);
+      height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      background: var(--bs-tertiary-bg);
+      border-right: 1px solid var(--bs-border-color);
+      display: flex; flex-direction: column;
+      transition: transform .3s;
+      z-index: 1030;
+    }
+    .sidebar-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--bs-border-color);
+      font-weight: 700; font-size: 1.15rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .sidebar-nav { flex: 1; overflow-y: auto; padding: .5rem 0; }
+    .sidebar-nav .nav-link {
+      padding: .6rem 1.5rem; color: var(--bs-body-color);
+      border-radius: 0; display: flex; align-items: center; gap: .7rem;
+      font-size: .9rem; transition: .15s;
+    }
+    .sidebar-nav .nav-link:hover, .sidebar-nav .nav-link.active {
+      background: rgba(var(--bs-primary-rgb), .1);
+      color: var(--bs-primary);
+    }
+    .sidebar-nav .nav-link .badge { margin-left: auto; }
+    .sidebar-footer { padding: .75rem 1.5rem; border-top: 1px solid var(--bs-border-color); font-size: .78rem; color: var(--bs-secondary-color); }
+    .main-content { margin-left: var(--sidebar-width); padding: 1.5rem; }
+    .stat-card {
+      border-radius: .75rem; padding: 1.25rem;
+      display: flex; align-items: center; gap: 1rem;
+      border: 1px solid var(--bs-border-color);
+      background: var(--bs-body-bg);
+    }
+    .stat-icon {
+      width: 48px; height: 48px; border-radius: .6rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+    .stat-label { font-size: .82rem; color: var(--bs-secondary-color); }
+    .chart-card {
+      border-radius: .75rem; border: 1px solid var(--bs-border-color);
+      background: var(--bs-body-bg); padding: 1.25rem;
+    }
+    .chart-card h6 { font-weight: 600; margin-bottom: 1rem; }
+    .log-table { font-size: .82rem; }
+    .log-table td, .log-table th { white-space: nowrap; }
+    .log-table td.detail { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gate-badge { font-size: .7rem; padding: .2em .55em; }
+    .terminal-box {
+      background: #1e1e2e; color: #cdd6f4; border-radius: .75rem;
+      padding: 1rem; font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+      font-size: .78rem; height: 300px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    .terminal-box .ts { color: #89b4fa; }
+    .terminal-box .gate { color: #a6e3a1; }
+    .terminal-box .clf { color: #f9e2af; }
+    .terminal-box .err { color: #f38ba8; }
+    .theme-toggle { cursor: pointer; padding: .4rem .6rem; border-radius: .4rem; border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+    @media (max-width: 768px) {
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-content { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">🤖 NARA Dashboard</div>
+    <nav class="sidebar-nav">
+      <a class="nav-link active" href="#" data-page="overview"><i class="bi bi-speedometer2"></i> Overview</a>
+      <a class="nav-link" href="#" data-page="logs"><i class="bi bi-journal-text"></i> Query Log <span class="badge bg-primary rounded-pill" id="logCount">-</span></a>
+      <a class="nav-link" href="#" data-page="terminal"><i class="bi bi-terminal"></i> Live Terminal</a>
+      <a class="nav-link" href="#" data-page="analytics"><i class="bi bi-graph-up"></i> Analytics</a>
+      <a class="nav-link" href="#" data-page="topfaq"><i class="bi bi-list-ol"></i> Top FAQ</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div>© 2026 BPS Bangka Belitung</div>
+      <div class="mt-1 text-muted">NARA v2.3.1</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content" id="mainContent">
+    <!-- Top Bar -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <button class="btn btn-sm d-md-none me-2" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <select class="form-select form-select-sm" style="width:auto" id="timeRange" onchange="refreshAll()">
+          <option value="1">Hari ini</option>
+          <option value="7" selected>7 hari</option>
+          <option value="30">30 hari</option>
+          <option value="90">90 hari</option>
+          <option value="9999">Semua</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" id="themeBtn"><i class="bi bi-moon-stars"></i></button>
+        <button class="btn btn-sm btn-outline-danger d-md-none" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="bi bi-x-lg"></i></button>
+      </div>
+    </div>
+
+    <!-- ===== OVERVIEW PAGE ===== -->
+    <div id="page-overview">
+      <h5 class="mb-3 fw-bold">📊 Overview</h5>
+      <div class="row g-3 mb-4" id="statCards">
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
+      </div>
+      <div class="row g-3">
+        <div class="col-md-6"><div class="chart-card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
+        <div class="col-md-6"><div class="chart-card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- ===== LOGS PAGE ===== -->
+    <div id="page-logs" style="display:none">
+      <h5 class="mb-3 fw-bold">📝 Query Log</h5>
+      <div class="chart-card">
+        <div class="table-responsive">
+          <table class="table table-sm log-table mb-0" id="logTable">
+            <thead><tr><th>Waktu</th><th>Chat ID</th><th>Pertanyaan</th><th>CLF</th><th>RRF</th><th>Gate</th><th>LLM</th><th>ms</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="text-center py-3" id="logLoader">Loading...</div>
+      </div>
+    </div>
+
+    <!-- ===== TERMINAL PAGE ===== -->
+    <div id="page-terminal" style="display:none">
+      <h5 class="mb-3 fw-bold">💻 Live Terminal</h5>
+      <div class="d-flex gap-2 mb-3">
+        <button class="btn btn-sm btn-outline-primary" onclick="loadTerminal()"><i class="bi bi-play-fill"></i> Start Tail</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="stopTerminal()"><i class="bi bi-stop-fill"></i> Stop</button>
+        <span class="text-muted ms-2 small" id="termStatus">Idle</span>
+      </div>
+      <div class="terminal-box" id="terminalBox">
+        <span class="ts"># NARA Query Log — Live Terminal</span>
+        <span class="clf"># Tekan "Start Tail" untuk memulai...</span>
+      </div>
+    </div>
+
+    <!-- ===== ANALYTICS PAGE ===== -->
+    <div id="page-analytics" style="display:none">
+      <h5 class="mb-3 fw-bold">📈 Analytics</h5>
+      <div class="row g-3">
+        <div class="col-12"><div class="chart-card"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="200"></canvas></div></div>
+        <div class="col-md-6"><div class="chart-card"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="200"></canvas></div></div>
+        <div class="col-md-6"><div class="chart-card"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="200"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- ===== TOP FAQ PAGE ===== -->
+    <div id="page-topfaq" style="display:none">
+      <h5 class="mb-3 fw-bold">🏆 Top FAQ</h5>
+      <div class="chart-card"><div class="table-responsive">
+        <table class="table table-sm mb-0" id="faqTable">
+          <thead><tr><th>#</th><th>FAQ</th><th>Hits</th><th>Avg RRF</th><th>Last Seen</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    const API = '/api';
+    let charts = {};
+    let termTimer = null;
+
+    // Theme
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.getAttribute('data-bs-theme') === 'dark';
+      html.setAttribute('data-bs-theme', isDark ? 'light' : 'dark');
+      document.getElementById('themeBtn').innerHTML = isDark ? '<i class="bi bi-moon-stars"></i>' : '<i class="bi bi-sun"></i>';
+      localStorage.setItem('theme', isDark ? 'light' : 'dark');
+    }
+    (function() {
+      if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.setAttribute('data-bs-theme', 'dark');
+        document.getElementById('themeBtn').innerHTML = '<i class="bi bi-sun"></i>';
+      }
+    })();
+
+    // Navigation
+    document.querySelectorAll('.sidebar-nav .nav-link').forEach(el => {
+      el.addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.sidebar-nav .nav-link').forEach(n => n.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('[id^="page-"]').forEach(p => p.style.display = 'none');
+        document.getElementById('page-' + this.dataset.page).style.display = 'block';
+        if (this.dataset.page === 'terminal') loadTerminal();
+        if (this.dataset.page === 'logs') loadLogs();
+        if (this.dataset.page === 'analytics') loadAnalytics();
+        if (this.dataset.page === 'topfaq') loadTopFAQ();
+      });
+    });
+
+    // Generic API call
+    async function fetchAPI(endpoint) {
+      const days = document.getElementById('timeRange').value;
+      const resp = await fetch(`${API}/${endpoint}?days=${days}`);
+      return resp.json();
+    }
+
+    // Stats cards
+    async function loadStats() {
+      const data = await fetchAPI('stats');
+      document.getElementById('statTotal').textContent = data.total_logs || 0;
+      document.getElementById('statUsers').textContent = data.unique_users || 0;
+      document.getElementById('statRRF').textContent = (data.avg_rrf_score || 0).toFixed(4);
+      const total = data.total_logs || 1;
+      const answered = (data.by_gate?.ANSWER || 0) + (data.by_gate?.CLF_GREETING || 0) + (data.by_gate?.CLF_CAPABILITY || 0) + (data.by_gate?.CLF_POSITIVE_FEEDBACK || 0);
+      document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
+      document.getElementById('logCount').textContent = total;
+      drawGateChart(data.by_gate || {});
+      drawCLFChart(data.by_clf || {});
+    }
+
+    function drawGateChart(data) {
+      if (charts.gate) charts.gate.destroy();
+      const ctx = document.getElementById('chartGate').getContext('2d');
+      const labels = Object.keys(data);
+      const values = Object.values(data);
+      const colors = ['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+      charts.gate = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length) }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    function drawCLFChart(data) {
+      if (charts.clf) charts.clf.destroy();
+      const ctx = document.getElementById('chartCLF').getContext('2d');
+      const labels = Object.keys(data);
+      const values = Object.values(data);
+      charts.clf = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ data: values, backgroundColor: '#3b82f6', borderRadius: 6 }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+
+    // Logs table
+    async function loadLogs() {
+      document.getElementById('logLoader').style.display = 'block';
+      const data = await fetchAPI('logs');
+      const tbody = document.querySelector('#logTable tbody');
+      tbody.innerHTML = data.logs?.map(l => `
+        <tr>
+          <td>${l.waktu?.slice(5,16)||''}</td>
+          <td>${l.chat_id||''}</td>
+          <td class="detail" title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}">${l.pertanyaan||''}</td>
+          <td><span class="badge bg-secondary gate-badge">${l.clf_domain||''}</span></td>
+          <td>${(l.rrf_score||0).toFixed(4)}</td>
+          <td><span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':'bg-danger'} gate-badge">${l.gate||''}</span></td>
+          <td>${l.llm_model?.split('/').pop()||'-'}</td>
+          <td>${l.llm_time_ms||'-'}</td>
+        </tr>`).join('') || '<tr><td colspan="8" class="text-center py-3">No data yet</td></tr>';
+      document.getElementById('logLoader').style.display = 'none';
+    }
+
+    // Terminal
+    async function loadTerminal() {
+      stopTerminal();
+      const box = document.getElementById('terminalBox');
+      box.innerHTML = '<span class="ts"># NARA Live Terminal — streaming...</span>\n';
+      document.getElementById('termStatus').textContent = 'Running';
+      const days = document.getElementById('timeRange').value;
+      let lastId = 0;
+      const fetchTerm = async () => {
+        try {
+          const resp = await fetch(`${API}/logs-tail?days=${days}&after=${lastId}&limit=50`);
+          const data = await resp.json();
+          if (data.logs?.length) {
+            for (const l of data.logs) {
+              if (l.id > lastId) lastId = l.id;
+              const clf = l.clf_domain || '?';
+              const gate = l.gate || '?';
+              const gateClass = gate.includes('CLF') ? 'gate' : gate === 'ANSWER' ? 'gate' : 'err';
+              box.innerHTML += `<span class="ts">${l.waktu?.slice(5)||''}</span> <span class="clf">[${clf}]</span> <span class="${gateClass}">${gate}</span> ${(l.pertanyaan||'').slice(0,80)}\n`;
+            }
+            box.scrollTop = box.scrollHeight;
+          }
+        } catch(e) {}
+      };
+      await fetchTerm();
+      termTimer = setInterval(fetchTerm, 3000);
+    }
+    function stopTerminal() {
+      if (termTimer) { clearInterval(termTimer); termTimer = null; }
+      document.getElementById('termStatus').textContent = 'Stopped';
+    }
+
+    // Analytics charts
+    async function loadAnalytics() {
+      const data = await fetchAPI('analytics');
+      drawTrend(data.trend || []);
+      drawHourly(data.hourly || []);
+      drawLLM(data.llm_usage || {});
+    }
+
+    function drawTrend(data) {
+      if (charts.trend) charts.trend.destroy();
+      const ctx = document.getElementById('chartTrend').getContext('2d');
+      charts.trend = new Chart(ctx, {
+        type: 'line',
+        data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), borderColor: '#3b82f6', tension: .3, fill: false }] },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 0.035 } } }
+      });
+    }
+    function drawHourly(data) {
+      if (charts.hourly) charts.hourly.destroy();
+      const ctx = document.getElementById('chartHourly').getContext('2d');
+      charts.hourly = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), backgroundColor: '#22c55e', borderRadius: 4 }] },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
+    }
+    function drawLLM(data) {
+      if (charts.llm) charts.llm.destroy();
+      const ctx = document.getElementById('chartLLM').getContext('2d');
+      charts.llm = new Chart(ctx, {
+        type: 'pie',
+        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data) }] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    // Top FAQ
+    async function loadTopFAQ() {
+      const data = await fetchAPI('top-faq');
+      document.querySelector('#faqTable tbody').innerHTML = data.faqs?.map((f,i) => `
+        <tr><td>${i+1}</td><td>${f.faq||''}</td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last||''}</td></tr>
+      `).join('') || '<tr><td colspan="5" class="text-center py-3">No data</td></tr>';
+    }
+
+    function refreshAll() {
+      document.getElementById('refreshBtn').disabled = true;
+      loadStats().finally(() => { document.getElementById('refreshBtn').disabled = false; });
+      if (document.getElementById('page-logs').style.display !== 'none') loadLogs();
+      if (document.getElementById('page-analytics').style.display !== 'none') loadAnalytics();
+      if (document.getElementById('page-topfaq').style.display !== 'none') loadTopFAQ();
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
