@@ -62,7 +62,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Hybrid Retrieval + Domain Filter** | E5+BM25 via RRF fusion — cascade fallback otomatis jadi filter domain |
+| **Hybrid Retrieval + Domain Filter** | E5 (sentence-transformers) + BM25 (rank_bm25) via RRF fusion — E5 embedding cached (LRU 128) |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) |
 | **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
@@ -623,7 +623,7 @@ TRUSTED_CHAT_IDS=1267972859
 ### 5. Install Python Dependencies
 
 ```cmd
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask rank-bm25
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
@@ -780,7 +780,7 @@ TRUSTED_CHAT_IDS=1267972859
 ```bash
 python3.11 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask
+pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask rank-bm25
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
@@ -1154,6 +1154,21 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
+
+---
+
+#### v2.4.1 — 2026-06-01
+
+**Performance (6 optimasi)**
+- **E5 embedding cache** (`core/embedder.py`) — LRU 128 query, cache hit = 0ms (vs 50-100ms encode)
+- **BM25 → `rank_bm25` library** (`core/bm25.py`) — C-optimized scoring, 35 baris kode lebih ringkas
+- **Google Sheets non-blocking** (`server.py`) — `asyncio.to_thread()` biar gak freeze server saat reload 10-menit
+- **Logging non-blocking** (`core/query_logger.py`) — JSONL + SQLite write via daemon thread (hemat ~10-25ms/request)
+- **Lazy SQLite init** (`core/query_logger.py`) — `_ensure_sqlite()` gak bikin side-effect pas module import
+- **Regex compile → module level** (`server.py`) — `EMOJI_RE` compiled sekali, bukan per request
+
+**Dependencies**
+- `rank-bm25>=0.2.2` — baru, ganti implementasi BM25 manual
 
 ---
 
