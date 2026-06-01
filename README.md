@@ -62,7 +62,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Hybrid Retrieval + Domain Filter** | E5 (sentence-transformers) + BM25 (rank_bm25) via RRF fusion — E5 embedding cached (LRU 128) |
+| **Hybrid Retrieval + Domain Filter** | E5 (sentence-transformers) + BM25 (rank_bm25) via RRF fusion — **E5 Centroid** domain filter + E5 embedding cached (LRU 128) |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) |
 | **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
 | **Database** | Google Sheets (FAQ) + SQLite (chat history) |
@@ -78,7 +78,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Hybrid Search + Domain Filter (E5 + BM25 via RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. Kategori metadata terpisah (gak di-embedding). top_k=5. **Hybrid score otomatis jadi domain filter** — query di luar BPS dapet E5+BM25 rendah → cascade reject. Gak perlu layer filter tambahan |
+| 🧠 **Hybrid Search + Domain Filter (E5 Centroid + E5+BM25 RRF)** | E5 semantic + BM25 keyword via Reciprocal Rank Fusion. **Centroid domain filter** mendahului retrieval — query di luar domain langsung ditolak sebelum hybrid search. Kategori metadata terpisah (gak di-embedding). top_k=5. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas spesifik respon langsung, skip retrieval & LLM. Keyword fallback sbg safety net |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
@@ -102,39 +102,33 @@ Bot ini punya **6 lapis proteksi**:
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
-| 5 | 🔍 **Domain Filter (RRF-based)** | `server.py` | **Hybrid search (E5+BM25 via RRF) jadi domain filter.** Semua threshold pake RRF score (bukan E5/BM25 doang). 3 gate: RRF < 0.018 → out-of-context (tolak). 0.018 ≤ RRF < 0.025 → cascade → gagal? QNA link. RRF ≥ 0.025 → LLM jawab |
+| 5 | 🔍 **Domain Filter (E5 Centroid)** | `core/embedder.py` → `server.py` | **Centroid-based domain filter.** Rata-rata semua vektor FAQ → 1 centroid. Query di-encode → cosine similarity ke centroid. `sim < 0.45` → out-of-domain (tolak tanpa retrieval/LLM). `sim ≥ 0.45` → lanjut hybrid search + RRF gate. **Zero LLM cost untuk out-of-context.** |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
-### Detail Pipeline Domain Filter (RRF-based)
+### Detail Pipeline Domain Filter (E5 Centroid)
 
 ```
 Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
-                 → lainnya → hybrid_search (E5+BM25 via RRF)
-                              ├─ RRF < 0.018 → ❌ OUT OF CONTEXT (tolak)
-                              ├─ 0.018 ≤ RRF < 0.025 → cascade → gagal? 📩 QNA link
-                              └─ RRF ≥ 0.025 → ✅ LLM jawab
+                 → lainnya → E5 Centroid check
+                              ├─ sim < 0.45 → ❌ OOC_CENTROID (tolak, tanpa retrieval)
+                              └─ sim ≥ 0.45 → hybrid_search (E5+BM25 via RRF) → LLM
 ```
 
-**Semua threshold pake RRF score** — bukan E5 cosine atau BM25 doang. RRF adalah skor unified dari hybrid search (E5 semantic + BM25 keyword via Reciprocal Rank Fusion).
+**Kenapa Centroid?** Rata-rata semua vektor FAQ membentuk "titik pusat dunia BPS". Query yang jauh dari kluster FAQ BPS otomatis dapet similarity rendah — tanpa perlu BM25, RRF, atau threshold yang berubah tiap FAQ bertambah.
 
-**Threshold matematika:**
-| RRF Range | Arti | Contoh Query |
+| Centroid sim | Arti | Contoh Query |
 |:---------:|------|--------------|
-| **< 0.018** | BM25=0 → pure E5 only → out of context total | "siapa presiden amerika" |
-| **0.018 – 0.025** | Ada sinyal BPS lemah | "cara menjadi pegawai bps" |
-| **≥ 0.025** | E5+BM25 combo → FAQ match jelas | "verifikasi NIK gagal" |
+| **< 0.45** | Di luar domain BPS — langsung tolak | "cara membuat nasi goreng" (~0.18) |
+| **≥ 0.45** | Dalam domain BPS — lanjut hybrid search | "cara daftar SOBAT" (~0.65) |
 
 ```
-RRF = 1/(K + rank_E5) + (BM25 > 0 ? 1/(K + rank_BM25) : 0)
-     K = 60
-
-Pure E5 (BM25=0):    1/(1+60)               = 0.0164
-E5#1 + BM25#20:      1/61 + 1/80            = 0.0289
-E5#1 + BM25#1:       1/61 + 1/61            = 0.0328
-
-Out-of-context gate:  0.0164 × 1.10 = 0.018
-Answer gate:          midpoint ≈ 0.022 → safety 0.025
+Centroid = mean(FAQ₁_vec, FAQ₂_vec, ..., FAQₙ_vec)  // 1 vektor 768d, dihitung 1x saat startup
+sim = cos(query_vec, centroid)  // 1 operasi dot product (~1ms)
 ```
+
+**Bedanya dengan RRF-based (versi lama):**
+- Centroid: pure E5 similarity ke pusat kluster — gak bergantung BM25/ranking/FAQ count
+- RRF-based: threshold 0.025 bisa tembus untuk FAQ < 200 karena E5 floor 0.0164
 
 ### 📩 QNA Form Link
 
@@ -143,15 +137,16 @@ Ketika hybrid search mendeteksi pertanyaan **domain BPS tapi belum ada di FAQ**,
 **http://s.bps.go.id/nara-qna**
 
 Link keluar di 2 situasi:
-1. **Cascade gagal** — RRF ≥ 0.018 tapi < 0.025 (ada sinyal BPS, FAQ ga ketemu)
-2. **Multi-part gagal** — semua part di-skip (tidak ada FAQ match) tapi RRF ≥ 0.018
+1. **Centroid reject** — similarity < 0.45 (diluar domain BPS sama sekali, tanpa retrieval)
+2. **RRF cascade gagal** — RRF ≥ 0.018 tapi < 0.025 (ada sinyal BPS, FAQ ga ketemu)
+3. **Multi-part gagal** — semua part di-skip (tidak ada FAQ match) tapi RRF ≥ 0.018
 
 Response templates di `prompts/responses.json`:
-- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (RRF < 0.018)
-- `rejection_no_answer` — "Silakan ajukan lewat form..." (RRF ≥ 0.018, ga ada FAQ)
+- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (centroid < 0.45 atau RRF < 0.018)
+- `rejection_no_answer` — "Silakan ajukan lewat form..." (centroid ≥ 0.45, ga ada FAQ match)
 
-**Kenapa hybrid search bisa jadi domain filter?**
-Karena RRF = E5 (semantic) + BM25 (keyword). Query di luar domain BPS → BM25 = 0 + E5 rendah → RRF < 0.018 → **tolak tanpa panggil LLM**. Query BPS → BM25 > 0 + E5 sinyal → RRF ≥ 0.025 → **jawab**. **Zero LLM cost untuk out-of-context.**
+**Kenapa centroid bisa jadi domain filter?**
+Centroid = rata-rata semua vektor FAQ BPS. Query di luar domain → vektornya jauh dari kluster FAQ → similarity rendah (<0.45) → **tolak tanpa retrieval maupun LLM**. Query BPS → similarity tinggi (≥0.45) → lanjut hybrid search + LLM. **Zero LLM cost untuk out-of-context.**
 
 ### Trusted User
 
@@ -238,20 +233,23 @@ USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
 └───────────────────────────────────────────────┘
          │
          ▼
-┌─ 5. HYBRID RETRIEVAL + DOMAIN FILTER (E5+BM25 RRF) ─┐
-│  E5 semantic similarity (cosine)                      │
-│  BM25 keyword overlap (per-doc)                       │
-│  RRF fusion: BM25=0? skip BM25 rank                   │
-│    → 1/(rank_E5+60) + (BM25>0 ? 1/(rank_BM25+60) : 0)│
-│  top-5 berdasarkan RRF score                          │
-│  ┌─── DOMAIN FILTER (3 gate) ─────────┐               │
-│  │ RRF < 0.018 → ❌ OUT OF CONTEXT     │               │
-│  │ 0.018 ≤ RRF < 0.025 → cascade       │               │
-│  │   gagal? → 📩 QNA link              │               │
-│  │ RRF ≥ 0.025 → ✅ LANJUT LLM         │               │
-│  └─────────────────────────────────────┘               │
-│  Semua threshold pake RRF — bukan E5/BM25 doang ✅     │
-└───────────────────────────────────────────────────────┘
+┌─ 5. HYBRID RETRIEVAL + DOMAIN FILTER (E5 Centroid + E5+BM25 RRF) ─┐
+│  Q: Domain filter (E5 Centroid)                                  │
+│    centroid_sim = cos(query_vec, centroid)                       │
+│    centroid_sim < 0.45 → ❌ OOC_CENTROID (tolak)                 │
+│    centroid_sim ≥ 0.45 → lanjut hybrid search                   │
+│  Q: E5 semantic similarity (cosine)                              │
+│  BM25 keyword overlap (per-doc)                                  │
+│  RRF fusion: BM25=0? skip BM25 rank                              │
+│    → 1/(rank_E5+60) + (BM25>0 ? 1/(rank_BM25+60) : 0)           │
+│  top-5 berdasarkan RRF score                                     │
+│  ┌─── RRF GATE ───────────────────┐                              │
+│  │ RRF < 0.018 → ❌ OUT OF CONTEXT│                              │
+│  │ 0.018 ≤ RRF < 0.025 → cascade  │                              │
+│  │   gagal? → 📩 QNA link         │                              │
+│  │ RRF ≥ 0.025 → ✅ LANJUT LLM    │                              │
+│  └────────────────────────────────┘                              │
+└──────────────────────────────────────────────────────────────────┘
          │
          ▼
 ┌─ 6. LLM ANSWER ─────────────────────────────┐

@@ -57,12 +57,18 @@ def _ensure_sqlite():
                 llm_time_ms INTEGER,
                 multi_part INTEGER,
                 session_baru INTEGER,
+                centroid_sim REAL,
                 error TEXT
             )
         """)
         # Migrasi: tambah kolom source kalo belum ada
         try:
             db.execute("ALTER TABLE logs ADD COLUMN source TEXT DEFAULT ''")
+        except Exception:
+            pass
+        # Migrasi: tambah kolom centroid_sim kalo belum ada
+        try:
+            db.execute("ALTER TABLE logs ADD COLUMN centroid_sim REAL DEFAULT 0")
         except Exception:
             pass
         db.execute("CREATE INDEX IF NOT EXISTS idx_waktu ON logs(waktu)")
@@ -93,6 +99,7 @@ def log_query(
     jawaban: str = "",
     multi_part: bool = False,
     session_baru: bool = False,
+    centroid_sim: float = 0.0,
     llm_model: str = "",
     llm_provider: str = "",
     llm_time_ms: int = 0,
@@ -123,6 +130,7 @@ def log_query(
         "llm_time_ms": llm_time_ms,
         "multi_part": multi_part,
         "session_baru": session_baru,
+        "centroid_sim": round(centroid_sim, 4),
         "error": error[:200],
     }
 
@@ -149,8 +157,8 @@ def log_query(
                         source, gate, gate_detail, dijawab,
                         jawaban, jawaban_length,
                         llm_model, llm_provider, llm_time_ms,
-                        multi_part, session_baru, error
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        multi_part, session_baru, centroid_sim, error
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     entry["waktu"], entry["chat_id"], entry["pertanyaan"],
                     clf_domain, clf_confidence, clf_mode,
@@ -158,7 +166,7 @@ def log_query(
                     source, gate, gate_detail, int(dijawab),
                     jawaban, len(jawaban),
                     llm_model, llm_provider, llm_time_ms,
-                    int(multi_part), int(session_baru), error[:200],
+                    int(multi_part), int(session_baru), round(centroid_sim, 4), error[:200],
                 ))
                 db.commit()
                 db.close()

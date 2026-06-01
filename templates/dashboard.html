@@ -876,9 +876,10 @@
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📎 Meta</span>
           <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="16" onchange="toggleDTColumn(this)"><span>Top5 FAQ</span></label>
-          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="20" onchange="toggleDTColumn(this)"><span>Multi</span></label>
-          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>Sesi Baru</span></label>
-          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Error</span></label>
+          <label class="col-toggle-pill" title="Centroid"><input type="checkbox" data-col="20" onchange="toggleDTColumn(this)"><span>Centroid</span></label>
+          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>Multi</span></label>
+          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Sesi Baru</span></label>
+          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="23" onchange="toggleDTColumn(this)"><span>Error</span></label>
         </div>
       </div>
 
@@ -1093,6 +1094,7 @@
       { label: 'LLM Model', render: l => l.llm_model?.split('/').pop()||'-' },
       { label: 'LLM Provider', render: l => l.llm_provider||'-' },
       { label: 'LLM ms', render: l => l.llm_time_ms||'-' },
+      { label: 'Centroid', render: l => (l.centroid_sim||0).toFixed(4) },
       { label: 'Multi', render: l => l.multi_part ? '✅' : '' },
       { label: 'Sesi', render: l => l.session_baru ? '🆕' : '' },
       { label: 'Error', render: l => l.error ? `<span class="text-danger small">${l.error.slice(0,60)}</span>` : '' },
