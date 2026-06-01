@@ -303,6 +303,11 @@
     }
 
     /* ── Table ── */
+    /* ── Table ── */
+    .table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
     .log-table {
       width: 100%;
       border-collapse: collapse;
@@ -353,20 +358,21 @@
     /* ── Filter Bar ── */
     .filter-row {
       display: flex;
-      gap: 12px;
+      gap: 16px 16px;
       flex-wrap: wrap;
       align-items: flex-end;
     }
     .filter-group {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
     .filter-group label {
       font: 500 11px/1 'Inter', system-ui, sans-serif;
       color: var(--ps-mute);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
     .filter-input {
       font: var(--font-body);
@@ -653,14 +659,14 @@
 
       <!-- Search & Filter Bar -->
       <div class="card mb-3">
-        <div class="row align-items-end">
-          <div class="col-md-4">
-            <label class="text-muted small">🔍 Search</label>
-            <input type="text" class="filter-input" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()">
+        <div class="filter-row">
+          <div class="filter-group" style="flex:1 1 220px; min-width:180px">
+            <label>🔍 Search</label>
+            <input type="text" class="filter-input" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()" style="min-width:100%">
           </div>
-          <div class="col-md-2">
-            <label class="text-muted small">🚪 Gate</label>
-            <select class="filter-select" id="logGate" onchange="debounceLogs()">
+          <div class="filter-group">
+            <label>🚪 Gate</label>
+            <select class="filter-select" id="logGate" onchange="debounceLogs()" style="width:130px">
               <option value="">All</option>
               <option value="ANSWER">ANSWER</option>
               <option value="REJECT">REJECT</option>
@@ -670,9 +676,9 @@
               <option value="CLF_POSITIVE_FEEDBACK">CLF_POSITIVE_FEEDBACK</option>
             </select>
           </div>
-          <div class="col-md-2">
-            <label class="text-muted small">🧠 CLF Domain</label>
-            <select class="filter-select" id="logClf" onchange="debounceLogs()">
+          <div class="filter-group">
+            <label>🧠 CLF Domain</label>
+            <select class="filter-select" id="logClf" onchange="debounceLogs()" style="width:140px">
               <option value="">All</option>
               <option value="greeting">greeting</option>
               <option value="capability">capability</option>
@@ -685,27 +691,29 @@
               <option value="luar_domain">luar_domain</option>
             </select>
           </div>
-          <div class="col-md-2">
-            <label class="text-muted small">📱 Source</label>
-            <select class="filter-select" id="logSource" onchange="debounceLogs()">
+          <div class="filter-group">
+            <label>📱 Source</label>
+            <select class="filter-select" id="logSource" onchange="debounceLogs()" style="width:110px">
               <option value="">All</option>
               <option value="wa">WhatsApp</option>
               <option value="telegram">Telegram</option>
               <option value="api">API</option>
             </select>
           </div>
-          <div class="col-md-2">
-            <label class="text-muted small">✅ Status</label>
-            <select class="filter-select" id="logStatus" onchange="debounceLogs()">
+          <div class="filter-group">
+            <label>✅ Status</label>
+            <select class="filter-select" id="logStatus" onchange="debounceLogs()" style="width:120px">
               <option value="">All</option>
               <option value="1">Answered</option>
               <option value="0">Unanswered</option>
             </select>
           </div>
-          <div class="col-md-2 d-flex gap-1 flex-wrap">
-            <label class="text-muted small w-100">&nbsp;</label>
-            <button class="btn-pill btn-pill-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
-            <button class="btn-pill btn-pill-outline" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
+          <div class="filter-group" style="align-self:flex-end">
+            <label>&nbsp;</label>
+            <div class="d-flex gap-2">
+              <button class="btn-pill btn-pill-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
+              <button class="btn-pill btn-pill-outline" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
+            </div>
           </div>
         </div>
       </div>
@@ -749,7 +757,7 @@
 
       <!-- Table -->
       <div class="card">
-        <div class="table-responsive">
+        <div class="table-scroll">
           <table class="log-table" id="logTable">
             <thead><tr id="logTableHead"></tr></thead>
             <tbody></tbody>
@@ -812,7 +820,7 @@
         <div class="col-12">
           <div class="card">
             <h6>📋 Service Status Summary</h6>
-            <div class="table-responsive">
+            <div class="table-scroll">
               <table class="table table-sm mb-0">
                 <thead><tr><th>Service</th><th>Port</th><th>Status</th><th>Detail</th></tr></thead>
                 <tbody id="sysTableBody"></tbody>
@@ -826,7 +834,7 @@
     <!-- ===== TOP FAQ PAGE ===== -->
     <div id="page-topfaq" style="display:none">
       <h2 class="section-title">🏆 Top FAQ</h2>
-      <div class="card"><div class="table-responsive">
+      <div class="card"><div class="table-scroll">
         <table class="table table-sm mb-0" id="faqTable">
           <thead><tr><th>#</th><th>FAQ</th><th>Category</th><th>Hits</th><th>Avg RRF</th><th>Last Seen</th></tr></thead>
           <tbody></tbody>
@@ -1112,7 +1120,7 @@
 
     function showSysToast(msg, type) {
       const el = document.getElementById('sysToast');
-      el.className = 'alert alert-' + type + ' py-2 px-3 mb-3';
+      el.className = 'toast-msg ' + type + ' mb-3';
       el.style.fontSize = '.85rem';
       el.textContent = msg;
       el.classList.remove('d-none');
