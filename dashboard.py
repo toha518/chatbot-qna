@@ -242,37 +242,72 @@ def api_logs_export(days: int = 7, format: str = "csv",
 
     rows = _rows(f"SELECT * FROM logs WHERE {where} ORDER BY id DESC LIMIT 10000", params)
 
-    # CSV/Excel
+    # CSV/Excel — proper quoting for text with commas, quotes, newlines
     if format in ("csv", "excel"):
         import csv, io
         buf = io.StringIO()
+        buf.write('\ufeff')  # BOM for Excel UTF-8
         if rows:
             cols = list(rows[0].keys())
-            writer = csv.writer(buf)
+            writer = csv.writer(buf, quoting=csv.QUOTE_ALL)  # all fields quoted
             writer.writerow(cols)
             for r in rows:
-                writer.writerow([r.get(c, "") for c in cols])
+                vals = []
+                for c in cols:
+                    v = r.get(c, "")
+                    if isinstance(v, str):
+                        v = v.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+                    vals.append(v if v is not None else "")
+                writer.writerow(vals)
         content = buf.getvalue()
         buf.close()
-        filename = f"nara_logs_{days}d_{datetime.now(WIB).strftime('%Y%m%d_%H%M')}.csv"
+        ts = datetime.now(WIB).strftime('%Y%m%d_%H%M')
         if format == "excel":
-            return Response(content, media_type="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename={filename.replace('.csv','.xls')}"})
-        return Response(content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f"attachment; filename={filename}"})
+            resp = Response(content, media_type="application/vnd.ms-excel")
+            resp.headers["Content-Disposition"] = f"attachment; filename=nara_logs_{ts}.csv"
+            return resp
+        resp = Response(content, media_type="text/csv; charset=utf-8-sig")
+        resp.headers["Content-Disposition"] = f"attachment; filename=nara_logs_{ts}.csv"
+        return resp
 
-    # PDF → return HTML print view
+    # PDF — generate clean HTML + download as .html (user saves as PDF via browser)
     if format == "pdf":
         if not rows:
             return HTMLResponse("<h3>No data to export</h3>")
         cols = list(rows[0].keys())
-        html = '<html><head><meta charset="utf-8"><title>NARA Query Log</title>'
-        html += '<style>body{font:12px/1.5 sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;font-size:11px}th{background:#f3f3f3}@media print{@page{size:landscape}}</style>'
-        html += '</head><body><h2>NARA Query Log</h2><table><thead><tr>'
-        html += ''.join(f'<th>{c}</th>' for c in cols)
-        html += '</tr></thead><tbody>'
+        html_parts = [
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>NARA Query Log</title>',
+            '<style>',
+            'body{font:12px/1.4 system-ui,sans-serif;margin:20px;}',
+            'h2{font-size:16px;margin-bottom:12px;color:#0070d1}',
+            'table{border-collapse:collapse;width:100%;font-size:10px}',
+            'th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}',
+            'th{background:#f0f4f8;font-weight:600;position:sticky;top:0}',
+            'tr:nth-child(even){background:#f8fafc}',
+            'tr:hover{background:#e8f0fe}',
+            '@media print{@page{size:landscape;margin:10mm}body{margin:0}}',
+            '</style></head><body>',
+            f'<h2>📝 NARA Query Log — {len(rows)} baris</h2>',
+            '<table><thead><tr>',
+        ]
+        html_parts += [f'<th>{c}</th>' for c in cols]
+        html_parts += ['</tr></thead><tbody>']
         for r in rows:
-            html += '<tr>' + ''.join(f'<td>{r.get(c,"")}</td>' for c in cols) + '</tr>'
-        html += '</tbody></table><script>window.print();window.close();</' + 'script></body></html>'
-        return HTMLResponse(html)
+            html_parts.append('<tr>')
+            for c in cols:
+                v = r.get(c, "")
+                if v is None:
+                    v = ""
+                elif not isinstance(v, str):
+                    v = str(v)
+                # Truncate long text cells for display
+                if len(v) > 200:
+                    v = v[:200] + '...'
+                v = v.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                html_parts.append(f'<td>{v}</td>')
+            html_parts.append('</tr>')
+        html_parts += ['</tbody></table></body></html>']
+        return HTMLResponse(''.join(html_parts))
 
     return HTMLResponse(f"Unknown format: {format}", status_code=400)
 
