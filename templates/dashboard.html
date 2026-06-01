@@ -806,8 +806,9 @@
       btn.textContent = isOpen ? '✕' : '☰';
     }
 
-    // Click outside sidebar on mobile to close
+    // Click outside sidebar on mobile to close (skip hamburger button clicks)
     document.getElementById('mainContent').addEventListener('click', function(e) {
+      if (e.target.closest('#hamburgerBtn')) return;
       const sb = document.getElementById('sidebar');
       if (sb.classList.contains('open')) {
         sb.classList.remove('open');
