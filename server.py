@@ -260,8 +260,7 @@ async def chat(req: ChatRequest):
     history, session_baru = init_session(cid)
     # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
     ft_domain, ft_conf = ft_classify(req.pertanyaan)
-    centroid_sim = 0.0  # akan di-update pas centroid check
-    bm25_score = ft_conf  # backward compat
+    centroid_sim = 0.0  # di-update pas domain check
     from core.intent_classifier import _ready, _using_fallback
     _clf_mode = "keyword_fallback" if _using_fallback else ("none" if not _ready else "scikit-learn")
     print(f"[DOMAIN] '{req.pertanyaan[:60]}' → {ft_domain} ({ft_conf:.3f})")
@@ -326,27 +325,27 @@ async def chat(req: ChatRequest):
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # ── DOMAIN FILTER: Centroid + BM25 ──
+    # ── DOMAIN FILTER: BM25 keyword check ──
     query_vec = encode_query(req.pertanyaan)
-    centroid_sim = check_domain(query_vec)
+    centroid_sim = check_domain(query_vec)  # logged, not a gate
     from core.bm25 import get_bm25_score
     bm25_top = get_bm25_score(req.pertanyaan)
-    print(f"[DOMAIN] Centroid={centroid_sim:.4f} BM25={bm25_top:.1f} (threshold={_DOMAIN_THRESHOLD})")
-    if centroid_sim < _DOMAIN_THRESHOLD or bm25_top == 0:
+    print(f"[DOMAIN] BM25={bm25_top:.1f} (centroid={centroid_sim:.4f})")
+    if bm25_top == 0:
+        # Gak ada keyword overlap sama sekali → out-of-domain
         jawaban = REJECTION_MSG
         api_rate_limit[cid]["last_active"] = time.time()
         log_query(req.pertanyaan, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="OOC_CENTROID", dijawab=False, jawaban=jawaban)
+                  gate="OOC_BM25", dijawab=False, jawaban=jawaban)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": 0}
 
-    # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
-    bm25_score = ft_conf
+    # ── HYBRID SEARCH (gak ada domain filter terpisah — BM25=0 udah ditolak di atas) ──
     context, scores, best_q, top5_all = hybrid_search(req.pertanyaan, top_k=5)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25)")
