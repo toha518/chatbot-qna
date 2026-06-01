@@ -1276,7 +1276,7 @@
     }
 
     // ── Export ──
-    function exportLogs(format) {
+    async function exportLogs(format) {
       const days = document.getElementById('timeRange').value;
       const search = document.getElementById('dtSearch')?.value.trim() || '';
       const gate = document.getElementById('dtGate')?.value || '';
@@ -1284,14 +1284,30 @@
       const source = document.getElementById('dtSource')?.value || '';
       const status = document.getElementById('dtStatus')?.value || '';
       const params = `days=${days}&search=${encodeURIComponent(search)}&gate=${encodeURIComponent(gate)}&clf=${encodeURIComponent(clf)}&source=${encodeURIComponent(source)}&dijawab=${status}`;
+
       if (format === 'pdf') {
-        // Buka di tab baru — user Ctrl+P untuk simpan PDF
-        const w = window.open(`/api/logs-export?${params}&format=pdf`, '_blank');
-        if (!w) { alert('Pop-up diblokir! Izinkan pop-up untuk dashboard ini.'); }
-      } else {
+        // Generate PDF via browser print → auto popup print dialog
+        const resp = await fetch(`/api/logs-export?${params}&format=html`);
+        const html = await resp.text();
+        const w = window.open('', '_blank');
+        if (!w) { alert('Pop-up diblokir! Izinkan pop-up untuk dashboard ini.'); return; }
+        w.document.write(html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>'));
+        w.document.close();
+      } else if (format === 'excel') {
+        // Excel: HTML table format (.xls — Excel natively opens HTML tables)
+        const resp = await fetch(`/api/logs-export?${params}&format=html-table`);
+        const html = await resp.text();
+        const blob = new Blob(['\ufeff' + html], {type: 'application/vnd.ms-excel'});
         const a = document.createElement('a');
-        a.href = `/api/logs-export?${params}&format=${format}`;
-        a.download = `nara_logs.${format === 'excel' ? 'csv' : 'csv'}`;
+        a.href = URL.createObjectURL(blob);
+        a.download = 'nara_logs.xls';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      } else {
+        // CSV
+        const a = document.createElement('a');
+        a.href = `/api/logs-export?${params}&format=csv`;
+        a.download = 'nara_logs.csv';
         a.click();
       }
     }
