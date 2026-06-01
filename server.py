@@ -325,14 +325,14 @@ async def chat(req: ChatRequest):
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # ── DOMAIN FILTER: BM25 keyword check ──
+    # ── DOMAIN FILTER: BM25 threshold check ──
     query_vec = encode_query(req.pertanyaan)
-    centroid_sim = check_domain(query_vec)  # logged, not a gate
+    centroid_sim = check_domain(query_vec)  # logged for analytics
     from core.bm25 import get_bm25_score
     bm25_top = get_bm25_score(req.pertanyaan)
-    print(f"[DOMAIN] BM25={bm25_top:.1f} (centroid={centroid_sim:.4f})")
-    if bm25_top == 0:
-        # Gak ada keyword overlap sama sekali → out-of-domain
+    _BM25_THRESHOLD = 3.0  # BM25 < 3.0 = gak ada keyword BPS signifikan
+    print(f"[DOMAIN] BM25={bm25_top:.1f} (threshold={_BM25_THRESHOLD}, centroid={centroid_sim:.4f})")
+    if bm25_top < _BM25_THRESHOLD:
         jawaban = REJECTION_MSG
         api_rate_limit[cid]["last_active"] = time.time()
         log_query(req.pertanyaan, cid, source=req.source,
