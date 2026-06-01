@@ -573,6 +573,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── Responsive ── */
+    /* ── Responsive ── */
     @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
@@ -580,14 +581,64 @@
       }
       .sidebar.open { transform: translateX(0); }
       .sidebar.collapsed { transform: translateX(-100%); }
-      .main-content { margin-left: 0; padding: 20px; }
+      .main-content {
+        margin-left: 0;
+        padding: 16px;
+      }
       .sidebar-toggle { display: none; }
       .sidebar-hamburger { display: inline-flex; }
       .d-md-none { display: inline-flex; }
-      .stat-value { font-size: 24px; }
+
+      /* Stats: 2 per row */
+      .stat-value { font: 300 22px/1.25 'Inter', system-ui, sans-serif; }
+      .stat-card { padding: 14px 16px; gap: 12px; }
+      .stat-icon { width: 36px; height: 36px; font-size: 16px; }
+
+      /* Charts: stack full-width */
+      .col-md-6 { width: 100%; }
+      .card canvas { max-height: 200px; }
+      .card h6 { font-size: 16px; }
+
+      /* Filter: stack vertically, full-width inputs */
       .filter-row { flex-direction: column; }
-      .filter-input, .filter-select { min-width: 100%; }
+      .filter-group { width: 100%; }
+      .filter-group input,
+      .filter-group select { width: 100% !important; min-width: 100% !important; }
+
+      /* Tables: scrollable */
+      .log-table { font-size: 12px; }
+      .log-table th, .log-table td { padding: 8px 8px; }
+
+      /* Section title */
+      .section-title { font: 300 22px/1.25 'Inter', system-ui, sans-serif; }
+
+      /* Top bar stacking */
+      .top-bar, .d-flex.justify-content-between {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .top-bar-right, .ms-auto {
+        margin-left: 0;
+      }
+      .time-select { font-size: 14px; height: 36px; }
+      .btn-pill { font-size: 12px; padding: 7px 14px; height: 34px; }
+
+      /* Card padding */
+      .card { padding: 16px; }
+
+      /* Column toggles: compact */
+      .col-toggle-pill { font-size: 10px; padding: 3px 8px; }
     }
+
+    @media (max-width: 480px) {
+      .col-6 { width: 100%; }
+      .stat-card { padding: 12px 14px; }
+      .section-title { font: 300 20px/1.25 'Inter', system-ui, sans-serif; }
+      .terminal-box { height: 220px; font-size: 11px; }
+      .card { padding: 12px; }
+      .main-content { padding: 12px; }
+    }
+
     @media (min-width: 769px) {
       .d-md-none { display: none; }
     }
@@ -625,7 +676,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
       <button class="sidebar-hamburger" onclick="toggleMobileSidebar()" id="hamburgerBtn">☰</button>
       <div class="d-flex align-items-center gap-2 ms-auto">
-        <select class="filter-select" class="time-select" id="timeRange" onchange="refreshAll()">
+        <select class="time-select" id="timeRange" onchange="refreshAll()">
           <option value="1">Hari ini</option>
           <option value="7" selected>7 hari</option>
           <option value="30">30 hari</option>
