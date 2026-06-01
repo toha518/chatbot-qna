@@ -701,7 +701,7 @@
       charts.trend = new Chart(ctx, {
         type: 'line',
         data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), borderColor: '#3b82f6', tension: .3, fill: false }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 0.035 } } }
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
       });
     }
     function drawHourly(data) {
