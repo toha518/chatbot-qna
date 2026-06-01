@@ -16,6 +16,10 @@ categories: list[str] = []
 question_vecs = None
 embedder = None
 
+# LRU cache — hindari encode ulang query yang sama
+_query_cache: dict[str, np.ndarray] = {}
+_MAX_CACHE = 128
+
 
 def init_embedder():
     """Load E5-base model (~278MB)"""
@@ -121,13 +125,20 @@ def init_data(csv_url: str) -> int:
 
 
 def encode_query(query: str) -> np.ndarray:
-    """Encode satu query user pake E5.
+    """Encode satu query user pake E5 — dengan LRU cache (128 query).
     Ngembaliin 768d vector — bisa dipake ulang buat filter domain & retrieval.
     """
-    global embedder
+    global embedder, _query_cache
+    cached = _query_cache.get(query)
+    if cached is not None:
+        return cached
     if embedder is None:
         init_embedder()
-    return embedder.encode(["query: " + query])[0]
+    vec = embedder.encode(["query: " + query])[0]
+    if len(_query_cache) >= _MAX_CACHE:
+        _query_cache.pop(next(iter(_query_cache)))
+    _query_cache[query] = vec
+    return vec
 
 
 def search(query: str, top_k: int = 3):
