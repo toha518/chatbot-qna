@@ -16,7 +16,7 @@ load_dotenv()
 EMOJI_RE = re.compile(r'[\U0001F300-\U0010FFFF]')
 # ===================== MODULES =====================
 from core.database import init_db, get_daily_count, increment_daily_count
-from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
+from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions, check_domain, _DOMAIN_THRESHOLD
 from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
@@ -319,6 +319,22 @@ async def chat(req: ChatRequest):
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
+
+    # ── DOMAIN CENTROID CHECK ──
+    query_vec = encode_query(req.pertanyaan)
+    centroid_sim = check_domain(query_vec)
+    print(f"[DOMAIN] Centroid similarity = {centroid_sim:.4f} (threshold={_DOMAIN_THRESHOLD})")
+    if centroid_sim < _DOMAIN_THRESHOLD:
+        jawaban = REJECTION_MSG
+        api_rate_limit[cid]["last_active"] = time.time()
+        log_query(req.pertanyaan, cid, source=req.source,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="OOC_CENTROID", dijawab=False, jawaban=jawaban)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": 0}
 
     # ── HYBRID SEARCH + DOMAIN FILTER (semua threshold pake RRF) ──
     bm25_score = ft_conf

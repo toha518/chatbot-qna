@@ -20,6 +20,37 @@ embedder = None
 _query_cache: dict[str, np.ndarray] = {}
 _MAX_CACHE = 128
 
+# Domain Centroid — buat filter out-of-domain questions
+_DOMAIN_THRESHOLD = 0.45  # < 0.45 = out-of-domain
+domain_centroid: np.ndarray | None = None
+
+
+def build_domain_centroid():
+    """Bikin centroid dari semua FAQ (rata-rata vektor). Dipanggil pas startup / reload."""
+    global domain_centroid, question_vecs
+    if question_vecs is None or len(question_vecs) == 0:
+        domain_centroid = None
+        return
+    domain_centroid = np.mean(question_vecs, axis=0)
+    # Normalize centroid biar hasil cosine_similarity konsisten
+    norm = np.linalg.norm(domain_centroid)
+    if norm > 0:
+        domain_centroid = domain_centroid / norm
+    print(f"[DOMAIN] Centroid built from {len(question_vecs)} FAQ vectors")
+
+
+def check_domain(query_vec: np.ndarray) -> float:
+    """Check domain similarity. Return cosine similarity ke centroid (0-1)."""
+    global domain_centroid
+    if domain_centroid is None:
+        return 1.0  # fallback: izinin kalo centroid belum ada
+    # Normalize query vector
+    norm = np.linalg.norm(query_vec)
+    if norm > 0:
+        query_vec = query_vec / norm
+    sim = float(np.dot(query_vec, domain_centroid))
+    return sim
+
 
 def init_embedder():
     """Load E5-base model (~278MB)"""
@@ -95,6 +126,7 @@ def load_from_gsheet(csv_url: str) -> int:
 
         print(f"[RELOAD] {len(questions)} Q&A loaded from Google Sheets")
         _rebuild_bm25(questions)
+        build_domain_centroid()
         return len(questions)
 
     except Exception as e:
@@ -112,6 +144,7 @@ def load_from_gsheet(csv_url: str) -> int:
                 show_progress_bar=False
             )
         _rebuild_bm25(questions)
+        build_domain_centroid()
         return len(questions)
 
 
