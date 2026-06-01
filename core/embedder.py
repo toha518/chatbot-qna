@@ -94,7 +94,7 @@ def load_from_gsheet(csv_url: str) -> int:
             print(f"[RELOAD] Gagal save FAQ categories: {e}")
 
         print(f"[RELOAD] {len(questions)} Q&A loaded from Google Sheets")
-        from core.bm25 import build_bm25; build_bm25(questions)
+        _rebuild_bm25(questions)
         return len(questions)
 
     except Exception as e:
@@ -111,8 +111,20 @@ def load_from_gsheet(csv_url: str) -> int:
                 passage_texts,
                 show_progress_bar=False
             )
-        from core.bm25 import build_bm25; build_bm25(questions)
+        _rebuild_bm25(questions)
         return len(questions)
+
+
+def _rebuild_bm25(questions: list):
+    """Build BM25 index — robust: warning kalo rank_bm25 missing, fallback ke basic."""
+    try:
+        from core.bm25 import build_bm25
+        build_bm25(questions)
+    except ImportError:
+        print("[BM25] ⚠️  rank_bm25 TIDAK DIINSTALL! Install: pip install rank-bm25")
+        print("[BM25] ⚠️  BM25 scoring disabled — hanya E5 yang jalan")
+    except Exception as e:
+        print(f"[BM25] ⚠️  Gagal build: {e}")
 
 
 def init_data(csv_url: str) -> int:
