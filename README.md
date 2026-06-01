@@ -193,69 +193,82 @@ chatbot-qna/
 └── query_log.jsonl           ← 📊 Log evaluasi query (auto-generated)
 ```
 
-### Alur Proses Chat
+### Alur Proses Chat (End-to-End)
 
 ```
-USER: "Kenapa mitra tidak bisa verifikasi nik dan siapa presiden?"
-         │
-         ▼
-┌─ 1. INPUT SANITASI ──────────────────────────┐
-│  Control chars, emoji, panjang, kosong       │
-└───────────────────────────────────────────────┘
-         │
-         ▼
-┌─ 2. ANTI-SPAM & DAILY LIMIT ────────────────┐
-│  5 req/menit + 25 chat/hari                  │
-└───────────────────────────────────────────────┘
-         │
-         │  (↘ Telegram/WA kirim typing indicator)
-         ▼
-┌─ 3. FASTTEXT CLASSIFIER ────────────────────┐
-│  greeting? → respon salam, skip LLM ✅       │
-│  capability? → respon fitur, skip LLM ✅     │
-│  forward? → lanjut ke hybrid search   │
-└───────────────────────────────────────────────┘
-         │
-         ▼
-┌─ 4. MULTI-PART SPLIT ───────────────────────┐
-│  Layer 1: Heuristic split                    │
-│    konjungsi (dan/serta/sedangkan/lalu/...)  │
-│    delimiter (? / . / , / ;)                 │
-│  Layer 2: E5 Semantic Merge                  │
-│    cosim antar part < 0.55? = beda intent    │
-│    cosim ≥ 0.55? = 1 konteks → merge balik   │
-│  Tiap bagian hybrid search individual         │
-│  bagian skor < 0.50? → di-skip              │
-└───────────────────────────────────────────────┘
-         │
-         ▼
-┌─ 5. DOMAIN FILTER + HYBRID RETRIEVAL ─────────────────────┐
-│  Q1: Domain gate (BM25 keyword overlap)                   │
-│    bm25_score < 3.0 → ❌ OOC_BM25 (tolak)                 │
-│    bm25_score ≥ 3.0 → lanjut hybrid search                │
-│  Q2: E5 semantic similarity (cosine)                      │
-│  BM25 per-doc scoring                                      │
-│  RRF fusion: BM25=0? skip BM25 rank                        │
-│    → 1/(rank_E5+60) + (BM25>0 ? 1/(rank_BM25+60) : 0)    │
-│  top-5 berdasarkan RRF score                               │
-│  ┌─── RRF GATE ───────────────────┐                        │
-│  │ RRF < 0.018 → ❌ OUT OF CONTEXT│                        │
-│  │ 0.018 ≤ RRF < 0.025 → cascade  │                        │
-│  │   gagal? → 📩 QNA link         │                        │
-│  │ RRF ≥ 0.025 → ✅ LANJUT LLM    │                        │
-│  └────────────────────────────────┘                        │
-│  Centroid di-log ke centroid_sim (analytics only)          │
-└────────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─ 6. LLM ANSWER ─────────────────────────────┐
-│  System prompt + context referensi          │
-│  3 provider backup chain                    │
-└───────────────────────────────────────────────┘
-         │
-         ▼
-    ⚠️ DUAL-LOGGED (query_log.jsonl + query_log.db)
+USER CHAT
+  │
+  ▼
+┌─ 1. INPUT SANITASI ──────────────────────────────┐
+│  • Hapus karakter kontrol                         │
+│  • Batasi emoji (maks 5)                          │
+│  • Tolak >500 karakter (kecuali OCR gambar)       │
+│  • OCR gambar via EasyOCR (lazy load ~500MB)      │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 2. ANTI-SPAM & DAILY LIMIT ──────────────────────┐
+│  • Rate limit: 5 req/menit, block 5 menit         │
+│  • Daily limit: 25 chat/hari per user             │
+│  • Trusted IDs (dari .env) skip semua             │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 3. INTENT CLASSIFIER (scikit-learn, 97.4%) ─────┐
+│  greeting        → LLM sapaan (tanpa retrieval)   │
+│  capability      → Template daftar topik          │
+│  positive_fb     → "Sama-sama 😊"                 │
+│  negative_fb     → "Maaf ya 🙏"                    │
+│  forward         → lanjut ke domain gate ↓        │
+└───────────────────────────────────────────────────┘
+  │ (kalau forward)
+  ▼
+┌─ 4. DOMAIN GATE: BM25 KEYWORD CHECK ─────────────┐
+│  BM25 = keyword overlap query vs semua FAQ        │
+│  • BM25 < 3.0  → ❌ OOC_BM25 (tolak langsung)     │
+│  • BM25 ≥ 3.0  → lanjut hybrid search ↓          │
+│  Centroid E5 di-log (analytics, bukan gate)       │
+└───────────────────────────────────────────────────┘
+  │ (BM25 ≥ 3.0)
+  ▼
+┌─ 5. MULTI-PART SPLIT? ───────────────────────────┐
+│  Ada konjungsi ("dan", "serta", "juga")?          │
+│  YA → Split → tiap part hybrid search sendiri     │
+│        Merge kalo E5 similarity ≥ 0.55            │
+│  TIDAK → Single question ↓                        │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
+│  E5 semantic similarity  +  BM25 keyword scoring  │
+│  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
+│  Top-5 FAQ terpilih                               │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 7. RRF GATE (3 cabang) ────────────────────────┐
+│  RRF < 0.018         → ❌ OUT_OF_CONTEXT          │
+│  0.018 ≤ RRF < 0.025 → 🔄 CASCADE (2x, dg history)│
+│    Cascade gagal?     → 📩 QNA link               │
+│  RRF ≥ 0.025         → ✅ ANSWER → lanjut LLM ↓  │
+└───────────────────────────────────────────────────┘
+  │ (ANSWER)
+  ▼
+┌─ 8. LLM GENERATE ───────────────────────────────┐
+│  System prompt + 5 FAQ context + chat history     │
+│  Multi-provider failover (cloud → Ollama lokal)   │
+│  Timeout 30 detik per provider                    │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 9. RESPONSE + LOGGING ─────────────────────────┐
+│  Kirim jawaban ke user (Telegram / WA / API)      │
+│  DUAL-LOGGED: JSONL + SQLite (non-blocking thread)│
+│  Kolom: BM25, RRF, E5, centroid_sim, gate, LLM ms│
+└───────────────────────────────────────────────────┘
 ```
+
+> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 gate (≥3.0)** → hybrid search (E5+BM25 RRF) → **RRF gate (ANSWER/OOC/CASCADE)** → LLM → jawab + log
 
 ---
 
