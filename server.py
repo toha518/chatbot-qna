@@ -89,7 +89,7 @@ async def auto_reload_gsheet():
         await asyncio.sleep(600)
         try:
             prev = len(questions)
-            total = load_from_gsheet(GSHEET_CSV_URL)
+            total = await asyncio.to_thread(load_from_gsheet, GSHEET_CSV_URL)
             if total != prev:
                 print(f"[AUTO-RELOAD] Database: {prev} → {total} Q&A")
             else:
