@@ -20,6 +20,7 @@ import uvicorn
 
 DB = Path(__file__).parent / "query_log.db"
 TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
+FAVICON = Path(__file__).parent / "templates" / "favicon.svg"
 
 app = FastAPI(title="NARA Dashboard")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -60,6 +61,13 @@ def index():
     if not TEMPLATE.exists():
         return HTMLResponse("<h2>Dashboard template not found. Run from project root.</h2>", status_code=500)
     return HTMLResponse(TEMPLATE.read_text(encoding="utf-8"))
+
+
+@app.get("/favicon.svg")
+async def favicon():
+    if FAVICON.exists():
+        return FileResponse(str(FAVICON), media_type="image/svg+xml")
+    return HTMLResponse("", status_code=404)
 
 
 # ── API ──
