@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 load_dotenv()
+# ===================== COMPILED REGEX (module level) =====================
+EMOJI_RE = re.compile(r'[\U0001F300-\U0010FFFF]')
 # ===================== MODULES =====================
 from core.database import init_db, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions
@@ -199,8 +201,7 @@ async def chat(req: ChatRequest):
     cid = req.chat_id
     # ===================== INPUT SANITASI =====================
     req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
-    emoji_pattern = re.compile(r'[\U0001F300-\U0010FFFF]')
-    emojis = emoji_pattern.findall(req.pertanyaan)
+    emojis = EMOJI_RE.findall(req.pertanyaan)
     if len(emojis) > 5:
         for em in set(emojis[5:]):
             req.pertanyaan = req.pertanyaan.replace(em, '')

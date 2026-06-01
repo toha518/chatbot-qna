@@ -1,6 +1,7 @@
 """
 query_logger.py — Dual-write logging Nara (JSONL + SQLite)
 Format: JSONL (1 baris JSON) + SQLite untuk analytics jangka panjang.
+Logging non-blocking: writes via background thread.
 """
 
 import json
@@ -15,15 +16,21 @@ JSONL_FILE = LOG_DIR / "query_log.jsonl"
 SQLITE_FILE = LOG_DIR / "query_log.db"
 _MAX_JSONL_SIZE_KB = 500
 _sqlite_lock = threading.Lock()
+_sqlite_ready = False
 
 
 def _wib_now() -> str:
     return datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _init_sqlite():
-    """Buat table kalo belum ada + migrasi kolom baru"""
+def _ensure_sqlite():
+    """Lazy init — cuma di-thread pertama yang butuh. Aman dari race condition kalo di-import barengan."""
+    global _sqlite_ready
+    if _sqlite_ready:
+        return
     with _sqlite_lock:
+        if _sqlite_ready:
+            return
         db = sqlite3.connect(str(SQLITE_FILE))
         db.execute("PRAGMA journal_mode=WAL")
         db.execute("""
@@ -57,7 +64,7 @@ def _init_sqlite():
         try:
             db.execute("ALTER TABLE logs ADD COLUMN source TEXT DEFAULT ''")
         except Exception:
-            pass  # kolom sudah ada
+            pass
         db.execute("CREATE INDEX IF NOT EXISTS idx_waktu ON logs(waktu)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_gate ON logs(gate)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_clf ON logs(clf_domain)")
@@ -65,9 +72,7 @@ def _init_sqlite():
         db.execute("CREATE INDEX IF NOT EXISTS idx_source ON logs(source)")
         db.commit()
         db.close()
-
-
-_init_sqlite()
+        _sqlite_ready = True
 
 
 def log_query(
@@ -93,7 +98,8 @@ def log_query(
     llm_time_ms: int = 0,
     error: str = "",
 ):
-    """Catat satu request lengkap — dual write (JSONL + SQLite)"""
+    """Catat satu request lengkap — non-blocking (ditulis di background thread)."""
+    _ensure_sqlite()
 
     entry = {
         "waktu": _wib_now(),
@@ -120,42 +126,46 @@ def log_query(
         "error": error[:200],
     }
 
-    # ── JSONL ──
-    try:
-        if JSONL_FILE.exists() and JSONL_FILE.stat().st_size > _MAX_JSONL_SIZE_KB * 1024:
-            _rotate_jsonl()
-        with open(JSONL_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-    except Exception as e:
-        print(f"[LOG] JSONL error: {e}")
+    # ── Fire-and-forget: tulis JSONL + SQLite di background ──
+    def _write():
+        # JSONL
+        try:
+            if JSONL_FILE.exists() and JSONL_FILE.stat().st_size > _MAX_JSONL_SIZE_KB * 1024:
+                _rotate_jsonl()
+            with open(JSONL_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            print(f"[LOG] JSONL error: {e}")
 
-    # ── SQLite ──
-    try:
-        with _sqlite_lock:
-            db = sqlite3.connect(str(SQLITE_FILE))
-            db.execute("""
-                INSERT INTO logs (
-                    waktu, chat_id, pertanyaan,
+        # SQLite
+        try:
+            with _sqlite_lock:
+                db = sqlite3.connect(str(SQLITE_FILE))
+                db.execute("""
+                    INSERT INTO logs (
+                        waktu, chat_id, pertanyaan,
+                        clf_domain, clf_confidence, clf_mode,
+                        rrf_score, e5_top, bm25_raw, top5_faq,
+                        source, gate, gate_detail, dijawab,
+                        jawaban, jawaban_length,
+                        llm_model, llm_provider, llm_time_ms,
+                        multi_part, session_baru, error
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    entry["waktu"], entry["chat_id"], entry["pertanyaan"],
                     clf_domain, clf_confidence, clf_mode,
-                    rrf_score, e5_top, bm25_raw, top5_faq,
-                    source, gate, gate_detail, dijawab,
-                    jawaban, jawaban_length,
+                    rrf_score, e5_top, bm25_raw, json.dumps(top5_faq or []),
+                    source, gate, gate_detail, int(dijawab),
+                    jawaban, len(jawaban),
                     llm_model, llm_provider, llm_time_ms,
-                    multi_part, session_baru, error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                entry["waktu"], entry["chat_id"], entry["pertanyaan"],
-                clf_domain, clf_confidence, clf_mode,
-                rrf_score, e5_top, bm25_raw, json.dumps(top5_faq or []),
-                source, gate, gate_detail, int(dijawab),
-                jawaban, len(jawaban),
-                llm_model, llm_provider, llm_time_ms,
-                int(multi_part), int(session_baru), error[:200],
-            ))
-            db.commit()
-            db.close()
-    except Exception as e:
-        print(f"[LOG] SQLite error: {e}")
+                    int(multi_part), int(session_baru), error[:200],
+                ))
+                db.commit()
+                db.close()
+        except Exception as e:
+            print(f"[LOG] SQLite error: {e}")
+
+    threading.Thread(target=_write, daemon=True).start()
 
 
 def _rotate_jsonl():
