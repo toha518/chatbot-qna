@@ -787,16 +787,16 @@
     <div id="page-logs" style="display:none">
       <h2 class="section-title">📝 Query Log</h2>
 
-      <!-- Search & Filter Bar -->
+      <!-- Filter Bar (compact) -->
       <div class="card mb-3">
         <div class="filter-row">
-          <div class="filter-group" style="flex:1 1 220px; min-width:180px">
+          <div class="filter-group" style="flex:1 1 280px; min-width:200px">
             <label>🔍 Search</label>
-            <input type="text" class="filter-input" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()" style="min-width:100%">
+            <input type="text" class="filter-input" id="dtSearch" placeholder="Cari di semua kolom..." style="min-width:100%">
           </div>
           <div class="filter-group">
             <label>🚪 Gate</label>
-            <select class="filter-select" id="logGate" onchange="debounceLogs()" style="width:130px">
+            <select class="filter-select" id="dtGate" style="width:140px">
               <option value="">All</option>
               <option value="ANSWER">ANSWER</option>
               <option value="REJECT">REJECT</option>
@@ -807,8 +807,8 @@
             </select>
           </div>
           <div class="filter-group">
-            <label>🧠 CLF Domain</label>
-            <select class="filter-select" id="logClf" onchange="debounceLogs()" style="width:140px">
+            <label>🧠 CLF</label>
+            <select class="filter-select" id="dtClf" style="width:140px">
               <option value="">All</option>
               <option value="greeting">greeting</option>
               <option value="capability">capability</option>
@@ -823,7 +823,7 @@
           </div>
           <div class="filter-group">
             <label>📱 Source</label>
-            <select class="filter-select" id="logSource" onchange="debounceLogs()" style="width:110px">
+            <select class="filter-select" id="dtSource" style="width:120px">
               <option value="">All</option>
               <option value="wa">WhatsApp</option>
               <option value="telegram">Telegram</option>
@@ -832,7 +832,7 @@
           </div>
           <div class="filter-group">
             <label>✅ Status</label>
-            <select class="filter-select" id="logStatus" onchange="debounceLogs()" style="width:120px">
+            <select class="filter-select" id="dtStatus" style="width:120px">
               <option value="">All</option>
               <option value="1">Answered</option>
               <option value="0">Unanswered</option>
@@ -840,52 +840,49 @@
           </div>
           <div class="filter-group" style="align-self:flex-end">
             <label>&nbsp;</label>
-            <div class="d-flex gap-2">
-              <button class="btn-pill btn-pill-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
-              <button class="btn-pill btn-pill-outline" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
-            </div>
+            <button class="btn-pill btn-pill-outline" onclick="resetDTFilters()"><i class="bi bi-x-circle"></i> Reset</button>
           </div>
         </div>
       </div>
 
-      <!-- Column Visibility Toggle -->
+      <!-- Column Toggles -->
       <div class="card mb-3 py-2 px-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <span class="small fw-semibold me-1">👁️ Columns:</span>
           <span class="text-muted small me-1 fw-semibold">📋 Data</span>
-          <label class="col-toggle-pill" title="ID"><input type="checkbox" data-col="id" checked onchange="toggleLogColumn(this)"><span>ID</span></label>
-          <label class="col-toggle-pill" title="Waktu"><input type="checkbox" data-col="waktu" checked onchange="toggleLogColumn(this)"><span>Waktu</span></label>
-          <label class="col-toggle-pill" title="Chat ID"><input type="checkbox" data-col="chat_id" checked onchange="toggleLogColumn(this)"><span>Chat ID</span></label>
-          <label class="col-toggle-pill" title="Pertanyaan"><input type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span>Pertanyaan</span></label>
-          <label class="col-toggle-pill" title="Jawaban"><input type="checkbox" data-col="jawaban" onchange="toggleLogColumn(this)"><span>Jawaban</span></label>
-          <label class="col-toggle-pill" title="Gate"><input type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span>Gate</span></label>
-          <label class="col-toggle-pill" title="Source"><input type="checkbox" data-col="source" checked onchange="toggleLogColumn(this)"><span>Source</span></label>
-          <label class="col-toggle-pill" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>Answered</span></label>
+          <label class="col-toggle-pill" title="ID"><input type="checkbox" data-col="0" checked onchange="toggleDTColumn(this)"><span>ID</span></label>
+          <label class="col-toggle-pill" title="Waktu"><input type="checkbox" data-col="1" checked onchange="toggleDTColumn(this)"><span>Waktu</span></label>
+          <label class="col-toggle-pill" title="Chat ID"><input type="checkbox" data-col="2" checked onchange="toggleDTColumn(this)"><span>Chat ID</span></label>
+          <label class="col-toggle-pill" title="Pertanyaan"><input type="checkbox" data-col="3" checked onchange="toggleDTColumn(this)"><span>Pertanyaan</span></label>
+          <label class="col-toggle-pill" title="Jawaban"><input type="checkbox" data-col="4" onchange="toggleDTColumn(this)"><span>Jawaban</span></label>
+          <label class="col-toggle-pill" title="Gate"><input type="checkbox" data-col="12" checked onchange="toggleDTColumn(this)"><span>Gate</span></label>
+          <label class="col-toggle-pill" title="Source"><input type="checkbox" data-col="11" checked onchange="toggleDTColumn(this)"><span>Source</span></label>
+          <label class="col-toggle-pill" title="Dijawab"><input type="checkbox" data-col="13" onchange="toggleDTColumn(this)"><span>Answered</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📊 Scoring</span>
-          <label class="col-toggle-pill" title="Gate Detail"><input type="checkbox" data-col="gate_detail" onchange="toggleLogColumn(this)"><span>Gate Detail</span></label>
-          <label class="col-toggle-pill" title="CLF Domain"><input type="checkbox" data-col="clf_domain" checked onchange="toggleLogColumn(this)"><span>CLF Domain</span></label>
-          <label class="col-toggle-pill" title="CLF Confidence"><input type="checkbox" data-col="clf_confidence" onchange="toggleLogColumn(this)"><span>CLF Conf</span></label>
-          <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="clf_mode" onchange="toggleLogColumn(this)"><span>CLF Mode</span></label>
-          <label class="col-toggle-pill" title="RRF Score"><input type="checkbox" data-col="rrf_score" checked onchange="toggleLogColumn(this)"><span>RRF</span></label>
-          <label class="col-toggle-pill" title="E5 Top Score"><input type="checkbox" data-col="e5_top" onchange="toggleLogColumn(this)"><span>E5 Top</span></label>
-          <label class="col-toggle-pill" title="BM25 Raw"><input type="checkbox" data-col="bm25_raw" onchange="toggleLogColumn(this)"><span>BM25</span></label>
+          <label class="col-toggle-pill" title="Gate Detail"><input type="checkbox" data-col="14" onchange="toggleDTColumn(this)"><span>Gate Detail</span></label>
+          <label class="col-toggle-pill" title="CLF Domain"><input type="checkbox" data-col="5" checked onchange="toggleDTColumn(this)"><span>CLF Domain</span></label>
+          <label class="col-toggle-pill" title="CLF Confidence"><input type="checkbox" data-col="6" onchange="toggleDTColumn(this)"><span>CLF Conf</span></label>
+          <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="7" onchange="toggleDTColumn(this)"><span>CLF Mode</span></label>
+          <label class="col-toggle-pill" title="RRF Score"><input type="checkbox" data-col="8" checked onchange="toggleDTColumn(this)"><span>RRF</span></label>
+          <label class="col-toggle-pill" title="E5 Top Score"><input type="checkbox" data-col="9" onchange="toggleDTColumn(this)"><span>E5 Top</span></label>
+          <label class="col-toggle-pill" title="BM25 Raw"><input type="checkbox" data-col="10" onchange="toggleDTColumn(this)"><span>BM25</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">🤖 LLM</span>
-          <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="llm_model" checked onchange="toggleLogColumn(this)"><span>Model</span></label>
-          <label class="col-toggle-pill" title="LLM Provider"><input type="checkbox" data-col="llm_provider" onchange="toggleLogColumn(this)"><span>Provider</span></label>
-          <label class="col-toggle-pill" title="LLM Time (ms)"><input type="checkbox" data-col="llm_time_ms" onchange="toggleLogColumn(this)"><span>LLM ms</span></label>
-          <label class="col-toggle-pill" title="Jawaban Length"><input type="checkbox" data-col="jawaban_length" onchange="toggleLogColumn(this)"><span>Jwb Len</span></label>
+          <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="17" checked onchange="toggleDTColumn(this)"><span>Model</span></label>
+          <label class="col-toggle-pill" title="LLM Provider"><input type="checkbox" data-col="18" onchange="toggleDTColumn(this)"><span>Provider</span></label>
+          <label class="col-toggle-pill" title="LLM Time (ms)"><input type="checkbox" data-col="19" onchange="toggleDTColumn(this)"><span>LLM ms</span></label>
+          <label class="col-toggle-pill" title="Jawaban Length"><input type="checkbox" data-col="15" onchange="toggleDTColumn(this)"><span>Jwb Len</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📎 Meta</span>
-          <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="top5_faq" onchange="toggleLogColumn(this)"><span>Top5 FAQ</span></label>
-          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="multi_part" onchange="toggleLogColumn(this)"><span>Multi</span></label>
-          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="session_baru" onchange="toggleLogColumn(this)"><span>Sesi Baru</span></label>
-          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="error" onchange="toggleLogColumn(this)"><span>Error</span></label>
+          <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="16" onchange="toggleDTColumn(this)"><span>Top5 FAQ</span></label>
+          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="20" onchange="toggleDTColumn(this)"><span>Multi</span></label>
+          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>Sesi Baru</span></label>
+          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Error</span></label>
         </div>
       </div>
 
-      <!-- Table -->
+      <!-- Table (DataTables) -->
       <div class="card">
         <div class="table-scroll">
           <table class="log-table" id="logTable">
@@ -893,18 +890,6 @@
             <tbody></tbody>
           </table>
         </div>
-        <div class="d-flex justify-content-between align-items-center py-2">
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge badge-secondary" id="logCountBadge">0</span>
-            <div class="text-muted small" id="logInfo"></div>
-          </div>
-          <div>
-            <button class="btn-pill btn-pill-outline me-1" id="logPrev" onclick="prevLogPage()" disabled>← Prev</button>
-            <span class="small text-muted mx-1" id="logPageInfo">1</span>
-            <button class="btn-pill btn-pill-outline ms-1" id="logNext" onclick="nextLogPage()" disabled>Next →</button>
-          </div>
-        </div>
-        <div class="text-center" id="logLoader" style="display:none"><div class="spinner"></div> Loading...</div>
       </div>
     </div>
 
@@ -1076,124 +1061,207 @@
       });
     }
 
-    // ── Logs Table ──
-    let logPage = 0;
-    const LOG_LIMIT = 50;
-    let logDebounceTimer = null;
+    // ── Logs Table (DataTables) ──
+    let logDT = null;
 
-    function debounceLogs() {
-      clearTimeout(logDebounceTimer);
-      logDebounceTimer = setTimeout(() => { logPage = 0; loadLogs(); }, 400);
-    }
-
-    const LOG_COLUMNS = [
-      { key: 'id', label: 'ID', render: l => l.id, group: 'basic' },
-      { key: 'waktu', label: 'Waktu', render: l => l.waktu?.slice(5,19)||'', group: 'basic' },
-      { key: 'chat_id', label: 'Chat ID', render: l => l.chat_id||'', group: 'basic' },
-      { key: 'pertanyaan', label: 'Pertanyaan', render: l => `<span title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}" class="detail">${(l.pertanyaan||'').slice(0,120)}</span>`, group: 'basic' },
-      { key: 'jawaban', label: 'Jawaban', render: l => `<span title="${(l.jawaban||'').replace(/"/g,'&quot;')}" class="detail">${(l.jawaban||'').slice(0,80)}</span>`, group: 'basic' },
-      { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'badge-info':l.gate==='ANSWER'?'badge-success':l.gate==='REJECT'?'badge-danger':'badge-secondary'}">${l.gate||'-'}</span>`, group: 'basic' },
-      { key: 'source', label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'badge-success':l.source==='telegram'?'badge-info':'badge-secondary'}">${l.source||'-'}</span>`, group: 'basic' },
-      { key: 'dijawab', label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>', group: 'basic' },
-      { key: 'gate_detail', label: 'Gate Detail', render: l => `<span class="text-muted small">${l.gate_detail||'-'}</span>`, group: 'scores' },
-      { key: 'clf_domain', label: 'CLF Domain', render: l => `<span class="badge badge-secondary">${l.clf_domain||'-'}</span>`, group: 'scores' },
-      { key: 'clf_confidence', label: 'CLF Conf', render: l => (l.clf_confidence||0).toFixed(4), group: 'scores' },
-      { key: 'clf_mode', label: 'CLF Mode', render: l => l.clf_mode||'-', group: 'scores' },
-      { key: 'rrf_score', label: 'RRF Score', render: l => (l.rrf_score||0).toFixed(4), group: 'scores' },
-      { key: 'e5_top', label: 'E5 Top', render: l => (l.e5_top||0).toFixed(4), group: 'scores' },
-      { key: 'bm25_raw', label: 'BM25 Raw', render: l => (l.bm25_raw||0).toFixed(4), group: 'scores' },
-      { key: 'llm_model', label: 'LLM Model', render: l => l.llm_model?.split('/').pop()||'-', group: 'llm' },
-      { key: 'llm_provider', label: 'LLM Provider', render: l => l.llm_provider||'-', group: 'llm' },
-      { key: 'llm_time_ms', label: 'LLM Time (ms)', render: l => l.llm_time_ms||'-', group: 'llm' },
-      { key: 'jawaban_length', label: 'Jawaban Len', render: l => l.jawaban_length||0, group: 'llm' },
-      { key: 'top5_faq', label: 'Top5 FAQ', render: l => `<span title="${(l.top5_faq||'').replace(/"/g,'&quot;')}" class="detail small">${(l.top5_faq||'').slice(0,80)}</span>`, group: 'meta' },
-      { key: 'multi_part', label: 'Multi Part', render: l => l.multi_part ? '✅' : '', group: 'meta' },
-      { key: 'session_baru', label: 'Sesi Baru', render: l => l.session_baru ? '🆕' : '', group: 'meta' },
-      { key: 'error', label: 'Error', render: l => l.error ? `<span class="text-danger small">${l.error.slice(0,60)}</span>` : '', group: 'meta' },
+    const DT_HEADERS = [
+      { label: 'ID', render: l => l.id },
+      { label: 'Waktu', render: l => l.waktu?.slice(5,19)||'' },
+      { label: 'Chat ID', render: l => l.chat_id||'' },
+      { label: 'Pertanyaan', render: l => (l.pertanyaan||'').slice(0,100) },
+      { label: 'Jawaban', render: l => (l.jawaban||'').slice(0,80) },
+      { label: 'CLF Domain', render: l => `<span class="badge badge-secondary">${l.clf_domain||'-'}</span>` },
+      { label: 'CLF Conf', render: l => (l.clf_confidence||0).toFixed(4) },
+      { label: 'CLF Mode', render: l => l.clf_mode||'-' },
+      { label: 'RRF', render: l => (l.rrf_score||0).toFixed(4) },
+      { label: 'E5 Top', render: l => (l.e5_top||0).toFixed(4) },
+      { label: 'BM25', render: l => (l.bm25_raw||0).toFixed(4) },
+      { label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'badge-success':l.source==='telegram'?'badge-info':'badge-secondary'}">${l.source||'-'}</span>` },
+      { label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'badge-info':l.gate==='ANSWER'?'badge-success':l.gate==='REJECT'?'badge-danger':'badge-secondary'}">${l.gate||'-'}</span>` },
+      { label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>' },
+      { label: 'Gate Detail', render: l => l.gate_detail||'-' },
+      { label: 'Jwb Len', render: l => l.jawaban_length||0 },
+      { label: 'Top5 FAQ', render: l => (l.top5_faq||'').slice(0,80) },
+      { label: 'LLM Model', render: l => l.llm_model?.split('/').pop()||'-' },
+      { label: 'LLM Provider', render: l => l.llm_provider||'-' },
+      { label: 'LLM ms', render: l => l.llm_time_ms||'-' },
+      { label: 'Multi', render: l => l.multi_part ? '✅' : '' },
+      { label: 'Sesi', render: l => l.session_baru ? '🆕' : '' },
+      { label: 'Error', render: l => l.error ? `<span class="text-danger small">${l.error.slice(0,60)}</span>` : '' },
     ];
 
-    function getLogFilterParams() {
-      const search = document.getElementById('logSearch').value.trim();
-      const gate = document.getElementById('logGate').value;
-      const clf = document.getElementById('logClf').value;
-      const source = document.getElementById('logSource').value;
-      const status = document.getElementById('logStatus').value;
+    function buildDTUrl() {
       const days = document.getElementById('timeRange').value;
-      return `days=${days}&limit=${LOG_LIMIT}&offset=${logPage * LOG_LIMIT}`
-        + (search ? `&search=${encodeURIComponent(search)}` : '')
-        + (gate ? `&gate=${encodeURIComponent(gate)}` : '')
-        + (clf ? `&clf=${encodeURIComponent(clf)}` : '')
-        + (source ? `&source=${encodeURIComponent(source)}` : '')
-        + (status ? `&dijawab=${status}` : '');
+      const search = document.getElementById('dtSearch')?.value.trim() || '';
+      const gate = document.getElementById('dtGate')?.value || '';
+      const clf = document.getElementById('dtClf')?.value || '';
+      const source = document.getElementById('dtSource')?.value || '';
+      const status = document.getElementById('dtStatus')?.value || '';
+      return `/api/logs-dt?days=${days}&search=${encodeURIComponent(search)}&gate=${encodeURIComponent(gate)}&clf=${encodeURIComponent(clf)}&source=${encodeURIComponent(source)}&dijawab=${status}`;
     }
 
-    function renderLogTableHead() {
-      const cols = LOG_COLUMNS.filter(c => {
-        const cb = document.querySelector(`input[type="checkbox"][data-col="${c.key}"]`);
+    function renderDTHeaders() {
+      const cols = DT_HEADERS.filter((_, i) => {
+        const cb = document.querySelector(`input[type="checkbox"][data-col="${i}"]`);
         return cb && cb.checked;
       });
       document.getElementById('logTableHead').innerHTML = cols.map(c => `<th>${c.label}</th>`).join('');
       return cols;
     }
 
-    function toggleLogColumn(el) {
-      localStorage.setItem('logCol_' + el.dataset.col, el.checked ? '1' : '0');
-      loadLogs();
+    function toggleDTColumn(el) {
+      const idx = parseInt(el.dataset.col);
+      localStorage.setItem('dtCol_' + idx, el.checked ? '1' : '0');
+      if (logDT) {
+        const col = logDT.column(idx);
+        col.visible(el.checked);
+        renderDTHeaders();
+      }
     }
 
-    function initLogColumnStates() {
-      document.querySelectorAll('input[type="checkbox"][data-col]').forEach(cb => {
-        const saved = localStorage.getItem('logCol_' + cb.dataset.col);
-        if (saved !== null) cb.checked = saved === '1';
+    function resetDTFilters() {
+      document.getElementById('dtSearch').value = '';
+      document.getElementById('dtGate').value = '';
+      document.getElementById('dtClf').value = '';
+      document.getElementById('dtSource').value = '';
+      document.getElementById('dtStatus').value = '';
+      if (logDT) logDT.ajax.reload();
+    }
+
+    function loadLogs() {
+      if (logDT) { logDT.ajax.reload(); return; }
+
+      const cols = DT_HEADERS.filter((_, i) => {
+        const cb = document.querySelector(`input[type="checkbox"][data-col="${i}"]`);
+        return !cb || cb.checked;
       });
+      document.getElementById('logTableHead').innerHTML = cols.map(c => `<th>${c.label}</th>`).join('');
+
+      // Init DataTable via fetch (server-side)
+      logDT = new simpleDT('#logTable', buildDTUrl, cols, DT_HEADERS, document.querySelectorAll('input[type="checkbox"][data-col]'));
     }
 
-    function resetLogFilters() {
-      document.getElementById('logSearch').value = '';
-      document.getElementById('logGate').value = '';
-      document.getElementById('logClf').value = '';
-      document.getElementById('logSource').value = '';
-      document.getElementById('logStatus').value = '';
-      logPage = 0;
-      loadLogs();
-    }
+    // ── Simple DataTables Implementation ──
+    class simpleDT {
+      constructor(tableSel, urlFn, visibleCols, allCols, checkboxes) {
+        this.table = document.querySelector(tableSel);
+        this.tbody = this.table.querySelector('tbody');
+        this.urlFn = urlFn;
+        this.page = 0;
+        this.pageLength = 50;
+        this.totalRecords = 0;
+        this.visibleCols = visibleCols;
+        this.allCols = allCols;
+        this.checkboxes = checkboxes;
+        this.sortCol = -1;
+        this.sortDir = 'asc';
+        this._createFooter();
+        this._bindSearch();
+        this.ajax = { reload: () => this._fetch() };
+        this._fetch();
+      }
 
-    function prevLogPage() {
-      if (logPage > 0) { logPage--; loadLogs(); }
-    }
+      column(idx) {
+        const cb = document.querySelector(`input[type="checkbox"][data-col="${idx}"]`);
+        return {
+          visible: (v) => {
+            if (cb) cb.checked = v;
+            this.visibleCols = this.allCols.filter((_, i) => {
+              const c = document.querySelector(`input[type="checkbox"][data-col="${i}"]`);
+              return !c || c.checked;
+            });
+            renderDTHeaders();
+            this._renderBody(this._cachedData || []);
+          }
+        };
+      }
 
-    function nextLogPage() {
-      logPage++; loadLogs();
-    }
+      _bindSearch() {
+        const searchEl = document.getElementById('dtSearch');
+        if (searchEl) {
+          let timer;
+          searchEl.addEventListener('keyup', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => { this.page = 0; this._fetch(); }, 400);
+          });
+        }
+        ['dtGate','dtClf','dtSource','dtStatus'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('change', () => { this.page = 0; this._fetch(); });
+        });
+      }
 
-    async function loadLogs() {
-      const loader = document.getElementById('logLoader');
-      const tbody = document.querySelector('#logTable tbody');
-      loader.style.display = 'block';
+      _createFooter() {
+        const card = this.table.closest('.card');
+        if (!card) return;
+        const existing = card.querySelector('.dt-footer');
+        if (existing) existing.remove();
+        this.footer = document.createElement('div');
+        this.footer.className = 'dt-footer d-flex justify-content-between align-items-center py-2 px-2';
+        this.footer.innerHTML = `
+          <div class="text-muted small" id="dtInfo"></div>
+          <div class="d-flex align-items-center gap-2">
+            <select class="filter-select" style="width:auto;height:32px;font-size:12px;padding:4px 28px 4px 8px" id="dtLength">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="250">250</option>
+            </select>
+            <button class="btn-pill btn-pill-outline" id="dtPrev" style="font-size:11px;padding:4px 10px;height:30px" disabled>← Prev</button>
+            <span class="small text-muted" id="dtPage">1</span>
+            <button class="btn-pill btn-pill-outline" id="dtNext" style="font-size:11px;padding:4px 10px;height:30px">Next →</button>
+          </div>`;
+        card.appendChild(this.footer);
+        document.getElementById('dtLength').addEventListener('change', (e) => {
+          this.pageLength = parseInt(e.target.value);
+          this.page = 0;
+          this._fetch();
+        });
+        document.getElementById('dtPrev').addEventListener('click', () => { if (this.page > 0) { this.page--; this._fetch(); } });
+        document.getElementById('dtNext').addEventListener('click', () => { if ((this.page + 1) * this.pageLength < this.totalRecords) { this.page++; this._fetch(); } });
+      }
 
-      const visibleCols = renderLogTableHead();
-      const params = getLogFilterParams();
+      async _fetch() {
+        if (!this.footer || !document.contains(this.footer)) this._createFooter();
+        const url = `${this.urlFn()}&start=${this.page * this.pageLength}&length=${this.pageLength}&draw=${Date.now()}`;
+        try {
+          const resp = await fetch(url);
+          const data = await resp.json();
+          this.totalRecords = data.recordsFiltered || 0;
+          this._cachedData = data.data || [];
+          this._renderBody(this._cachedData);
+          this._updateFooter();
+        } catch(e) {
+          this.tbody.innerHTML = '<tr><td colspan="24" class="text-center py-3 text-danger">Error loading data</td></tr>';
+        }
+      }
 
-      try {
-        const resp = await fetch(`/api/logs?${params}`);
-        const data = await resp.json();
-        const logs = data.logs || [];
-        const total = data.total || 0;
+      _renderBody(data) {
+        const visibleIndices = [];
+        this.allCols.forEach((_, i) => {
+          const cb = document.querySelector(`input[type="checkbox"][data-col="${i}"]`);
+          if (!cb || cb.checked) visibleIndices.push(i);
+        });
+        this.tbody.innerHTML = data.length
+          ? data.map(row => `<tr>${visibleIndices.map(i => `<td>${this.allCols[i].render(row)}</td>`).join('')}</tr>`).join('')
+          : `<tr><td colspan="${visibleIndices.length}" class="text-center py-3 text-muted">No matching logs</td></tr>`;
+      }
 
-        tbody.innerHTML = logs.length
-          ? logs.map(l => `<tr>${visibleCols.map(c => `<td>${c.render(l)}</td>`).join('')}</tr>`).join('')
-          : `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-muted">No matching logs found</td></tr>`;
+      _updateFooter() {
+        const info = document.getElementById('dtInfo');
+        const pageEl = document.getElementById('dtPage');
+        const prev = document.getElementById('dtPrev');
+        const next = document.getElementById('dtNext');
+        if (info) info.textContent = `Showing ${this.totalRecords ? this.page * this.pageLength + 1 : 0}-${Math.min((this.page + 1) * this.pageLength, this.totalRecords)} of ${this.totalRecords}`;
+        if (pageEl) pageEl.textContent = this.page + 1;
+        if (prev) prev.disabled = this.page === 0;
+        if (next) next.disabled = (this.page + 1) * this.pageLength >= this.totalRecords;
+        document.getElementById('logCount').textContent = this.totalRecords;
+      }
 
-        document.getElementById('logCountBadge').textContent = total;
-        document.getElementById('logInfo').textContent = `Showing ${logPage * LOG_LIMIT + 1}-${Math.min((logPage + 1) * LOG_LIMIT, total)} of ${total}`;
-        document.getElementById('logPageInfo').textContent = logPage + 1;
-        document.getElementById('logPrev').disabled = logPage === 0;
-        document.getElementById('logNext').disabled = (logPage + 1) * LOG_LIMIT >= total;
-      } catch(e) {
-        console.error('[LOGS] Error:', e, e?.stack);
-        tbody.innerHTML = `<tr><td colspan="${visibleCols.length}" class="text-center py-3 text-danger">${e?.message||'Error loading logs'} — check console (F12)</td></tr>`;
-      } finally {
-        loader.style.display = 'none';
+      destroy() {
+        if (this.footer) this.footer.remove();
+        logDT = null;
       }
     }
 
@@ -1440,7 +1508,13 @@
       } catch(e) {}
     })();
 
-    initLogColumnStates();
+    // Init previous dtCol localStorage state
+    (function() {
+      document.querySelectorAll('input[type="checkbox"][data-col]').forEach(cb => {
+        const saved = localStorage.getItem('dtCol_' + cb.dataset.col);
+        if (saved !== null) cb.checked = saved === '1';
+      });
+    })();
     loadStats();
   </script>
 </body>

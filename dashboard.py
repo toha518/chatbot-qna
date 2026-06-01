@@ -155,6 +155,63 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
     return {"logs": logs, "total": total}
 
 
+@app.get("/api/logs-dt")
+def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int = 50,
+                       search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
+    """Server-side DataTables endpoint. Returns {draw, recordsTotal, recordsFiltered, data}."""
+    if not _table_exists():
+        return {"draw": draw, "recordsTotal": 0, "recordsFiltered": 0, "data": []}
+
+    where = _period_clause(days)
+    params = []
+
+    if search:
+        where += " AND (pertanyaan LIKE ? OR chat_id LIKE ? OR jawaban LIKE ? OR clf_domain LIKE ? OR gate LIKE ? OR source LIKE ?)"
+        s = f"%{search}%"
+        params.extend([s, s, s, s, s, s])
+    if gate:
+        where += " AND gate = ?"
+        params.append(gate)
+    if clf:
+        where += " AND clf_domain = ?"
+        params.append(clf)
+    if source:
+        where += " AND source = ?"
+        params.append(source)
+    if dijawab == "1":
+        where += " AND dijawab = 1"
+    elif dijawab == "0":
+        where += " AND dijawab = 0"
+
+    # Records total & filtered
+    total_all = _rows("SELECT COALESCE(COUNT(*),0) as cnt FROM logs", [])[0]["cnt"]
+    total_filtered = _rows(f"SELECT COALESCE(COUNT(*),0) as cnt FROM logs WHERE {where}", params)[0]["cnt"]
+
+    # Data
+    rows = _rows(f"SELECT * FROM logs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?", params + [length, start])
+
+    # Sanitize
+    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"}
+    INT_COLS = {"dijawab", "multi_part", "session_baru"}
+    for row in rows:
+        for k in list(row.keys()):
+            v = row[k]
+            if v is None:
+                row[k] = 0 if k in NUMERIC_COLS | INT_COLS else ""
+            elif k in NUMERIC_COLS and isinstance(v, str):
+                try:
+                    row[k] = float(v)
+                except ValueError:
+                    row[k] = 0
+            elif k in INT_COLS and not isinstance(v, int):
+                try:
+                    row[k] = int(v)
+                except (ValueError, TypeError):
+                    row[k] = 0
+
+    return {"draw": draw, "recordsTotal": total_all, "recordsFiltered": total_filtered, "data": rows}
+
+
 @app.get("/api/logs-tail")
 def api_logs_tail(days: int = 7, after: int = 0, limit: int = 50):
     if not _table_exists():
