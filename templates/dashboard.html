@@ -1197,10 +1197,15 @@
         const existing = card.querySelector('.dt-footer');
         if (existing) existing.remove();
         this.footer = document.createElement('div');
-        this.footer.className = 'dt-footer d-flex justify-content-between align-items-center py-2 px-2';
+        this.footer.className = 'dt-footer d-flex justify-content-between align-items-center py-2 px-2 flex-wrap';
         this.footer.innerHTML = `
-          <div class="text-muted small" id="dtInfo"></div>
           <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small" id="dtInfo"></span>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button class="btn-pill btn-pill-outline" style="font-size:11px;padding:4px 10px;height:30px" onclick="exportLogs('csv')"><i class="bi bi-download"></i> CSV</button>
+            <button class="btn-pill btn-pill-outline" style="font-size:11px;padding:4px 10px;height:30px" onclick="exportLogs('excel')"><i class="bi bi-download"></i> Excel</button>
+            <button class="btn-pill btn-pill-outline" style="font-size:11px;padding:4px 10px;height:30px" onclick="exportLogs('pdf')"><i class="bi bi-download"></i> PDF</button>
             <select class="filter-select" style="width:auto;height:32px;font-size:12px;padding:4px 28px 4px 8px" id="dtLength">
               <option value="25">25</option>
               <option value="50" selected>50</option>
@@ -1262,6 +1267,25 @@
       destroy() {
         if (this.footer) this.footer.remove();
         logDT = null;
+      }
+    }
+
+    // ── Export ──
+    function exportLogs(format) {
+      const days = document.getElementById('timeRange').value;
+      const search = document.getElementById('dtSearch')?.value.trim() || '';
+      const gate = document.getElementById('dtGate')?.value || '';
+      const clf = document.getElementById('dtClf')?.value || '';
+      const source = document.getElementById('dtSource')?.value || '';
+      const status = document.getElementById('dtStatus')?.value || '';
+      const params = `days=${days}&search=${encodeURIComponent(search)}&gate=${encodeURIComponent(gate)}&clf=${encodeURIComponent(clf)}&source=${encodeURIComponent(source)}&dijawab=${status}`;
+      if (format === 'pdf') {
+        window.open(`/api/logs-export?${params}&format=pdf`, '_blank');
+      } else {
+        const a = document.createElement('a');
+        a.href = `/api/logs-export?${params}&format=${format}`;
+        a.download = `nara_logs_${format}.${format === 'excel' ? 'xls' : 'csv'}`;
+        a.click();
       }
     }
 

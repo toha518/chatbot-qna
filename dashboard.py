@@ -14,7 +14,7 @@ import subprocess
 import sys
 import os
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
@@ -210,6 +210,71 @@ def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int
                     row[k] = 0
 
     return {"draw": draw, "recordsTotal": total_all, "recordsFiltered": total_filtered, "data": rows}
+
+
+@app.get("/api/logs-export")
+def api_logs_export(days: int = 7, format: str = "csv",
+                    search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
+    """Export filtered logs as CSV/Excel/PDF. Returns all matching rows (no pagination)."""
+    if not _table_exists():
+        return HTMLResponse("No data", status_code=404)
+
+    where = _period_clause(days)
+    params = []
+
+    if search:
+        where += " AND (pertanyaan LIKE ? OR chat_id LIKE ? OR jawaban LIKE ? OR clf_domain LIKE ? OR gate LIKE ? OR source LIKE ?)"
+        s = f"%{search}%"
+        params.extend([s, s, s, s, s, s])
+    if gate:
+        where += " AND gate = ?"
+        params.append(gate)
+    if clf:
+        where += " AND clf_domain = ?"
+        params.append(clf)
+    if source:
+        where += " AND source = ?"
+        params.append(source)
+    if dijawab == "1":
+        where += " AND dijawab = 1"
+    elif dijawab == "0":
+        where += " AND dijawab = 0"
+
+    rows = _rows(f"SELECT * FROM logs WHERE {where} ORDER BY id DESC LIMIT 10000", params)
+
+    # CSV/Excel
+    if format in ("csv", "excel"):
+        import csv, io
+        buf = io.StringIO()
+        if rows:
+            cols = list(rows[0].keys())
+            writer = csv.writer(buf)
+            writer.writerow(cols)
+            for r in rows:
+                writer.writerow([r.get(c, "") for c in cols])
+        content = buf.getvalue()
+        buf.close()
+        filename = f"nara_logs_{days}d_{datetime.now(WIB).strftime('%Y%m%d_%H%M')}.csv"
+        if format == "excel":
+            return Response(content, media_type="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename={filename.replace('.csv','.xls')}"})
+        return Response(content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+    # PDF → return HTML print view
+    if format == "pdf":
+        if not rows:
+            return HTMLResponse("<h3>No data to export</h3>")
+        cols = list(rows[0].keys())
+        html = '<html><head><meta charset="utf-8"><title>NARA Query Log</title>'
+        html += '<style>body{font:12px/1.5 sans-serif}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;font-size:11px}th{background:#f3f3f3}@media print{@page{size:landscape}}</style>'
+        html += '</head><body><h2>NARA Query Log</h2><table><thead><tr>'
+        html += ''.join(f'<th>{c}</th>' for c in cols)
+        html += '</tr></thead><tbody>'
+        for r in rows:
+            html += '<tr>' + ''.join(f'<td>{r.get(c,"")}</td>' for c in cols) + '</tr>'
+        html += '</tbody></table><script>window.print();window.close();</' + 'script></body></html>'
+        return HTMLResponse(html)
+
+    return HTMLResponse(f"Unknown format: {format}", status_code=400)
 
 
 @app.get("/api/logs-tail")
