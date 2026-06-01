@@ -326,11 +326,13 @@ async def chat(req: ChatRequest):
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # ── DOMAIN CENTROID CHECK ──
+    # ── DOMAIN FILTER: Centroid + BM25 ──
     query_vec = encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)
-    print(f"[DOMAIN] Centroid similarity = {centroid_sim:.4f} (threshold={_DOMAIN_THRESHOLD})")
-    if centroid_sim < _DOMAIN_THRESHOLD:
+    from core.bm25 import get_bm25_score
+    bm25_top = get_bm25_score(req.pertanyaan)
+    print(f"[DOMAIN] Centroid={centroid_sim:.4f} BM25={bm25_top:.1f} (threshold={_DOMAIN_THRESHOLD})")
+    if centroid_sim < _DOMAIN_THRESHOLD or bm25_top == 0:
         jawaban = REJECTION_MSG
         api_rate_limit[cid]["last_active"] = time.time()
         log_query(req.pertanyaan, cid, source=req.source,
