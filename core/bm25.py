@@ -6,6 +6,8 @@ Membedakan pertanyaan BPS vs non-BPS pake keyword overlap.
 import math
 import re as _re
 
+from rank_bm25 import BM25Okapi
+
 # ── STOPWORDS ──
 _STOPWORDS = set('''
 siapa apa dimana kapan mengapa bagaimana nama yang di ke dari
@@ -41,11 +43,11 @@ def _tokenize(text: str) -> list[str]:
 
 
 class BM25DomainChecker:
-    """BM25 index dari FAQ + domain check"""
+    """BM25 index dari FAQ + domain check — pakai rank_bm25"""
 
     def __init__(self):
         self.tokenized_docs: list[list[str]] = []
-        self.avgdl = 0.0
+        self.bm25: BM25Okapi | None = None
         self.n_docs = 0
         self.ready = False
 
@@ -54,58 +56,27 @@ class BM25DomainChecker:
         self.tokenized_docs = [_tokenize(q) for q in questions if q]
         self.n_docs = len(self.tokenized_docs)
         if self.n_docs > 0:
-            self.avgdl = sum(len(d) for d in self.tokenized_docs) / self.n_docs
-        else:
-            self.avgdl = 1.0
+            self.bm25 = BM25Okapi(self.tokenized_docs, k1=K1, b=B)
         self.ready = True
 
-    def _compute_idf(self, q_tokens: list[str]) -> dict:
-        """Hitung IDF untuk token dalam query"""
-        idf = {}
-        for t in set(q_tokens):
-            dc = sum(1 for doc in self.tokenized_docs if t in doc)
-            idf[t] = math.log((self.n_docs - dc + 0.5) / (dc + 0.5) + 1)
-        return idf
-
-    def _score_doc(self, doc: list[str], q_tokens: list[str], idf: dict) -> float:
-        """BM25 score untuk satu dokumen"""
-        dl = len(doc)
-        s = 0.0
-        for t in q_tokens:
-            if t not in doc:
-                continue
-            tf = doc.count(t)
-            s += idf[t] * tf * (K1 + 1) / (tf + K1 * (1 - B + B * dl / self.avgdl))
-        return s
-
     def score(self, query: str) -> float:
-        """BM25 max score query vs semua dokumen. 0 = gak ada keyword overlap."""
+        """BM25 max score query vs semua dokumen"""
         if not self.ready or self.n_docs == 0:
-            return 999.0  # fallback: izinin
-
+            return 999.0
         q_tokens = _tokenize(query)
         if not q_tokens:
             return 0.0
-
-        idf = self._compute_idf(q_tokens)
-        max_score = 0.0
-        for doc in self.tokenized_docs:
-            s = self._score_doc(doc, q_tokens, idf)
-            if s > max_score:
-                max_score = s
-        return max_score
+        scores = self.bm25.get_scores(q_tokens)
+        return float(max(scores))
 
     def score_all(self, query: str) -> list[float]:
         """BM25 scores untuk SEMUA dokumen (buat hybrid)"""
         if not self.ready or self.n_docs == 0:
             return [0.0]
-
         q_tokens = _tokenize(query)
         if not q_tokens:
             return [0.0] * self.n_docs
-
-        idf = self._compute_idf(q_tokens)
-        return [self._score_doc(doc, q_tokens, idf) for doc in self.tokenized_docs]
+        return [float(s) for s in self.bm25.get_scores(q_tokens)]
 
     def check(self, query: str) -> bool:
         """True kalo query masih dalam domain BPS"""

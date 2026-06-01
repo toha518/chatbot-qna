@@ -34,3 +34,4 @@ python-telegram-bot>=20.0
 flask
 ollama
 google-generativeai
+rank-bm25>=0.2.2
