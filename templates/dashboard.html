@@ -1,109 +1,569 @@
 <!DOCTYPE html>
-<html lang="id" data-bs-theme="light">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NARA Dashboard</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="shortcut icon" href="/favicon.svg">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
     :root {
-      --sidebar-width: 260px;
-      --sidebar-collapsed: 0px;
+      --ps-blue: #0070d1;
+      --ps-blue-pressed: #0064b7;
+      --ps-blue-active: #004d8d;
+      --ps-ink: #000000;
+      --ps-body: rgba(0,0,0,0.58);
+      --ps-mute: #6b6b6b;
+      --ps-ash: #cccccc;
+      --ps-canvas: #ffffff;
+      --ps-surface-soft: #f3f3f3;
+      --ps-surface-card: #f5f7fa;
+      --ps-hairline: #f3f3f3;
+      --ps-warning: #c81b3a;
+      --ps-commerce: #d53b00;
+      --ps-success: #22c55e;
+      --ps-canvas-dark: #000000;
+      --ps-surface-dark-elevated: #121314;
+      --ps-surface-dark-card: #181818;
+      --ps-on-dark: #ffffff;
+      --ps-on-dark-mute: #cccccc;
+      --ps-body-dark: rgba(255,255,255,0.7);
+      --ps-hairline-dark: rgba(229,229,229,0.2);
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+
+      --space-xs: 8px;
+      --space-sm: 12px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-xxl: 48px;
+
+      --font-display: 300 35px/1.25 'Inter', system-ui, sans-serif;
+      --font-heading: 300 22px/1.25 'Inter', system-ui, sans-serif;
+      --font-title: 600 18px/1 'Inter', system-ui, sans-serif;
+      --font-body: 400 16px/1.5 'Inter', system-ui, sans-serif;
+      --font-button: 700 14px/1.25 'Inter', system-ui, sans-serif;
+      --font-caption: 400 14px/1.5 'Inter', system-ui, sans-serif;
+      --font-sm: 500 12px/1.5 'Inter', system-ui, sans-serif;
+
+      --sidebar-width: 250px;
     }
-    body { min-height: 100vh; background: var(--bs-body-bg); }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font: var(--font-body);
+      color: var(--ps-ink);
+      background: var(--ps-canvas);
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar (dark canvas) ── */
     .sidebar {
       width: var(--sidebar-width);
       height: 100vh;
       position: fixed;
       top: 0; left: 0;
-      background: var(--bs-tertiary-bg);
-      border-right: 1px solid var(--bs-border-color);
+      background: var(--ps-canvas-dark);
       display: flex; flex-direction: column;
-      transition: transform .3s ease;
       z-index: 1030;
+      transition: transform .3s ease;
+      border-right: none;
     }
     .sidebar-header {
-      padding: 1.25rem 1.5rem;
-      border-bottom: 1px solid var(--bs-border-color);
-      font-weight: 700; font-size: 1.15rem;
-      display: flex; align-items: center; gap: .5rem;
+      padding: 24px 24px 20px;
+      font: 600 17px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-on-dark);
+      letter-spacing: -0.1px;
+      border-bottom: 1px solid var(--ps-hairline-dark);
     }
-    .sidebar-nav { flex: 1; overflow-y: auto; padding: .5rem 0; }
+    .sidebar-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 0;
+    }
     .sidebar-nav .nav-link {
-      padding: .6rem 1.5rem; color: var(--bs-body-color);
-      border-radius: 0; display: flex; align-items: center; gap: .7rem;
-      font-size: .9rem; transition: .15s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 24px;
+      color: var(--ps-on-dark-mute);
+      font: 400 15px/1.5 'Inter', system-ui, sans-serif;
+      text-decoration: none;
+      transition: color .15s;
+      border-radius: 0;
     }
-    .sidebar-nav .nav-link:hover, .sidebar-nav .nav-link.active {
-      background: rgba(var(--bs-primary-rgb), .1);
-      color: var(--bs-primary);
+    .sidebar-nav .nav-link:hover,
+    .sidebar-nav .nav-link.active {
+      color: var(--ps-on-dark);
+      background: rgba(255,255,255,0.06);
     }
-    .sidebar-nav .nav-link .badge { margin-left: auto; }
-    .sidebar-footer { padding: .75rem 1.5rem; border-top: 1px solid var(--bs-border-color); font-size: .78rem; color: var(--bs-secondary-color); }
-    .main-content { margin-left: var(--sidebar-width); padding: 1.5rem; transition: margin-left .3s ease; }
+    .sidebar-nav .nav-link .badge {
+      margin-left: auto;
+      background: var(--ps-blue);
+      color: white;
+      font: 500 11px/1 'Inter', system-ui, sans-serif;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+    }
+    .sidebar-nav hr {
+      border: none;
+      border-top: 1px solid var(--ps-hairline-dark);
+      margin: 8px 24px;
+    }
+    .sidebar-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--ps-hairline-dark);
+      font: 400 12px/1.5 'Inter', system-ui, sans-serif;
+      color: rgba(255,255,255,0.35);
+    }
+    .main-content {
+      margin-left: var(--sidebar-width);
+      padding: 32px;
+      transition: margin-left .3s ease;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar Toggle ── */
     .sidebar-toggle {
-      position: fixed; top: 50%; left: var(--sidebar-width);
+      position: fixed;
+      top: 50%;
+      left: var(--sidebar-width);
       transform: translateY(-50%);
       z-index: 1031;
-      width: 20px; height: 48px;
-      border: 1px solid var(--bs-border-color);
+      width: 20px;
+      height: 44px;
+      border: 1px solid var(--ps-hairline-dark);
       border-left: none;
-      background: var(--bs-tertiary-bg);
-      border-radius: 0 .4rem .4rem 0;
-      display: flex; align-items: center; justify-content: center;
+      background: var(--ps-canvas-dark);
+      border-radius: 0 var(--radius-md) var(--radius-md) 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       cursor: pointer;
       transition: left .3s ease;
-      font-size: .7rem; color: var(--bs-secondary-color);
+      font-size: 11px;
+      color: var(--ps-on-dark-mute);
     }
-    .sidebar-toggle:hover { color: var(--bs-primary); }
+    .sidebar-toggle:hover { color: var(--ps-on-dark); }
     .sidebar.collapsed { transform: translateX(-100%); }
     .sidebar.collapsed ~ .main-content { margin-left: 0; }
-    .sidebar.collapsed ~ .sidebar-toggle { left: 0; border-radius: 0 .4rem .4rem 0; }
+    .sidebar.collapsed ~ .sidebar-toggle { left: 0; border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+
     .sidebar-hamburger {
-      display: none; padding: .25rem .5rem; border-radius: .4rem;
-      border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
-      font-size: 1.1rem; line-height: 1; cursor: pointer;
+      display: none;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--ps-hairline);
+      background: var(--ps-canvas);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      color: var(--ps-ink);
     }
+
+    /* ── Top Bar ── */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      gap: 12px;
+    }
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    /* ── Select (time range) ── */
+    .time-select {
+      font: var(--font-body);
+      padding: 8px 32px 8px 12px;
+      border: 1px solid var(--ps-hairline);
+      border-radius: var(--radius-sm);
+      background: var(--ps-canvas);
+      color: var(--ps-ink);
+      height: 40px;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b6b6b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+
+    /* ── Theme Toggle ── */
+    .theme-toggle {
+      cursor: pointer;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--ps-hairline);
+      background: var(--ps-canvas);
+      color: var(--ps-mute);
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    /* ── Pill Button (primary) ── */
+    .btn-pill {
+      font: var(--font-button);
+      padding: 10px 22px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background .15s;
+      letter-spacing: 0.3px;
+    }
+    .btn-pill-primary {
+      background: var(--ps-blue);
+      color: white;
+    }
+    .btn-pill-primary:hover { background: var(--ps-blue-pressed); }
+    .btn-pill-outline {
+      background: transparent;
+      color: var(--ps-ink);
+      border: 1px solid var(--ps-ash);
+    }
+    .btn-pill-outline:hover { border-color: var(--ps-mute); }
+    .btn-pill-danger {
+      background: var(--ps-warning);
+      color: white;
+    }
+    .btn-pill-danger:hover { opacity: .9; }
+    .btn-pill-success {
+      background: var(--ps-success);
+      color: white;
+    }
+    .btn-pill-success:hover { opacity: .9; }
+    .btn-pill:disabled {
+      background: var(--ps-surface-soft);
+      color: var(--ps-ash);
+      cursor: not-allowed;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--ps-surface-card);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      border: 1px solid var(--ps-hairline);
+    }
+    .card h6 {
+      font: var(--font-title);
+      color: var(--ps-ink);
+      margin-bottom: var(--space-md);
+    }
+
+    /* ── Stat Cards ── */
     .stat-card {
-      border-radius: .75rem; padding: 1.25rem;
-      display: flex; align-items: center; gap: 1rem;
-      border: 1px solid var(--bs-border-color);
-      background: var(--bs-body-bg);
+      background: var(--ps-surface-card);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid var(--ps-hairline);
     }
     .stat-icon {
-      width: 48px; height: 48px; border-radius: .6rem;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.3rem;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
     }
-    .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
-    .stat-label { font-size: .82rem; color: var(--bs-secondary-color); }
-    .chart-card {
-      border-radius: .75rem; border: 1px solid var(--bs-border-color);
-      background: var(--bs-body-bg); padding: 1.25rem;
+    .stat-icon-blue { background: rgba(0,112,209,0.08); color: var(--ps-blue); }
+    .stat-icon-green { background: rgba(34,197,94,0.08); color: #16a34a; }
+    .stat-icon-amber { background: rgba(245,158,11,0.08); color: #d97706; }
+    .stat-icon-purple { background: rgba(139,92,246,0.08); color: #7c3aed; }
+    .stat-value {
+      font: 300 30px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      letter-spacing: -0.1px;
     }
-    .chart-card h6 { font-weight: 600; margin-bottom: 1rem; }
-    .log-table { font-size: .82rem; }
-    .log-table td, .log-table th { white-space: nowrap; }
-    .log-table td.detail { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .gate-badge { font-size: .7rem; padding: .2em .55em; }
-    .log-col-toggle { font-size: .75rem; cursor: pointer; white-space: nowrap; }
-    .log-col-toggle input { margin-right: 2px; vertical-align: middle; }
-    .log-col-toggle span { vertical-align: middle; }
-    .log-col-toggle:hover { opacity: .8; }
+    .stat-label {
+      font: var(--font-caption);
+      color: var(--ps-mute);
+      margin-top: 2px;
+    }
+
+    /* ── Table ── */
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font: 400 13px/1.5 'Inter', system-ui, sans-serif;
+    }
+    .log-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font: 500 12px/1 'Inter', system-ui, sans-serif;
+      color: var(--ps-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--ps-hairline);
+      white-space: nowrap;
+    }
+    .log-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--ps-hairline);
+      white-space: nowrap;
+      color: var(--ps-body);
+    }
+    .log-table td.detail {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .log-table tr:hover td { background: var(--ps-surface-card); }
+
+    .table-danger td { background: rgba(200,27,58,0.04); }
+    .table-warning td { background: rgba(245,158,11,0.04); }
+    .table-secondary td { background: rgba(107,107,107,0.04); }
+
+    /* ── Badge ── */
+    .badge {
+      font: 500 11px/1 'Inter', system-ui, sans-serif;
+      padding: 3px 10px;
+      border-radius: var(--radius-full);
+      display: inline-block;
+    }
+    .badge-primary { background: var(--ps-blue); color: white; }
+    .badge-success { background: #16a34a; color: white; }
+    .badge-info { background: #0ea5e9; color: white; }
+    .badge-danger { background: var(--ps-warning); color: white; }
+    .badge-warning { background: #f59e0b; color: black; }
+    .badge-secondary { background: #e5e7eb; color: var(--ps-mute); }
+    .badge-dark { background: var(--ps-ink); color: white; }
+
+    /* ── Filter Bar ── */
+    .filter-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-group label {
+      font: 500 11px/1 'Inter', system-ui, sans-serif;
+      color: var(--ps-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .filter-input {
+      font: var(--font-body);
+      padding: 9px 12px;
+      border: 1px solid var(--ps-hairline);
+      border-radius: var(--radius-sm);
+      height: 40px;
+      background: var(--ps-canvas);
+      color: var(--ps-ink);
+      min-width: 140px;
+    }
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--ps-blue);
+    }
+    .filter-select {
+      font: var(--font-body);
+      padding: 9px 32px 9px 12px;
+      border: 1px solid var(--ps-hairline);
+      border-radius: var(--radius-sm);
+      height: 40px;
+      background: var(--ps-canvas);
+      color: var(--ps-ink);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b6b6b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      cursor: pointer;
+      min-width: 100px;
+    }
+    .filter-select:focus {
+      outline: none;
+      border-color: var(--ps-blue);
+    }
+
+    /* ── Column Toggles (pill style) ── */
+    .col-toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 12px 0;
+    }
+    .col-toggle-label {
+      font: 500 11px/1 'Inter', system-ui, sans-serif;
+      color: var(--ps-mute);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+    }
+    .col-toggle-pill {
+      font: 500 11px/1 'Inter', system-ui, sans-serif;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      cursor: pointer;
+      border: 1px solid var(--ps-hairline);
+      background: rgba(245,247,250,0.4);
+      color: var(--ps-mute);
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      transition: all .15s;
+    }
+    .col-toggle-pill input { display: none; }
+    .col-toggle-pill:has(input:checked) {
+      background: var(--ps-canvas);
+      color: var(--ps-ink);
+      border-color: var(--ps-ash);
+    }
+    .col-toggle-pill:hover { border-color: var(--ps-ash); }
+
+    /* ── TerminalBox ── */
     .terminal-box {
-      background: #1e1e2e; color: #cdd6f4; border-radius: .75rem;
-      padding: 1rem; font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
-      font-size: .78rem; height: 300px; overflow-y: auto;
-      white-space: pre-wrap; word-break: break-all;
+      background: var(--ps-surface-dark-card);
+      color: var(--ps-on-dark-mute);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      font: 400 12px/1.7 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+      height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      border: none;
     }
-    .terminal-box .ts { color: #89b4fa; }
-    .terminal-box .gate { color: #a6e3a1; }
-    .terminal-box .clf { color: #f9e2af; }
-    .terminal-box .err { color: #f38ba8; }
-    .theme-toggle { cursor: pointer; padding: .4rem .6rem; border-radius: .4rem; border: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+    .terminal-box .ts { color: #53b1ff; }
+    .terminal-box .gate { color: #4ade80; }
+    .terminal-box .clf { color: #facc15; }
+    .terminal-box .err { color: #f87171; }
+
+    /* ── Toast ── */
+    .toast-msg {
+      font: var(--font-caption);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      margin-bottom: 16px;
+    }
+    .toast-msg.info { background: rgba(0,112,209,0.06); color: var(--ps-blue); }
+    .toast-msg.success { background: rgba(34,197,94,0.06); color: #16a34a; }
+    .toast-msg.danger { background: rgba(200,27,58,0.06); color: var(--ps-warning); }
+    .toast-msg.warning { background: rgba(245,158,11,0.06); color: #d97706; }
+
+    /* ── Pagination ── */
+    .pagination-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+    }
+    .pagination-info {
+      font: var(--font-caption);
+      color: var(--ps-mute);
+    }
+    .pagination-btn {
+      font: var(--font-button);
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      border: 1px solid var(--ps-hairline);
+      background: var(--ps-canvas);
+      color: var(--ps-ink);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .pagination-btn:disabled {
+      color: var(--ps-ash);
+      cursor: not-allowed;
+    }
+    .pagination-btn:not(:disabled):hover { border-color: var(--ps-ash); }
+
+    /* ── Page Section ── */
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+    .section-title {
+      font: 300 28px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      margin-bottom: 24px;
+      letter-spacing: 0.1px;
+    }
+
+    /* ── Grid ── */
+    .row { display: flex; flex-wrap: wrap; margin: -12px; }
+    .row > * { padding: 12px; }
+    .col-12 { width: 100%; }
+    .col-md-6 { width: 100%; }
+    .col-6 { width: 50%; }
+    .col-4 { width: 33.333%; }
+    .col-8 { width: 66.666%; }
+    @media (min-width: 768px) {
+      .col-md-6 { width: 50%; }
+      .col-md-4 { width: 33.333%; }
+      .col-md-2 { width: 16.666%; }
+    }
+    @media (min-width: 992px) {
+      .col-lg-3 { width: 25%; }
+    }
+    .d-flex { display: flex; }
+    .flex-wrap { flex-wrap: wrap; }
+    .align-items-center { align-items: center; }
+    .align-items-end { align-items: flex-end; }
+    .justify-content-between { justify-content: space-between; }
+    .gap-1 { gap: 4px; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .mb-1 { margin-bottom: 8px; }
+    .mb-2 { margin-bottom: 12px; }
+    .mb-3 { margin-bottom: 16px; }
+    .mb-4 { margin-bottom: 24px; }
+    .mt-1 { margin-top: 8px; }
+    .mt-2 { margin-top: 12px; }
+    .ms-auto { margin-left: auto; }
+    .ms-1 { margin-left: 8px; }
+    .ms-2 { margin-left: 12px; }
+    .me-1 { margin-right: 8px; }
+    .me-2 { margin-right: 12px; }
+    .w-100 { width: 100%; }
+    .text-center { text-align: center; }
+    .text-muted { color: var(--ps-mute); }
+    .text-success { color: #16a34a; }
+    .text-danger { color: var(--ps-warning); }
+    .text-dark { color: var(--ps-ink); }
+    .small { font-size: 13px; }
+    .fw-semibold { font-weight: 600; }
+    .d-none { display: none; }
+    .d-md-none { display: block; }
+    .py-2 { padding-top: 8px; padding-bottom: 8px; }
+    .py-3 { padding-top: 12px; padding-bottom: 12px; }
+    .px-3 { padding-left: 12px; padding-right: 12px; }
+
+    /* ── Loading ── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--ps-hairline);
+      border-top-color: var(--ps-blue);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
     @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
@@ -111,9 +571,16 @@
       }
       .sidebar.open { transform: translateX(0); }
       .sidebar.collapsed { transform: translateX(-100%); }
-      .main-content { margin-left: 0; }
+      .main-content { margin-left: 0; padding: 20px; }
       .sidebar-toggle { display: none; }
       .sidebar-hamburger { display: inline-flex; }
+      .d-md-none { display: inline-flex; }
+      .stat-value { font-size: 24px; }
+      .filter-row { flex-direction: column; }
+      .filter-input, .filter-select { min-width: 100%; }
+    }
+    @media (min-width: 769px) {
+      .d-md-none { display: none; }
     }
   </style>
 </head>
@@ -125,7 +592,7 @@
     </div>
     <nav class="sidebar-nav">
       <a class="nav-link active" href="#" data-page="overview"><i class="bi bi-speedometer2"></i> Overview</a>
-      <a class="nav-link" href="#" data-page="logs"><i class="bi bi-journal-text"></i> Query Log <span class="badge bg-primary rounded-pill" id="logCount">-</span></a>
+      <a class="nav-link" href="#" data-page="logs"><i class="bi bi-journal-text"></i> Query Log <span class="badge badge-primary" id="logCount">-</span></a>
       <a class="nav-link" href="#" data-page="terminal"><i class="bi bi-terminal"></i> Live Terminal</a>
       <a class="nav-link" href="#" data-page="analytics"><i class="bi bi-graph-up"></i> Analytics</a>
       <a class="nav-link" href="#" data-page="system"><i class="bi bi-hdd-rack"></i> System Health</a>
@@ -147,16 +614,16 @@
   <div class="main-content" id="mainContent">
     <!-- Top Bar -->
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <button class="btn btn-sm sidebar-hamburger" onclick="toggleMobileSidebar()" id="hamburgerBtn">☰</button>
+      <button class="sidebar-hamburger" onclick="toggleMobileSidebar()" id="hamburgerBtn">☰</button>
       <div class="d-flex align-items-center gap-2 ms-auto">
-        <select class="form-select form-select-sm" style="width:auto" id="timeRange" onchange="refreshAll()">
+        <select class="filter-select" class="time-select" id="timeRange" onchange="refreshAll()">
           <option value="1">Hari ini</option>
           <option value="7" selected>7 hari</option>
           <option value="30">30 hari</option>
           <option value="90">90 hari</option>
           <option value="9999">Semua</option>
         </select>
-        <button class="btn btn-sm btn-outline-secondary" onclick="refreshAll()" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <button class="btn-pill btn-pill-outline" onclick="refreshAll()" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" id="themeBtn"><i class="bi bi-moon-stars"></i></button>
 
       </div>
@@ -164,33 +631,33 @@
 
     <!-- ===== OVERVIEW PAGE ===== -->
     <div id="page-overview">
-      <h5 class="mb-3 fw-bold">📊 Overview</h5>
-      <div class="row g-3 mb-4" id="statCards">
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
+      <h2 class="section-title">📊 Overview</h2>
+      <div class="row mb-4" id="statCards">
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-blue"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
+        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
       </div>
-      <div class="row g-3">
-        <div class="col-md-6"><div class="chart-card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
-        <div class="col-md-6"><div class="chart-card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
+      <div class="row">
+        <div class="col-md-6"><div class="card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
+        <div class="col-md-6"><div class="card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
       </div>
     </div>
 
     <!-- ===== LOGS PAGE ===== -->
     <div id="page-logs" style="display:none">
-      <h5 class="mb-3 fw-bold">📝 Query Log</h5>
+      <h2 class="section-title">📝 Query Log</h2>
 
       <!-- Search & Filter Bar -->
-      <div class="chart-card mb-3">
-        <div class="row g-2 align-items-end">
+      <div class="card mb-3">
+        <div class="row align-items-end">
           <div class="col-md-4">
-            <label class="form-label small text-muted mb-1">🔍 Search</label>
-            <input type="text" class="form-control form-control-sm" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()">
+            <label class="text-muted small">🔍 Search</label>
+            <input type="text" class="filter-input" id="logSearch" placeholder="Cari pertanyaan, chat ID, jawaban..." onkeyup="debounceLogs()">
           </div>
           <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">🚪 Gate</label>
-            <select class="form-select form-select-sm" id="logGate" onchange="debounceLogs()">
+            <label class="text-muted small">🚪 Gate</label>
+            <select class="filter-select" id="logGate" onchange="debounceLogs()">
               <option value="">All</option>
               <option value="ANSWER">ANSWER</option>
               <option value="REJECT">REJECT</option>
@@ -201,8 +668,8 @@
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">🧠 CLF Domain</label>
-            <select class="form-select form-select-sm" id="logClf" onchange="debounceLogs()">
+            <label class="text-muted small">🧠 CLF Domain</label>
+            <select class="filter-select" id="logClf" onchange="debounceLogs()">
               <option value="">All</option>
               <option value="greeting">greeting</option>
               <option value="capability">capability</option>
@@ -216,8 +683,8 @@
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">📱 Source</label>
-            <select class="form-select form-select-sm" id="logSource" onchange="debounceLogs()">
+            <label class="text-muted small">📱 Source</label>
+            <select class="filter-select" id="logSource" onchange="debounceLogs()">
               <option value="">All</option>
               <option value="wa">WhatsApp</option>
               <option value="telegram">Telegram</option>
@@ -225,87 +692,87 @@
             </select>
           </div>
           <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">✅ Status</label>
-            <select class="form-select form-select-sm" id="logStatus" onchange="debounceLogs()">
+            <label class="text-muted small">✅ Status</label>
+            <select class="filter-select" id="logStatus" onchange="debounceLogs()">
               <option value="">All</option>
               <option value="1">Answered</option>
               <option value="0">Unanswered</option>
             </select>
           </div>
           <div class="col-md-2 d-flex gap-1 flex-wrap">
-            <label class="form-label small text-muted mb-1 w-100">&nbsp;</label>
-            <button class="btn btn-sm btn-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
-            <button class="btn btn-sm btn-outline-secondary" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
+            <label class="text-muted small w-100">&nbsp;</label>
+            <button class="btn-pill btn-pill-primary" onclick="loadLogs()"><i class="bi bi-search"></i> Apply</button>
+            <button class="btn-pill btn-pill-outline" onclick="resetLogFilters()"><i class="bi bi-x-circle"></i> Reset</button>
           </div>
         </div>
       </div>
 
       <!-- Column Visibility Toggle -->
-      <div class="chart-card mb-3 py-2 px-3">
+      <div class="card mb-3 py-2 px-3">
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <span class="small fw-semibold me-1">👁️ Columns:</span>
           <span class="text-muted small me-1 fw-semibold">📋 Data</span>
-          <label class="log-col-toggle" title="ID"><input type="checkbox" data-col="id" checked onchange="toggleLogColumn(this)"><span>ID</span></label>
-          <label class="log-col-toggle" title="Waktu"><input type="checkbox" data-col="waktu" checked onchange="toggleLogColumn(this)"><span>Waktu</span></label>
-          <label class="log-col-toggle" title="Chat ID"><input type="checkbox" data-col="chat_id" checked onchange="toggleLogColumn(this)"><span>Chat ID</span></label>
-          <label class="log-col-toggle" title="Pertanyaan"><input type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span>Pertanyaan</span></label>
-          <label class="log-col-toggle" title="Jawaban"><input type="checkbox" data-col="jawaban" onchange="toggleLogColumn(this)"><span>Jawaban</span></label>
-          <label class="log-col-toggle" title="Gate"><input type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span>Gate</span></label>
-          <label class="log-col-toggle" title="Source"><input type="checkbox" data-col="source" checked onchange="toggleLogColumn(this)"><span>Source</span></label>
-          <label class="log-col-toggle" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>Answered</span></label>
+          <label class="col-toggle-pill" title="ID"><input type="checkbox" data-col="id" checked onchange="toggleLogColumn(this)"><span>ID</span></label>
+          <label class="col-toggle-pill" title="Waktu"><input type="checkbox" data-col="waktu" checked onchange="toggleLogColumn(this)"><span>Waktu</span></label>
+          <label class="col-toggle-pill" title="Chat ID"><input type="checkbox" data-col="chat_id" checked onchange="toggleLogColumn(this)"><span>Chat ID</span></label>
+          <label class="col-toggle-pill" title="Pertanyaan"><input type="checkbox" data-col="pertanyaan" checked onchange="toggleLogColumn(this)"><span>Pertanyaan</span></label>
+          <label class="col-toggle-pill" title="Jawaban"><input type="checkbox" data-col="jawaban" onchange="toggleLogColumn(this)"><span>Jawaban</span></label>
+          <label class="col-toggle-pill" title="Gate"><input type="checkbox" data-col="gate" checked onchange="toggleLogColumn(this)"><span>Gate</span></label>
+          <label class="col-toggle-pill" title="Source"><input type="checkbox" data-col="source" checked onchange="toggleLogColumn(this)"><span>Source</span></label>
+          <label class="col-toggle-pill" title="Dijawab"><input type="checkbox" data-col="dijawab" onchange="toggleLogColumn(this)"><span>Answered</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📊 Scoring</span>
-          <label class="log-col-toggle" title="Gate Detail"><input type="checkbox" data-col="gate_detail" onchange="toggleLogColumn(this)"><span>Gate Detail</span></label>
-          <label class="log-col-toggle" title="CLF Domain"><input type="checkbox" data-col="clf_domain" checked onchange="toggleLogColumn(this)"><span>CLF Domain</span></label>
-          <label class="log-col-toggle" title="CLF Confidence"><input type="checkbox" data-col="clf_confidence" onchange="toggleLogColumn(this)"><span>CLF Conf</span></label>
-          <label class="log-col-toggle" title="CLF Mode"><input type="checkbox" data-col="clf_mode" onchange="toggleLogColumn(this)"><span>CLF Mode</span></label>
-          <label class="log-col-toggle" title="RRF Score"><input type="checkbox" data-col="rrf_score" checked onchange="toggleLogColumn(this)"><span>RRF</span></label>
-          <label class="log-col-toggle" title="E5 Top Score"><input type="checkbox" data-col="e5_top" onchange="toggleLogColumn(this)"><span>E5 Top</span></label>
-          <label class="log-col-toggle" title="BM25 Raw"><input type="checkbox" data-col="bm25_raw" onchange="toggleLogColumn(this)"><span>BM25</span></label>
+          <label class="col-toggle-pill" title="Gate Detail"><input type="checkbox" data-col="gate_detail" onchange="toggleLogColumn(this)"><span>Gate Detail</span></label>
+          <label class="col-toggle-pill" title="CLF Domain"><input type="checkbox" data-col="clf_domain" checked onchange="toggleLogColumn(this)"><span>CLF Domain</span></label>
+          <label class="col-toggle-pill" title="CLF Confidence"><input type="checkbox" data-col="clf_confidence" onchange="toggleLogColumn(this)"><span>CLF Conf</span></label>
+          <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="clf_mode" onchange="toggleLogColumn(this)"><span>CLF Mode</span></label>
+          <label class="col-toggle-pill" title="RRF Score"><input type="checkbox" data-col="rrf_score" checked onchange="toggleLogColumn(this)"><span>RRF</span></label>
+          <label class="col-toggle-pill" title="E5 Top Score"><input type="checkbox" data-col="e5_top" onchange="toggleLogColumn(this)"><span>E5 Top</span></label>
+          <label class="col-toggle-pill" title="BM25 Raw"><input type="checkbox" data-col="bm25_raw" onchange="toggleLogColumn(this)"><span>BM25</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">🤖 LLM</span>
-          <label class="log-col-toggle" title="LLM Model"><input type="checkbox" data-col="llm_model" checked onchange="toggleLogColumn(this)"><span>Model</span></label>
-          <label class="log-col-toggle" title="LLM Provider"><input type="checkbox" data-col="llm_provider" onchange="toggleLogColumn(this)"><span>Provider</span></label>
-          <label class="log-col-toggle" title="LLM Time (ms)"><input type="checkbox" data-col="llm_time_ms" onchange="toggleLogColumn(this)"><span>LLM ms</span></label>
-          <label class="log-col-toggle" title="Jawaban Length"><input type="checkbox" data-col="jawaban_length" onchange="toggleLogColumn(this)"><span>Jwb Len</span></label>
+          <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="llm_model" checked onchange="toggleLogColumn(this)"><span>Model</span></label>
+          <label class="col-toggle-pill" title="LLM Provider"><input type="checkbox" data-col="llm_provider" onchange="toggleLogColumn(this)"><span>Provider</span></label>
+          <label class="col-toggle-pill" title="LLM Time (ms)"><input type="checkbox" data-col="llm_time_ms" onchange="toggleLogColumn(this)"><span>LLM ms</span></label>
+          <label class="col-toggle-pill" title="Jawaban Length"><input type="checkbox" data-col="jawaban_length" onchange="toggleLogColumn(this)"><span>Jwb Len</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📎 Meta</span>
-          <label class="log-col-toggle" title="Top5 FAQ"><input type="checkbox" data-col="top5_faq" onchange="toggleLogColumn(this)"><span>Top5 FAQ</span></label>
-          <label class="log-col-toggle" title="Multi Part"><input type="checkbox" data-col="multi_part" onchange="toggleLogColumn(this)"><span>Multi</span></label>
-          <label class="log-col-toggle" title="Session Baru"><input type="checkbox" data-col="session_baru" onchange="toggleLogColumn(this)"><span>Sesi Baru</span></label>
-          <label class="log-col-toggle" title="Error"><input type="checkbox" data-col="error" onchange="toggleLogColumn(this)"><span>Error</span></label>
+          <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="top5_faq" onchange="toggleLogColumn(this)"><span>Top5 FAQ</span></label>
+          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="multi_part" onchange="toggleLogColumn(this)"><span>Multi</span></label>
+          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="session_baru" onchange="toggleLogColumn(this)"><span>Sesi Baru</span></label>
+          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="error" onchange="toggleLogColumn(this)"><span>Error</span></label>
         </div>
       </div>
 
       <!-- Table -->
-      <div class="chart-card">
+      <div class="card">
         <div class="table-responsive">
-          <table class="table table-sm log-table mb-0" id="logTable">
+          <table class="log-table" id="logTable">
             <thead><tr id="logTableHead"></tr></thead>
             <tbody></tbody>
           </table>
         </div>
         <div class="d-flex justify-content-between align-items-center py-2">
           <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary" id="logCountBadge">0</span>
+            <span class="badge badge-secondary" id="logCountBadge">0</span>
             <div class="text-muted small" id="logInfo"></div>
           </div>
           <div>
-            <button class="btn btn-sm btn-outline-secondary me-1" id="logPrev" onclick="prevLogPage()" disabled>← Prev</button>
+            <button class="btn-pill btn-pill-outline me-1" id="logPrev" onclick="prevLogPage()" disabled>← Prev</button>
             <span class="small text-muted mx-1" id="logPageInfo">1</span>
-            <button class="btn btn-sm btn-outline-secondary ms-1" id="logNext" onclick="nextLogPage()" disabled>Next →</button>
+            <button class="btn-pill btn-pill-outline ms-1" id="logNext" onclick="nextLogPage()" disabled>Next →</button>
           </div>
         </div>
-        <div class="text-center py-3" id="logLoader" style="display:none"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>
+        <div class="text-center" id="logLoader" style="display:none"><div class="spinner"></div> Loading...</div>
       </div>
     </div>
 
     <!-- ===== TERMINAL PAGE ===== -->
     <div id="page-terminal" style="display:none">
-      <h5 class="mb-3 fw-bold">💻 Live Terminal</h5>
+      <h2 class="section-title">💻 Live Terminal</h2>
       <div class="d-flex gap-2 mb-3">
-        <button class="btn btn-sm btn-outline-primary" onclick="loadTerminal()"><i class="bi bi-play-fill"></i> Start Tail</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="stopTerminal()"><i class="bi bi-stop-fill"></i> Stop</button>
+        <button class="btn-pill btn-pill-outline" onclick="loadTerminal()"><i class="bi bi-play-fill"></i> Start Tail</button>
+        <button class="btn-pill btn-pill-outline" onclick="stopTerminal()"><i class="bi bi-stop-fill"></i> Stop</button>
         <span class="text-muted ms-2 small" id="termStatus">Idle</span>
       </div>
       <div class="terminal-box" id="terminalBox">
@@ -316,31 +783,31 @@
 
     <!-- ===== ANALYTICS PAGE ===== -->
     <div id="page-analytics" style="display:none">
-      <h5 class="mb-3 fw-bold">📈 Analytics</h5>
-      <div class="row g-3">
-        <div class="col-md-6 d-flex"><div class="chart-card py-3 w-100"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="140"></canvas></div></div>
-        <div class="col-md-6 d-flex"><div class="chart-card py-3 w-100"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="140"></canvas></div></div>
+      <h2 class="section-title">📈 Analytics</h2>
+      <div class="row">
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="140"></canvas></div></div>
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="140"></canvas></div></div>
       </div>
-      <div class="row g-3 mt-0">
-        <div class="col-12"><div class="chart-card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="120"></canvas></div></div>
+      <div class="row mt-0">
+        <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="120"></canvas></div></div>
       </div>
     </div>
 
     <!-- ===== SYSTEM HEALTH PAGE ===== -->
     <div id="page-system" style="display:none">
-      <h5 class="mb-3 fw-bold">🖥️ System Health</h5>
+      <h2 class="section-title">🖥️ System Health</h2>
       <div class="d-flex gap-2 mb-3 flex-wrap">
-        <button class="btn btn-sm btn-outline-primary" onclick="loadSystem()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
-        <button class="btn btn-sm btn-success" onclick="startAllServices()" id="btnStartAll"><i class="bi bi-play-fill"></i> Start All</button>
-        <button class="btn btn-sm btn-danger" onclick="stopAllServices()" id="btnStopAll"><i class="bi bi-stop-fill"></i> Stop All</button>
+        <button class="btn-pill btn-pill-outline" onclick="loadSystem()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        <button class="btn-pill btn-pill-success" onclick="startAllServices()" id="btnStartAll"><i class="bi bi-play-fill"></i> Start All</button>
+        <button class="btn-pill btn-pill-danger" onclick="stopAllServices()" id="btnStopAll"><i class="bi bi-stop-fill"></i> Stop All</button>
         <span class="text-muted ms-2 small" id="sysStatus">-</span>
         <span class="text-muted ms-auto small" id="sysUpdate"></span>
       </div>
-      <div id="sysToast" class="alert alert-info d-none py-2 px-3 mb-3" style="font-size:.85rem"></div>
-      <div class="row g-3" id="sysCards"></div>
-      <div class="row g-3 mt-2">
+      <div id="sysToast" class="toast-msg info d-none mb-3" style="font-size:.85rem"></div>
+      <div class="row" id="sysCards"></div>
+      <div class="row mt-2">
         <div class="col-12">
-          <div class="chart-card">
+          <div class="card">
             <h6>📋 Service Status Summary</h6>
             <div class="table-responsive">
               <table class="table table-sm mb-0">
@@ -355,8 +822,8 @@
 
     <!-- ===== TOP FAQ PAGE ===== -->
     <div id="page-topfaq" style="display:none">
-      <h5 class="mb-3 fw-bold">🏆 Top FAQ</h5>
-      <div class="chart-card"><div class="table-responsive">
+      <h2 class="section-title">🏆 Top FAQ</h2>
+      <div class="card"><div class="table-responsive">
         <table class="table table-sm mb-0" id="faqTable">
           <thead><tr><th>#</th><th>FAQ</th><th>Category</th><th>Hits</th><th>Avg RRF</th><th>Last Seen</th></tr></thead>
           <tbody></tbody>
@@ -365,7 +832,6 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
     const API = '/api';
@@ -374,18 +840,8 @@
 
     // Theme
     function toggleTheme() {
-      const html = document.documentElement;
-      const isDark = html.getAttribute('data-bs-theme') === 'dark';
-      html.setAttribute('data-bs-theme', isDark ? 'light' : 'dark');
-      document.getElementById('themeBtn').innerHTML = isDark ? '<i class="bi bi-moon-stars"></i>' : '<i class="bi bi-sun"></i>';
-      localStorage.setItem('theme', isDark ? 'light' : 'dark');
+      document.getElementById('themeBtn').innerHTML = '<i class="bi bi-moon-stars"></i>';
     }
-    (function() {
-      if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.setAttribute('data-bs-theme', 'dark');
-        document.getElementById('themeBtn').innerHTML = '<i class="bi bi-sun"></i>';
-      }
-    })();
 
     // Navigation
     document.querySelectorAll('.sidebar-nav .nav-link').forEach(el => {
@@ -482,11 +938,11 @@
       { key: 'chat_id', label: 'Chat ID', render: l => l.chat_id||'', group: 'basic' },
       { key: 'pertanyaan', label: 'Pertanyaan', render: l => `<span title="${(l.pertanyaan||'').replace(/"/g,'&quot;')}" class="detail">${(l.pertanyaan||'').slice(0,120)}</span>`, group: 'basic' },
       { key: 'jawaban', label: 'Jawaban', render: l => `<span title="${(l.jawaban||'').replace(/"/g,'&quot;')}" class="detail">${(l.jawaban||'').slice(0,80)}</span>`, group: 'basic' },
-      { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'bg-info':l.gate==='ANSWER'?'bg-success':l.gate==='REJECT'?'bg-danger':'bg-secondary'} gate-badge">${l.gate||'-'}</span>`, group: 'basic' },
-      { key: 'source', label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'bg-success':l.source==='telegram'?'bg-info':'bg-secondary'} gate-badge">${l.source||'-'}</span>`, group: 'basic' },
+      { key: 'gate', label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'badge-info':l.gate==='ANSWER'?'badge-success':l.gate==='REJECT'?'badge-danger':'badge-secondary'}">${l.gate||'-'}</span>`, group: 'basic' },
+      { key: 'source', label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'badge-success':l.source==='telegram'?'badge-info':'badge-secondary'}">${l.source||'-'}</span>`, group: 'basic' },
       { key: 'dijawab', label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>', group: 'basic' },
       { key: 'gate_detail', label: 'Gate Detail', render: l => `<span class="text-muted small">${l.gate_detail||'-'}</span>`, group: 'scores' },
-      { key: 'clf_domain', label: 'CLF Domain', render: l => `<span class="badge bg-secondary gate-badge">${l.clf_domain||'-'}</span>`, group: 'scores' },
+      { key: 'clf_domain', label: 'CLF Domain', render: l => `<span class="badge badge-secondary">${l.clf_domain||'-'}</span>`, group: 'scores' },
       { key: 'clf_confidence', label: 'CLF Conf', render: l => (l.clf_confidence||0).toFixed(4), group: 'scores' },
       { key: 'clf_mode', label: 'CLF Mode', render: l => l.clf_mode||'-', group: 'scores' },
       { key: 'rrf_score', label: 'RRF Score', render: l => (l.rrf_score||0).toFixed(4), group: 'scores' },
@@ -609,29 +1065,28 @@
         const colors = ['#3b82f6','#22c55e','#f59e0b','#8b5cf6'];
         for (const [key, svc] of Object.entries(data.services)) {
           const status = svc.status;
-          let icon, bgClass, textClass;
-          if (status === 'ok') { icon = 'bi-check-circle-fill'; bgClass = 'bg-success bg-opacity-10'; textClass = 'text-success'; }
-          else if (status === 'unknown') { icon = 'bi-question-circle-fill'; bgClass = 'bg-secondary bg-opacity-10'; textClass = 'text-secondary'; }
-          else if (status === 'down') { icon = 'bi-x-circle-fill'; bgClass = 'bg-danger bg-opacity-10'; textClass = 'text-danger'; }
-          else { icon = 'bi-exclamation-triangle-fill'; bgClass = 'bg-warning bg-opacity-10'; textClass = 'text-warning'; }
+          let icon;
+          if (status === 'ok') { icon = 'bi-check-circle-fill'; }
+          else if (status === 'unknown') { icon = 'bi-question-circle-fill'; }
+          else if (status === 'down') { icon = 'bi-x-circle-fill'; }
+          else { icon = 'bi-exclamation-triangle-fill'; }
 
           cards.innerHTML += `
             <div class="col-6 col-lg-3">
               <div class="stat-card">
-                <div class="stat-icon ${bgClass} ${textClass}"><i class="bi ${icon}"></i></div>
+                <div class="stat-icon ${status==='ok'?'stat-icon-green':status==='down'?'stat-icon-purple':status==='error'?'stat-icon-amber':'stat-icon-amber'}"><i class="bi ${icon}"></i></div>
                 <div>
                   <div class="stat-label">${svc.name}</div>
-                  <div class="stat-value small">${status.toUpperCase()}</div>
+                  <div class="stat-value small">${status==='ok'?'Running':'Down'}</div>
                 </div>
               </div>
             </div>`;
 
-          const rowClass = status === 'down' ? 'table-danger' : status === 'error' ? 'table-warning' : status === 'unknown' ? 'table-secondary' : '';
           tbody.innerHTML += `
-            <tr class="${rowClass}">
-              <td><span class="badge ${bgClass} ${textClass} me-1" style="width:8px;height:8px;padding:0;border-radius:50%;display:inline-block"></span> ${svc.name}</td>
-              <td>${svc.detail?.includes(':') ? svc.detail.match(/:\d+/)?.[0] || '-' : '-'}</td>
-              <td><span class="badge ${status==='ok'?'bg-success':status==='unknown'?'bg-secondary':status==='down'?'bg-danger':'bg-warning'} gate-badge">${status}</span></td>
+            <tr class="${status==='down'?'table-danger':status==='error'?'table-warning':status==='unknown'?'table-secondary':''}">
+              <td><span class="badge ${status==='ok'?'badge-success':status==='down'?'badge-danger':status==='error'?'badge-warning':'badge-secondary'}">${status}</span></td>
+              <td>${svc.name}</td>
+              <td>${svc.detail?.match(/:\d+/)?.[0] || '-'}</td>
               <td class="text-muted small">${svc.detail||''}</td>
             </tr>`;
           idx++;
@@ -776,14 +1231,14 @@
     // Top FAQ
     async function loadTopFAQ() {
       const data = await fetchAPI('top-faq');
-      const CAT_COLORS = ['bg-primary','bg-success','bg-info','bg-warning text-dark','bg-danger','bg-secondary','bg-dark','bg-primary bg-opacity-75','bg-success bg-opacity-75','bg-info bg-opacity-75'];
+      const CAT_COLORS = ['badge-primary','badge-success','badge-info','badge-warning','badge-danger','badge-secondary','badge-dark','badge-primary','badge-success','badge-info'];
       const catColorMap = {};
       let colorIdx = 0;
       document.querySelector('#faqTable tbody').innerHTML = data.faqs?.map((f,i) => {
         const cat = f.category||'-';
         if (!catColorMap[cat]) catColorMap[cat] = CAT_COLORS[colorIdx++ % CAT_COLORS.length];
-        return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColorMap[cat]} gate-badge">${cat}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
-      }).join('') || '<tr><td colspan="6" class="text-center py-3">No data</td></tr>';
+        return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColorMap[cat]}">${cat}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
+      }).join('') || '<tr><td colspan="6" class="text-center>No data</td></tr>';
     }
 
     function refreshAll() {
