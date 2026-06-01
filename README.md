@@ -404,7 +404,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 | **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
 | **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Sama-sama! 😊 Ada yang bisa saya bantu lagi?" | `responses.json → positive_feedback` |
 | **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
-| **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke hybrid search → RRF gate system | RRF domain filter |
+| **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → RRF gate | BM25 + RRF 2-layer |
 
 **Kenapa perlu 5 kelas?**
 - Tanpa `positive_feedback`: "makasih" masuk forward → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
@@ -483,9 +483,9 @@ User: "linknya udah dicoba"             → skor hybrid 0.65 ❌ (terlalu pendek
 
 | Depth | Aksi | Threshold |
 |:-----:|------|:---------:|
-| 0 | Search dengan query original | < 0.82 → depth 1 |
-| 1 | **Concat** 1 query user sebelumnya + query saat ini → search ulang | < 0.82 → depth 2 |
-| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | < 0.82 → **TOLAK** → **LLM TIDAK dipanggil** |
+| 0 | Search dengan query original | RRF < 0.025 → depth 1 |
+| 1 | **Concat** 1 query user sebelumnya + query saat ini → search ulang | RRF < 0.025 → depth 2 |
+| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | RRF < 0.025 → **TOLAK** → 📩 QNA link |
 
 > 🔑 **Poin penting:** Cascade reject berarti **LLM tidak pernah dipanggil**. Biaya token = 0. Yang terbuang cuma komputasi E5 encode + BM25 scoring — itu pun < 100ms di CPU.
 
@@ -512,8 +512,8 @@ BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja bera
 | User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
 | User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
 | User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-5 masih include yang bener |
-| User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih | ❌ Skor 0.77 (mirip vektor dengan FAQ pendek) | ✅ BM25=0 → RRF < 0.018 → out of context |
-| User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih | ❌ Skor 0.80 (cukup tinggi karena kata umum) | ✅ BM25=0 → RRF < 0.018 → out of context |
+| User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih (BM25 < 3.0, tolak sebelum retrieval) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
+| User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih (BM25 < 3.0) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
 
 ### 📊 Tabel Perbandingan
 
@@ -1166,13 +1166,20 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 #### v2.4.1 — 2026-06-01
 
-**Performance (6 optimasi)**
+**Performance (7 optimasi)**
 - **E5 embedding cache** (`core/embedder.py`) — LRU 128 query, cache hit = 0ms (vs 50-100ms encode)
 - **BM25 → `rank_bm25` library** (`core/bm25.py`) — C-optimized scoring, 35 baris kode lebih ringkas
 - **Google Sheets non-blocking** (`server.py`) — `asyncio.to_thread()` biar gak freeze server saat reload 10-menit
 - **Logging non-blocking** (`core/query_logger.py`) — JSONL + SQLite write via daemon thread (hemat ~10-25ms/request)
 - **Lazy SQLite init** (`core/query_logger.py`) — `_ensure_sqlite()` gak bikin side-effect pas module import
 - **Regex compile → module level** (`server.py`) — `EMOJI_RE` compiled sekali, bukan per request
+
+**Domain Filter Overhaul**
+- **BM25 threshold ≥ 3.0** — jadi domain gate sebelum hybrid search (dari analisis 100+ query production)
+- **Centroid E5** — dihitung & di-log ke `query_log.db` untuk analytics (bukan gate)
+- **2-layer gate**: BM25 threshold → hybrid search RRF → ANSWER/OOC/CASCADE
+- **Kolom `centroid_sim`** di `query_log.db` + dashboard Query Log
+- **Kolom `source`** — tracking `wa` / `telegram` / `api` untuk setiap query
 
 **Dependencies**
 - `rank-bm25>=0.2.2` — baru, ganti implementasi BM25 manual
