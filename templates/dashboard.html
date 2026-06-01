@@ -850,7 +850,7 @@
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <span class="small fw-semibold me-1">👁️ Columns:</span>
           <span class="text-muted small me-1 fw-semibold">📋 Data</span>
-          <label class="col-toggle-pill" title="ID"><input type="checkbox" data-col="0" checked onchange="toggleDTColumn(this)"><span>ID</span></label>
+          <label class="col-toggle-pill" title="No urut"><input type="checkbox" data-col="0" checked onchange="toggleDTColumn(this)"><span>No</span></label>
           <label class="col-toggle-pill" title="Waktu"><input type="checkbox" data-col="1" checked onchange="toggleDTColumn(this)"><span>Waktu</span></label>
           <label class="col-toggle-pill" title="Chat ID"><input type="checkbox" data-col="2" checked onchange="toggleDTColumn(this)"><span>Chat ID</span></label>
           <label class="col-toggle-pill" title="Pertanyaan"><input type="checkbox" data-col="3" checked onchange="toggleDTColumn(this)"><span>Pertanyaan</span></label>
@@ -1073,7 +1073,7 @@
     let logDT = null;
 
     const DT_HEADERS = [
-      { label: 'ID', render: l => l.id },
+      { label: 'No', render: (l, rownum) => rownum || '' },
       { label: 'Waktu', render: l => l.waktu?.slice(5,19)||'' },
       { label: 'Chat ID', render: l => l.chat_id||'' },
       { label: 'Pertanyaan', render: l => (l.pertanyaan||'').slice(0,100) },
@@ -1253,7 +1253,10 @@
           if (!cb || cb.checked) visibleIndices.push(i);
         });
         this.tbody.innerHTML = data.length
-          ? data.map(row => `<tr>${visibleIndices.map(i => `<td>${this.allCols[i].render(row)}</td>`).join('')}</tr>`).join('')
+          ? data.map((row, idx) => {
+              const rownum = this.page * this.pageLength + idx + 1;
+              return `<tr>${visibleIndices.map(i => `<td>${this.allCols[i].render(row, rownum)}</td>`).join('')}</tr>`;
+            }).join('')
           : `<tr><td colspan="${visibleIndices.length}" class="text-center py-3 text-muted">No matching logs</td></tr>`;
       }
 
