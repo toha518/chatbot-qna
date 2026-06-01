@@ -1291,7 +1291,7 @@
         const html = await resp.text();
         const w = window.open('', '_blank');
         if (!w) { alert('Pop-up diblokir! Izinkan pop-up untuk dashboard ini.'); return; }
-        w.document.write(html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>'));
+        w.document.write(html.replace('</body>', '<scr' + 'ipt>window.onload=function(){window.print();}</scr' + 'ipt></body>'));
         w.document.close();
       } else if (format === 'excel') {
         // Excel: HTML table format (.xls — Excel natively opens HTML tables)
