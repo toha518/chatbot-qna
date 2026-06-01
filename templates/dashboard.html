@@ -374,11 +374,11 @@
     // Stats cards
     async function loadStats() {
       const data = await fetchAPI('stats');
-      document.getElementById('statTotal').textContent = data.total_logs || 0;
+      document.getElementById('statTotal').textContent = data.total || 0;
       document.getElementById('statUsers').textContent = data.unique_users || 0;
-      document.getElementById('statRRF').textContent = (data.avg_rrf_score || 0).toFixed(4);
-      const total = data.total_logs || 1;
-      const answered = (data.by_gate?.ANSWER || 0) + (data.by_gate?.CLF_GREETING || 0) + (data.by_gate?.CLF_CAPABILITY || 0) + (data.by_gate?.CLF_POSITIVE_FEEDBACK || 0);
+      document.getElementById('statRRF').textContent = (data.avg_rrf || 0).toFixed(4);
+      const total = data.total || 1;
+      const answered = data.answered || 0;
       document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
       document.getElementById('logCount').textContent = total;
       drawGateChart(data.by_gate || {});
