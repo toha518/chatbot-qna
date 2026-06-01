@@ -796,7 +796,7 @@
       const sb = document.getElementById('sidebar');
       const isCollapsed = sb.classList.toggle('collapsed');
       document.getElementById('sidebarToggle').innerHTML = isCollapsed ? '<i class="bi bi-chevron-right"></i>' : '<i class="bi bi-chevron-left"></i>';
-      localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+      localStorage.setItem('sidebar_collapsed_v2', isCollapsed ? '1' : '0');
     }
 
     function toggleMobileSidebar() {
@@ -816,10 +816,15 @@
     });
 
     (function initSidebar() {
-      if (localStorage.getItem('sidebar_collapsed') === '1') {
-        document.getElementById('sidebar').classList.add('collapsed');
-        document.getElementById('sidebarToggle').innerHTML = '<i class="bi bi-chevron-right"></i>';
-      }
+      // Use versioned key to avoid stale state from buggy versions
+      try {
+        if (localStorage.getItem('sidebar_collapsed_v2') === '1' && window.innerWidth > 768) {
+          document.getElementById('sidebar').classList.add('collapsed');
+          document.getElementById('sidebarToggle').innerHTML = '<i class="bi bi-chevron-right"></i>';
+        }
+        // Remove old unversioned key
+        localStorage.removeItem('sidebar_collapsed');
+      } catch(e) {}
     })();
 
     initLogColumnStates();
