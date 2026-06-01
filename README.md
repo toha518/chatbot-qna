@@ -12,6 +12,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**.
 [![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://core.telegram.org/bots)
 [![WhatsApp](https://img.shields.io/badge/WhatsApp-Bridge-25D366?logo=whatsapp)](https://whatsapp.com)
 [![Hybrid](https://img.shields.io/badge/Retrieval-Hybrid%20(E5%2BBM25)-purple)](https://huggingface.co/intfloat/multilingual-e5-base)
+[![Dashboard](https://img.shields.io/badge/Dashboard-Web%20UI-%230070d1)](http://localhost:8001)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
 Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026** via Telegram & WhatsApp.
@@ -33,6 +34,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 - [🐧 Panduan Instalasi — Linux](#-panduan-instalasi--linux)
 - [🔗 API Endpoints](#-api-endpoints)
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
+- [🖥️ Dashboard](#-dashboard)
 - [❓ FAQ](#-faq)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
@@ -1116,11 +1118,80 @@ sudo lsof -i :8000              # Linux
 
 </details>
 
+---
+
+## 🖥️ Dashboard
+
+Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: [http://localhost:8001](http://localhost:8001)
+
+> **Jalankan:** `python dashboard.py` (paralel dengan `server.py`)
+
+| Tab | Fungsi |
+|-----|--------|
+| 📊 **Overview** | Statistik query, distribusi Gate & CLF, answered rate |
+| 📝 **Query Log** | 22 kolom dari `query_log.db`, search + filter (gate, CLF, source, status), column visibility toggles, pagination 50/page |
+| 💻 **Live Terminal** | Streaming query real-time (`tail -f`), polling 3 detik |
+| 📈 **Analytics** | RRF trend per jam, Queries per Hour, LLM Model Usage (charts) |
+| 🖥️ **System Health** | Status 4 service (Server API, WA Handler, Bridge, Telegram Bot) + tombol Start All / Stop All |
+| 🏆 **Top FAQ** | FAQ paling sering muncul + kategori dari spreadsheet (SOBAT, GC PBI, dll) |
+
+### Fitur Tambahan
+- 🔗 **Quick links** sidebar: Database FAQ, Nara QnA, Data QnA
+- 🌙 **Dark/Light mode** — toggle di top bar, auto-detect OS preference
+- 📱 **Responsive** — sidebar overlay di mobile, tabel scrollable
+- 🏷️ **Source tracking** — setiap query di-tag `wa` / `telegram` / `api`
+- 📂 **Column toggles** — pilih kolom mana yang ditampilkan, state disimpan di localStorage
+
+### Tech Stack Dashboard
+- **Backend:** FastAPI + SQLite (`query_log.db`) + httpx (health check)
+- **Frontend:** Vanilla HTML/CSS/JS + Chart.js 4.4 + Inter font (Google Fonts)
+- **Design system:** PlayStation-inspired — flat no-shadow, `#0070d1` primary, 8px cards, `9999px` pill buttons
+
+---
+
 ## 📜 Riwayat Versi
 
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
+
+---
+
+#### v2.4.0 — 2026-06-01
+
+**Added**
+- **🖥️ Dashboard Web UI** — monitoring, debugging, dan manajemen Nara via browser
+  - 📊 Overview: statistik query, distribusi Gate & CLF, answered rate
+  - 📝 Query Log: 22 kolom dari `query_log.db`, search + filter (gate, CLF, source, status, search teks), column visibility toggles, pagination 50/page
+  - 💻 Live Terminal: streaming real-time query, polling 3 detik
+  - 📈 Analytics: RRF score trend per jam, Queries per Hour, LLM Model Usage (Chart.js)
+  - 🖥️ System Health: monitoring 4 service runtime + tombol Start All / Stop All
+  - 🏆 Top FAQ: FAQ terpopuler + kategori dari spreadsheet
+  - 🔗 Quick links: Database FAQ, Nara QnA, Data QnA (shortlink BPS)
+- **🏷️ Source tracking** — setiap query di-tag `wa` / `telegram` / `api`
+  - Kolom `source` baru di `query_log.db` + JSONL
+  - `wa_handler.py` & `telegram_bot.py` kirim source ke `server.py`
+  - Dashboard: filter & badge by source
+- **Telegram Bot health endpoint** — port 3002 (threaded HTTP server)
+- **FAQ Categories** — `faq_categories.json` auto-save dari spreadsheet, dipake dashboard Top FAQ
+- **Favicon** — chatbot AI bubble icon
+- **🌙 Dark/Light mode** — toggle + auto-detect OS preference + localStorage
+  - Full dual-mode via CSS `--ps-*` token override (`[data-theme="dark"]`)
+- **📱 Full responsive** — sidebar overlay mobile (≤768px), tabel scrollable, compact layout (≤480px)
+- **🏗️ Design system** — PlayStation-inspired (clean, flat, no-shadow, `#0070d1` primary, `8px` cards, `9999px` pill CTAs)
+
+**Changed**
+- `start-all.bat` — update port & label
+
+**Files**
+- `dashboard.py` — baru (FastAPI, port 8001)
+- `templates/dashboard.html` — baru (1447 baris, vanilla HTML/CSS/JS)
+- `templates/favicon.svg` — baru
+- `core/query_logger.py` — `source` column + migrasi ALTER TABLE
+- `server.py` — `ChatRequest.source` param + 8 `log_query()` calls
+- `wa_handler.py` — `payload["source"] = "wa"`
+- `telegram_bot.py` — health server thread (port 3002) + `source: "telegram"`
+- `core/embedder.py` — save `faq_categories.json` on reload
 
 ---
 
