@@ -1,5 +1,246 @@
+# NARA Intent Classifier Training Data
+# 5 classes: greeting, capability, positive_feedback, negative_feedback, forward
+# Total target: ~800 samples — balanced distribution
 
-# ===== POSITIVE FEEDBACK =====
+__label__greeting halo
+__label__greeting hai
+__label__greeting hi
+__label__greeting hei
+__label__greeting hey
+__label__greeting helo
+__label__greeting hallo
+__label__greeting hello
+__label__greeting hii
+__label__greeting hy
+__label__greeting haloo
+__label__greeting halooo
+__label__greeting halo halo
+__label__greeting selamat pagi
+__label__greeting selamat siang
+__label__greeting selamat sore
+__label__greeting selamat malam
+__label__greeting selamat pagi nara
+__label__greeting selamat siang nara
+__label__greeting selamat sore nara
+__label__greeting selamat malam nara
+__label__greeting selamat pagi kakak
+__label__greeting selamat pagi admin
+__label__greeting pagi
+__label__greeting siang
+__label__greeting sore
+__label__greeting malam
+__label__greeting pagi nara
+__label__greeting siang nara
+__label__greeting sore nara
+__label__greeting malam nara
+__label__greeting pagi kak
+__label__greeting siang mas
+__label__greeting sore min
+__label__greeting malam bang
+__label__greeting pagi gan
+__label__greeting pagi sis
+__label__greeting pagi bro
+__label__greeting pagi sob
+__label__greeting pagi2
+__label__greeting siang2
+__label__greeting sore2
+__label__greeting malam2
+__label__greeting malem
+__label__greeting malem2
+__label__greeting met pagi
+__label__greeting met siang
+__label__greeting met sore
+__label__greeting met malem
+__label__greeting assalamualaikum
+__label__greeting assalamu'alaikum
+__label__greeting assalamualaikum wr wb
+__label__greeting assalamualaikum nara
+__label__greeting assalamualaikum admin
+__label__greeting p
+__label__greeting pm
+__label__greeting pak
+__label__greeting min
+__label__greeting gan
+__label__greeting kak
+__label__greeting bang
+__label__greeting sis
+__label__greeting bro
+__label__greeting sob
+__label__greeting mas
+__label__greeting admin
+__label__greeting nara
+__label__greeting eh
+__label__greeting eh nara
+__label__greeting eh min
+__label__greeting eh mas
+__label__greeting eh kak
+__label__greeting oi
+__label__greeting oi nara
+__label__greeting oi min
+__label__greeting nara dong
+__label__greeting nara help
+__label__greeting nara bantu dong
+__label__greeting halo nara
+__label__greeting hai nara
+__label__greeting hi nara
+__label__greeting hei nara
+__label__greeting hy nara
+__label__greeting helo nara
+__label__greeting halo min
+__label__greeting hai min
+__label__greeting hi min
+__label__greeting halo kak
+__label__greeting hai kak
+__label__greeting halo mas
+__label__greeting halo bang
+__label__greeting hai bang
+__label__greeting halo gan
+__label__greeting apa kabar
+__label__greeting apa kabar nara
+__label__greeting apa kabar mas
+__label__greeting apa kabar min
+__label__greeting apa kabar kak
+__label__greeting permisi
+__label__greeting permisi nara
+__label__greeting permisi min
+__label__greeting permisi mas
+__label__greeting permisi kak
+__label__greeting maaf
+__label__greeting maaf nara
+__label__greeting maaf sebelumnya
+__label__greeting maaf ganggu
+__label__greeting mau tanya
+__label__greeting mau nanya
+__label__greeting mau bertanya
+__label__greeting mau tanya dong
+__label__greeting boleh tanya
+__label__greeting boleh nanya
+__label__greeting boleh bertanya
+__label__greeting mohon info
+__label__greeting mohon bantuan
+__label__greeting mohon bantuannya
+__label__greeting numpang tanya
+__label__greeting numpang nanya
+__label__greeting izin tanya
+__label__greeting izin bertanya
+__label__greeting maaf mau tanya
+__label__greeting maaf pak mau tanya
+__label__greeting maaf bu mau tanya
+__label__greeting maaf min mau tanya
+__label__greeting maaf mas mau tanya
+__label__greeting permisi mau tanya
+__label__greeting permisi mau nanya
+__label__greeting halo mau tanya
+__label__greeting hai mau nanya
+__label__greeting hi mau bertanya
+__label__greeting pagi mau tanya
+__label__greeting siang mau nanya
+__label__greeting sore mau bertanya
+__label__greeting malam mau tanya
+__label__greeting tes
+__label__greeting test
+__label__greeting coba
+__label__greeting tes dulu
+__label__greeting test aja
+__label__greeting coba dulu
+__label__greeting coba test
+__label__greeting good morning
+__label__greeting good afternoon
+__label__greeting good evening
+__label__greeting kenalin
+__label__greeting kenalan
+__label__greeting perkenalan
+__label__greeting kenalan dong
+
+__label__capability kamu siapa
+__label__capability siapa kamu
+__label__capability kamu siapa sih
+__label__capability lo siapa
+__label__capability lu siapa
+__label__capability nama kamu
+__label__capability nama kamu siapa
+__label__capability nama lo siapa
+__label__capability kamu bisa apa
+__label__capability kamu bisa apa aja
+__label__capability kamu bisa ngapain
+__label__capability kamu bisa bantu apa
+__label__capability kamu bisa jawab apa
+__label__capability kamu bisa melakukan apa
+__label__capability kamu bisa jawab pertanyaan apa
+__label__capability kamu bisa bantu apa saja
+__label__capability kamu ngapain aja
+__label__capability ngapain aja bisa
+__label__capability lo bisa apa
+__label__capability lu bisa apa
+__label__capability situ bisa apa
+__label__capability anda bisa apa
+__label__capability anda bisa bantu apa
+__label__capability ini bot apa
+__label__capability bot apa ini
+__label__capability kamu bot apa
+__label__capability kamu robot ya
+__label__capability ini apaan sih
+__label__capability ini apaan
+__label__capability kamu ini apa
+__label__capability ini buat apa
+__label__capability buat apa ini
+__label__capability kegunaannya apa
+__label__capability fungsi kamu apa
+__label__capability fungsinya apa
+__label__capability gunanya apa
+__label__capability apa guna kamu
+__label__capability tugas kamu apa
+__label__capability peran kamu apa
+__label__capability keahlian kamu apa
+__label__capability apa tujuan kamu
+__label__capability kamu berguna buat apa
+__label__capability fitur apa aja
+__label__capability fitur apa saja yang kamu punya
+__label__capability kamu punya fitur apa
+__label__capability apa aja yang kamu tau
+__label__capability kamu tahu apa saja
+__label__capability apa saja yang bisa kamu bantu
+__label__capability bantuan apa yang kamu berikan
+__label__capability ada yang bisa kamu bantu
+__label__capability apa yang bisa saya tanyakan
+__label__capability apa yang bisa kamu lakukan
+__label__capability nara kamu siapa
+__label__capability nara siapa
+__label__capability nara itu apaan sih
+__label__capability nara bisa apa
+__label__capability nara bisa ngapain
+__label__capability nara bisa bantu saya
+__label__capability nara kamu bisa apa
+__label__capability nara bantu saya
+__label__capability kamu nara ya
+__label__capability ini nara kah
+__label__capability dengan nara ya
+__label__capability nara perkenalan
+__label__capability nara jelaskan tentang dirimu
+__label__capability nara singkatan dari apa
+__label__capability perkenalkan
+__label__capability perkenalkan dirimu
+__label__capability perkenalan dulu
+__label__capability ceritakan tentang dirimu
+__label__capability jelaskan tentang dirimu
+__label__capability kakak siapa
+__label__capability kakak ini siapa
+__label__capability hai nara kamu bisa apa
+__label__capability halo nara bisa bantu apa
+__label__capability bisa apa aja sih
+__label__capability bisa bantu apa mas
+__label__capability bisa bantu apa kak
+__label__capability bisa bantu apa bang
+__label__capability bisa ngapain aja
+__label__capability topik apa aja yang kamu kuasai
+__label__capability kamu jago di bidang apa
+__label__capability kamu bisa jawab soal apa
+__label__capability layanan apa aja yang ada
+__label__capability kamu bisa bantu tentang apa aja
+__label__capability what can you do
+__label__capability who are you
+__label__capability what is this
+
 __label__positive_feedback makasih
 __label__positive_feedback terima kasih
 __label__positive_feedback terimakasih
@@ -7,474 +248,413 @@ __label__positive_feedback thanks
 __label__positive_feedback thank you
 __label__positive_feedback makasih ya
 __label__positive_feedback makasih banyak
+__label__positive_feedback terima kasih banyak
+__label__positive_feedback thank you so much
 __label__positive_feedback makasih kak
 __label__positive_feedback makasih min
-__label__positive_feedback terima kasih banyak
+__label__positive_feedback makasih mas
+__label__positive_feedback makasih bang
+__label__positive_feedback makasih pak
+__label__positive_feedback makasih bu
 __label__positive_feedback trims
+__label__positive_feedback tengkyu
+__label__positive_feedback thanks ya
+__label__positive_feedback makasih ya kak
+__label__positive_feedback makasih ya min
+__label__positive_feedback makasih loh
+__label__positive_feedback makasih banget
+__label__positive_feedback makasih nara
+__label__positive_feedback terima kasih kak
+__label__positive_feedback terima kasih min
+__label__positive_feedback terima kasih nara
+__label__positive_feedback terima kasih ya
+__label__positive_feedback terima kasih atas bantuannya
+__label__positive_feedback terima kasih atas informasinya
+__label__positive_feedback thank you nara
+__label__positive_feedback thanks nara
 __label__positive_feedback ok
 __label__positive_feedback oke
-__label__positive_feedback sip
-__label__positive_feedback siap
-__label__positive_feedback oke sip
-__label__positive_feedback baik
-__label__positive_feedback baiklah
-__label__positive_feedback noted
-__label__positive_feedback oke kak
-__label__positive_feedback oke min
 __label__positive_feedback okee
 __label__positive_feedback ok deh
+__label__positive_feedback ok sip
+__label__positive_feedback oke sip
+__label__positive_feedback ok kak
+__label__positive_feedback oke kak
+__label__positive_feedback ok min
+__label__positive_feedback oke min
+__label__positive_feedback ok mas
+__label__positive_feedback ok bang
+__label__positive_feedback ok pak
+__label__positive_feedback oke deh
+__label__positive_feedback okelah
+__label__positive_feedback sip
+__label__positive_feedback sip deh
+__label__positive_feedback siap
 __label__positive_feedback siap kak
-__label__positive_feedback thank you so much
-__label__positive_feedback makasih bang
-__label__positive_feedback makasih loh
-__label__positive_feedback tengkyu
-__label__positive_feedback makasih ya kak
+__label__positive_feedback siap min
+__label__positive_feedback baik
+__label__positive_feedback baiklah
+__label__positive_feedback baik kak
+__label__positive_feedback baik min
+__label__positive_feedback noted
+__label__positive_feedback noted kak
+__label__positive_feedback noted min
 __label__positive_feedback mantap
-__label__positive_feedback thanks ya
+__label__positive_feedback mantap jiwa
+__label__positive_feedback mantul
+__label__positive_feedback keren
+__label__positive_feedback keren banget
+__label__positive_feedback bagus
+__label__positive_feedback bagus banget
+__label__positive_feedback good
+__label__positive_feedback great
+__label__positive_feedback nice
+__label__positive_feedback hebat
+__label__positive_feedback hebat nara
+__label__positive_feedback joss
+__label__positive_feedback jos
+__label__positive_feedback top
+__label__positive_feedback top banget
+__label__positive_feedback wah mantap
+__label__positive_feedback gokil
+__label__positive_feedback anjay keren
+__label__positive_feedback bermanfaat
+__label__positive_feedback sangat bermanfaat
+__label__positive_feedback membantu
+__label__positive_feedback sangat membantu
+__label__positive_feedback ini membantu banget
+__label__positive_feedback jawabannya membantu
+__label__positive_feedback aku puas
+__label__positive_feedback puas
+__label__positive_feedback cukup jelas
+__label__positive_feedback oke makasih infonya
+__label__positive_feedback sudah paham terima kasih
+__label__positive_feedback makasih penjelasannya
+__label__positive_feedback ok paham
+__label__positive_feedback oke paham makasih
 
-# ===== NEGATIVE FEEDBACK =====
-__label__negative_feedback kamu tidak membantu
-__label__negative_feedback ga membantu
 __label__negative_feedback tidak membantu
-__label__negative_feedback kamu gak guna
-__label__negative_feedback ga guna
-__label__negative_feedback kamu jelek
-__label__negative_feedback jelek banget
-__label__negative_feedback gak jelas
-__label__negative_feedback jawabanmu gak jelas
-__label__negative_feedback jawabanmu ga membantu
+__label__negative_feedback ga membantu
+__label__negative_feedback gak membantu
+__label__negative_feedback tak membantu
+__label__negative_feedback kurang membantu
+__label__negative_feedback tidak membantu sama sekali
+__label__negative_feedback kamu tidak membantu
+__label__negative_feedback kamu ga membantu
+__label__negative_feedback kamu gak membantu
 __label__negative_feedback ga membantu jawabanmu
-__label__negative_feedback kamu payah
-__label__negative_feedback payah
-__label__negative_feedback bot jelek
-__label__negative_feedback bot sampah
+__label__negative_feedback jawabanmu ga membantu
+__label__negative_feedback jawabanmu gak membantu
+__label__negative_feedback jawabannya tidak membantu
+__label__negative_feedback jawabanmu tidak membantu
+__label__negative_feedback tidak menjawab
+__label__negative_feedback gak menjawab pertanyaan saya
+__label__negative_feedback gak guna
+__label__negative_feedback ga guna
+__label__negative_feedback tak guna
+__label__negative_feedback tidak berguna
+__label__negative_feedback kamu gak guna
+__label__negative_feedback kamu ga guna
 __label__negative_feedback gak guna lu
 __label__negative_feedback percuma
 __label__negative_feedback percuma nanya
+__label__negative_feedback percuma tanya
 __label__negative_feedback sia sia
-__label__negative_feedback jawabanmu salah
-__label__negative_feedback salah semua
+__label__negative_feedback buang waktu
+__label__negative_feedback jelek
+__label__negative_feedback jelek banget
+__label__negative_feedback kamu jelek
+__label__negative_feedback bot jelek
+__label__negative_feedback jawabannya jelek
+__label__negative_feedback gak jelas
+__label__negative_feedback ga jelas
+__label__negative_feedback tidak jelas
+__label__negative_feedback jawabanmu gak jelas
+__label__negative_feedback payah
+__label__negative_feedback kamu payah
+__label__negative_feedback payah banget
+__label__negative_feedback parah
 __label__negative_feedback ngawur
 __label__negative_feedback jawabanmu ngawur
+__label__negative_feedback asal jawab
+__label__negative_feedback jawab asal
+__label__negative_feedback sembarangan
+__label__negative_feedback asal-asalan
+__label__negative_feedback gak bener
+__label__negative_feedback gak sesuai
+__label__negative_feedback tidak akurat
+__label__negative_feedback jawabanmu salah
+__label__negative_feedback salah semua
+__label__negative_feedback salah total
 __label__negative_feedback kamu bodoh
+__label__negative_feedback bot bodoh
+__label__negative_feedback bot sampah
+__label__negative_feedback bot goblok
 __label__negative_feedback gak paham
 __label__negative_feedback ga paham
+__label__negative_feedback gak ngerti
+__label__negative_feedback ga ngerti
+__label__negative_feedback dasar bot
+__label__negative_feedback ah sudahlah
+__label__negative_feedback buang-buang waktu
+__label__negative_feedback cuma gitu doang
+__label__negative_feedback gitu doang
+__label__negative_feedback itu doang jawabannya
 
-# ===== CAPABILITY =====
-# ===== CAPABILITY — lebih banyak varian colloquial =====
-# ===== CAPABILITY — tanya tidak langsung =====
-# FastText training data — domain filter Nara
-# Format: __label__<class> <text>
-# ===== GREETING =====
-# ===== GREETING — WA style & singkatan =====
-__label__capability ada yang bisa kamu bantu
-__label__capability anda bisa apa
-__label__capability anda bisa bantu apa
-__label__capability apa aja yang kamu tau
-__label__capability apa guna kamu
-__label__capability apa saja yang bisa kamu bantu
-__label__capability apa tujuan kamu
-__label__capability apa yang bisa kamu lakukan
-__label__capability apa yang bisa saya tanyakan
-__label__capability bantuan apa yang kamu berikan
-__label__capability bisa apa aja sih
-__label__capability bisa bantu apa bang
-__label__capability bisa bantu apa kak
-__label__capability bisa bantu apa mas
-__label__capability bisa ngapain aja
-__label__capability bot apa ini
-__label__capability bot ini bisa apa
-__label__capability buat apa ini
-__label__capability ceritakan tentang dirimu
-__label__capability dengan nara ya
-__label__capability fitur apa aja
-__label__capability fitur apa saja yang kamu punya
-__label__capability fungsi kamu apa
-__label__capability fungsinya apa
-__label__capability gunanya apa
-__label__capability hai nara kamu bisa apa
-__label__capability halo nara bisa bantu apa
-__label__capability ini bot apa
-__label__capability ini buat apa
-__label__capability ini nara kah
-__label__capability jelaskan tentang dirimu
-__label__capability kakak siapa
-__label__capability kamu berguna buat apa
-__label__capability kamu bisa apa
-__label__capability kamu bisa apa aja
-__label__capability kamu bisa bantu apa
-__label__capability kamu bisa bantu apa saja
-__label__capability kamu bisa jawab apa
-__label__capability kamu bisa jawab pertanyaan apa
-__label__capability kamu bisa melakukan apa
-__label__capability kamu bisa ngapain
-__label__capability kamu bot apa
-__label__capability kamu ini apa
-__label__capability kamu nara ya
-__label__capability kamu ngapain aja
-__label__capability kamu punya fitur apa
-__label__capability kamu siapa
-__label__capability kamu tahu apa saja
-__label__capability keahlian kamu apa
-__label__capability kenalan
-__label__capability lo bisa apa
-__label__capability lu bisa apa
-__label__capability nama kamu
-__label__capability nama kamu siapa
-__label__capability nara bantu saya
-__label__capability nara bisa apa
-__label__capability nara bisa bantu saya
-__label__capability nara bisa ngapain
-__label__capability nara itu apaan sih
-__label__capability nara jelaskan tentang dirimu
-__label__capability nara kamu bisa apa
-__label__capability nara kamu siapa
-__label__capability nara perkenalan
-__label__capability nara siapa
-__label__capability nara singkatan dari apa
-__label__capability nara tolong bantu
-__label__capability ngapain aja bisa
-__label__capability peran kamu apa
-__label__capability perkenalan dulu
-__label__capability perkenalkan
-__label__capability perkenalkan dirimu
-__label__capability siapa kamu
-__label__capability siapa nama kamu
-__label__capability situ bisa apa
-__label__capability tugas kamu apa
-__label__capability what can you do
-__label__greeting apa kabar
-__label__greeting apa kabar mas
-__label__greeting apa kabar min
-__label__greeting assalamu'alaikum
-__label__greeting assalamualaikum
-__label__greeting assalamualaikum nara
-__label__greeting bang
-__label__greeting bro
-__label__greeting coba
-__label__greeting coba dulu
-__label__greeting eh min
-__label__greeting eh nara
-__label__greeting good afternoon
-__label__greeting good evening
-__label__greeting good morning
-__label__greeting hai
-__label__greeting hai min
-__label__greeting hai nara
-__label__greeting hallo
-__label__greeting halo
-__label__greeting halo halo
-__label__greeting halo min
-__label__greeting halo nara
-__label__greeting haloo
-__label__greeting hei
-__label__greeting hello
-__label__greeting helo
-__label__greeting helo nara
-__label__greeting hey
-__label__greeting hi
-__label__greeting hii
-__label__greeting hi nara
-__label__greeting hy
-__label__greeting hy bang
-__label__greeting hy min
-__label__greeting hy nara
-__label__greeting malam
-__label__greeting malam kak
-__label__greeting malam mas
-__label__greeting malam min
-__label__greeting malam nara
-__label__greeting malam sob
-__label__greeting malem2
-__label__greeting mas
-__label__greeting met malem
-__label__greeting met pagi
-__label__greeting met siang
-__label__greeting met sore
-__label__greeting min
-__label__greeting mlm
-__label__greeting nara
-__label__greeting nara bantu dong
-__label__greeting nara dong
-__label__greeting nara help
-__label__greeting p
-__label__greeting pagi
-__label__greeting pagi2
-__label__greeting pagi bang
-__label__greeting pagi gan
-__label__greeting pagi kak
-__label__greeting pagi mas
-__label__greeting pagi min
-__label__greeting pagi nara
-__label__greeting permisi
-__label__greeting permisi mas
-__label__greeting permisi min
-__label__greeting permisi nara
-__label__greeting selamat malam
-__label__greeting selamat malam nara
-__label__greeting selamat pagi
-__label__greeting selamat pagi kakak
-__label__greeting selamat pagi nara
-__label__greeting selamat siang
-__label__greeting selamat siang nara
-__label__greeting selamat sore
-__label__greeting selamat sore nara
-__label__greeting siang
-__label__greeting siang mas
-__label__greeting siang min
-__label__greeting siang nara
-__label__greeting sis
-__label__greeting sore
-__label__greeting sore mas
-__label__greeting sore min
-__label__greeting sore nara
-__label__greeting tes
-__label__greeting tes dulu
-__label__greeting test
-__label__greeting test aja
-__label__forward 1 ditambah 1
-__label__forward akses internet
 __label__forward aku bosan
-__label__forward aku butuh teman
 __label__forward aku capek
 __label__forward aku galau
-__label__forward aku marah
-__label__forward aku mau curhat
-__label__forward aku sayang kamu
 __label__forward aku sedih
 __label__forward aku senang
-__label__forward anak
-__label__forward apa itu nara
-__label__forward apa kabar kamu
-__label__forward apa pendapatmu
-__label__forward apa warna langit
-__label__forward apotik
-__label__forward artis
-__label__forward asuransi
-__label__forward bagaimana menurutmu
-__label__forward baik
-__label__forward bantuin dong
-__label__forward beli
-__label__forward beneran
-__label__forward bener ga sih
-__label__forward benua
-__label__forward berapa 1 tambah 1
-__label__forward berapa provinsi di Indonesia
-__label__forward berita bola
-__label__forward berita terbaru
-__label__forward bisnis online
-__label__forward bitcoin
-__label__forward bpjs
-__label__forward cara akses nara
-__label__forward cara buat kue
-__label__forward cara daftar kartu
-__label__forward cara daftar nara
-__label__forward cara dapat uang
-__label__forward cara jadi
-__label__forward cara jadi youtuber
-__label__forward cara login nara
-__label__forward cara main game
-__label__forward cara masak ayam
-__label__forward cara membuat nasi goreng
-__label__forward cara menjadi kaya
-__label__forward cara pake nara
-__label__forward cara pinjam uang
-__label__forward cari kerja
-__label__forward cerita lucu
-__label__forward ceritanya gimana
-__label__forward chat nara
-__label__forward crypto
-__label__forward cuaca besok
-__label__forward cuaca hari ini
-__label__forward curhat
-__label__forward dari mana
-__label__forward darimana asal kamu
-__label__forward dimana ibu kota Indonesia
-__label__forward dimana indonesia
-__label__forward dimana pasar
-__label__forward dimana rumah sakit
-__label__forward diskon
-__label__forward dokter gigi
-__label__forward download nara
-__label__forward facebook
-__label__forward film terbaru
-__label__forward gaji
-__label__forward gajian
-__label__forward gak
-__label__forward game
-__label__forward gimana caranya biar
-__label__forward gojek
-__label__forward gosip
-__label__forward grab
-__label__forward hamil
-__label__forward happy birthday
-__label__forward harga
-__label__forward harga emas
-__label__forward harga saham
-__label__forward hari apa sekarang
-__label__forward hitung
-__label__forward hubungi nara
-__label__forward ibu kota Indonesia
-__label__forward ibukota Indonesia dimana
-__label__forward i love you
-__label__forward info terkini
-__label__forward instagram
-__label__forward install nara
-__label__forward iya
-__label__forward jadwal sholat
-__label__forward jam berapa
-__label__forward jawab pr
-__label__forward jodoh
-__label__forward jokes
-__label__forward jokowi
-__label__forward jual
-__label__forward judi
-__label__forward kamu bodoh
-__label__forward kamu cantik
+__label__forward aku marah
+__label__forward aku butuh teman
+__label__forward aku mau curhat
+__label__forward aku sayang kamu
+__label__forward aku lapar
+__label__forward aku mau makan
+__label__forward saya bingung
+__label__forward aku bingung
+__label__forward bingung banget
 __label__forward kamu dimana
-__label__forward kamu ganteng
-__label__forward kamu jelek
 __label__forward kamu lagi apa
-__label__forward kamu pintar
-__label__forward kamu punya pacar
-__label__forward kamu sibuk apa
-__label__forward kamu suka aku
 __label__forward kamu udah makan
-__label__forward kapan Indonesia merdeka
-__label__forward kapan lebaran
-__label__forward kapan puasa
-__label__forward kenal nara
-__label__forward kenapa langit biru
-__label__forward koran
-__label__forward kredit
-__label__forward ktp
-__label__forward kuliah
-__label__forward lagi ngapain
-__label__forward lagu apa yang bagus
-__label__forward lagu daerah
-__label__forward lagu favorit
-__label__forward lawak
-__label__forward loker
-__label__forward lowongan kerja
-__label__forward main game
-__label__forward main yuk
-__label__forward makanan khas
-__label__forward makasih
-__label__forward mall
-__label__forward menikah
-__label__forward nara ada dimana
-__label__forward nara adalah
-__label__forward nara apa
+__label__forward udah makan belum
+__label__forward kamu punya pacar
+__label__forward kamu suka aku
+__label__forward kamu cantik
+__label__forward kamu ganteng
+__label__forward kamu pintar
+__label__forward apa kabar kamu
+__label__forward kamu sibuk apa
+__label__forward umur kamu berapa
+__label__forward rumah kamu dimana
+__label__forward kamu dimana tinggalnya
+__label__forward tidur dimana kamu
+__label__forward kamu suka apa
+__label__forward siapa pacar kamu
+__label__forward siapa pacarmu
+__label__forward siapa nama pacarmu
 __label__forward nara apaan
-__label__forward nara desktop
-__label__forward nara down
-__label__forward nara dulu
+__label__forward nara apa
+__label__forward nara adalah
+__label__forward nara itu
+__label__forward nara merupakan
+__label__forward apa itu nara
+__label__forward nara ada dimana
+__label__forward nara dimana
+__label__forward cara akses nara
+__label__forward cara login nara
+__label__forward cara daftar nara
+__label__forward cara pake nara
+__label__forward download nara
+__label__forward install nara
+__label__forward hubungi nara
+__label__forward chat nara
 __label__forward nara error
 __label__forward nara ga bisa
 __label__forward nara gabisa
 __label__forward nara ga jalan
-__label__forward nara itu
+__label__forward nara down
+__label__forward nara mati
+__label__forward nara rusak
 __label__forward nara lambat
 __label__forward nara lemot
-__label__forward nara mati
-__label__forward nara merupakan
-__label__forward nara rusak
 __label__forward nara sangat
+__label__forward nara desktop
 __label__forward nara tugas
 __label__forward nara tugas matkul
-__label__forward negara mana
-__label__forward nggak
-__label__forward ngobrol yuk
-__label__forward nikah
-__label__forward ojek
-__label__forward ok
-__label__forward oke
-__label__forward online shop
-__label__forward pajak
-__label__forward pakaian adat
-__label__forward paket data
-__label__forward penyanyi
-__label__forward pesan makanan
-__label__forward pesan tiket
-__label__forward pinjaman online
-__label__forward pinjol
-__label__forward plis
-__label__forward pr
+__label__forward nara dulu
+__label__forward kenal nara
+__label__forward jokowi
 __label__forward prabowo
 __label__forward presiden
+__label__forward siapa presiden
+__label__forward siapa itu jokowi
 __label__forward presiden amerika siapa
 __label__forward presiden Indonesia siapa
-__label__forward promo
-__label__forward provider
-__label__forward pukul berapa sekarang
-__label__forward pulsa
-__label__forward ramalan bintang
-__label__forward ramalan cuaca
-__label__forward resep kue
-__label__forward resep masakan
-__label__forward resep nasi goreng
-__label__forward rumah kamu dimana
-__label__forward rumah sakit terdekat
-__label__forward rumus fisika
-__label__forward rumus matematika
-__label__forward saya bingung
-__label__forward saya lapar
-__label__forward saya mau makan
-__label__forward sekolah
-__label__forward selamat ulang tahun
-__label__forward sepak bola
-__label__forward serius
-__label__forward setuju ga
-__label__forward shopee
-__label__forward siap
-__label__forward siapa itu jokowi
-__label__forward siapa nama artis
-__label__forward siapa nama gubernur
-__label__forward siapa nama ibu kota
-__label__forward siapa nama menteri
 __label__forward siapa nama presiden
 __label__forward siapa nama presiden amerika
 __label__forward siapa nama presiden Indonesia
-__label__forward siapa pacar kamu
-__label__forward siapa pacarmu
-__label__forward siapa pahlawan nasional
-__label__forward siapa penemu listrik
 __label__forward siapa presiden amerika
 __label__forward siapa presiden Indonesia
 __label__forward siapa presiden rusia
 __label__forward siapa presiden sekarang
-__label__forward sim
+__label__forward siapa nama gubernur
+__label__forward siapa nama menteri
+__label__forward siapa pahlawan nasional
+__label__forward siapa penemu listrik
+__label__forward siapa nama ibu kota
+__label__forward dimana ibu kota Indonesia
+__label__forward ibukota Indonesia dimana
+__label__forward ibu kota Indonesia
+__label__forward kapan Indonesia merdeka
+__label__forward suku di indonesia
+__label__forward berapa provinsi di Indonesia
+__label__forward negara mana
+__label__forward kenapa langit biru
+__label__forward apa warna langit
+__label__forward 1 ditambah 1
+__label__forward berapa 1 tambah 1
+__label__forward hari apa sekarang
+__label__forward jam berapa
+__label__forward pukul berapa sekarang
+__label__forward tanggal berapa hari ini
+__label__forward rumus fisika
+__label__forward rumus matematika
+__label__forward rumus kimia
+__label__forward siapa nama artis
+__label__forward nama presiden
+__label__forward nama ibu kota
+__label__forward cara membuat nasi goreng
+__label__forward cara masak ayam
+__label__forward resep nasi goreng
+__label__forward resep kue
+__label__forward resep masakan
+__label__forward cara buat kue
+__label__forward makanan khas
+__label__forward film terbaru
+__label__forward berita bola
+__label__forward lagu apa yang bagus
+__label__forward lagu daerah
+__label__forward lagu favorit
+__label__forward penyanyi
 __label__forward sinetron
-__label__forward sip
+__label__forward cerita lucu
+__label__forward jokes
+__label__forward lawak
+__label__forward game
+__label__forward main game
+__label__forward cara main game
+__label__forward main yuk
+__label__forward instagram
+__label__forward facebook
+__label__forward tiktok
+__label__forward twitter
+__label__forward shopee
+__label__forward tokopedia
+__label__forward harga emas
+__label__forward harga saham
+__label__forward bitcoin
+__label__forward crypto
+__label__forward pinjaman online
+__label__forward pinjol
+__label__forward cara pinjam uang
+__label__forward cara dapat uang
+__label__forward cara menjadi kaya
+__label__forward bisnis online
+__label__forward gaji
+__label__forward gajian
+__label__forward diskon
+__label__forward promo
+__label__forward asuransi
+__label__forward kredit
+__label__forward pajak
+__label__forward bpjs
+__label__forward stnk
+__label__forward sim
+__label__forward ktp
+__label__forward gojek
+__label__forward grab
+__label__forward ojek
+__label__forward wifi
+__label__forward pulsa
+__label__forward paket data
+__label__forward provider
+__label__forward beli
+__label__forward jual
+__label__forward online shop
+__label__forward supermarket
+__label__forward mall
+__label__forward pasar
+__label__forward apotik
+__label__forward dokter gigi
+__label__forward rumah sakit
+__label__forward rumah sakit terdekat
+__label__forward hamil
+__label__forward sekolah
+__label__forward kuliah
+__label__forward tugas kuliah
 __label__forward skripsi
 __label__forward sma
-__label__forward stnk
-__label__forward suku di indonesia
-__label__forward supermarket
-__label__forward tanggal berapa hari ini
-__label__forward tari tradisional
-__label__forward terima kasih
-__label__forward terjemahkan
-__label__forward thanks
-__label__forward tidak
-__label__forward tidur dimana kamu
-__label__forward tiktok
-__label__forward togel
-__label__forward tokopedia
-__label__forward tolong dong
-__label__forward translate
-__label__forward tugas kuliah
-__label__forward tv
-__label__forward twitter
-__label__forward udah makan belum
-__label__forward umur kamu berapa
-__label__forward wa
-__label__forward wifi
-__label__forward y
-__label__forward ya
+__label__forward pr
+__label__forward jawab pr
+__label__forward lowongan kerja
+__label__forward loker
+__label__forward cari kerja
+__label__forward cv
+__label__forward lamaran kerja
+__label__forward menikah
+__label__forward nikah
+__label__forward jodoh
+__label__forward selamat ulang tahun
+__label__forward happy birthday
+__label__forward jadwal sholat
+__label__forward kapan puasa
+__label__forward kapan lebaran
+__label__forward ramalan
+__label__forward ramalan bintang
 __label__forward zodiak
-# ===== FORWARD (bukan greeting/capability) =====
-# ===== FORWARD — lebih banyak false positive traps =====
-# ===== FORWARD — traps (nanya tentang Nara, bukan ke Nara) =====
-
-# ===== POSITIVE_FEEDBACK — lebih banyak varian ====="
+__label__forward berita terbaru
+__label__forward info terkini
+__label__forward gosip
+__label__forward cuaca besok
+__label__forward cuaca hari ini
+__label__forward ramalan cuaca
+__label__forward terjemahkan
+__label__forward translate
+__label__forward terjemahan
+__label__forward i love you
+__label__forward aku cinta kamu
+__label__forward hitung
+__label__forward kalkulator
+__label__forward gimana caranya biar
+__label__forward cara jadi youtuber
+__label__forward cara jadi artis
+__label__forward setuju ga
+__label__forward bagaimana menurutmu
+__label__forward apa pendapatmu
+__label__forward bener ga sih
+__label__forward beneran
+__label__forward serius
+__label__forward gak
+__label__forward nggak
+__label__forward ya
+__label__forward y
+__label__forward iya
+__label__forward tidak
+__label__forward plis
+__label__forward tolong dong
+__label__forward bantuin dong
+__label__forward pakaian adat
+__label__forward tari tradisional
+__label__forward lagi ngapain
+__label__forward ceritanya gimana
+__label__forward dari mana
+__label__forward darimana asal kamu
+__label__forward kapan gc
+__label__forward kapan tahun baru
+__label__forward kapan natal
+__label__forward dimana pasar
+__label__forward dimana rumah sakit
+__label__forward dimana indonesia
+__label__forward togel
+__label__forward judi
+__label__forward wa
+__label__forward sms
+__label__forward tv
+__label__forward radio
+__label__forward koran
+__label__forward contoh surat
+__label__forward format surat
+__label__forward undangan
+__label__forward pidato
+__label__forward apa itu cinta
+__label__forward apa itu hidup
+__label__forward makna kehidupan
+__label__forward daftar online
+__label__forward cara daftar kartu
+__label__forward cara daftar online
+__label__forward cek data
+__label__forward pengaduan
+__label__forward lapor
+__label__forward komplain
