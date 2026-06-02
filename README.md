@@ -91,7 +91,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (BM25 3-4.9)** | Hanya berjalan jika original BM25 **≥ 3.0** (ada keyword BPS samar). BM25 < 3 langsung OOC — cegah topic drift dari query non-BPS yang numpang cascade. Concat prev query depth 1-3 lalu hitung BM25 ulang, lolos ke hybrid search jika ≥ 5.0. |
+| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.70). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
 | 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
@@ -1205,7 +1205,7 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
   - `3.0-4.9` → `BM25_BORDERLINE` (QNA link — ada sinyal BPS samar)
   - `≥ 5.0` → lanjut hybrid search + LLM
 - **Cascade BM25 depth 3** — concat 1-3 prev query depth, hitung ulang BM25. Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25. Depth 3 berdasarkan NVIDIA (3-5 turns), Chatnexus (sliding window 3), MTRAG paper (3-5 turns).
-- **Cascade guard (BM25 ≥ 3)** — cascade hanya berjalan jika original BM25 **≥ 3.0**. BM25 < 3 langsung ditolak (OOC_BM25) tanpa cascade, mencegah topic drift dari query non-BPS yang numpang keyword dari history.
+- **E5 similarity guard** — setelah cascade BM25 ≥ 5, cek E5 cosine similarity antara query asli vs prev query. Jika < 0.70 → topic drift → cascade skip, jatuh ke 3-tier gate. Mencegah false positive cascade. Biaya: ~0ms (query_vec sudah ada, prev query di LRU cache).
 
 **Fixed**
 - **Cascade compounding bug** — `req.pertanyaan` sebelumnya dimodifikasi oleh cascade, menyebabkan concat berantai di follow-up berikutnya. Sekarang `_cascade_query` terpisah.

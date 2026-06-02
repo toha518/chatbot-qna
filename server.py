@@ -17,6 +17,7 @@ EMOJI_RE = re.compile(r'[\U0001F300-\U0010FFFF]')
 # ===================== MODULES =====================
 from core.database import init_db, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions, check_domain, _DOMAIN_THRESHOLD
+from sklearn.metrics.pairwise import cosine_similarity
 from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
 from core.query_logger import log_query, get_stats
@@ -340,24 +341,29 @@ async def chat(req: ChatRequest):
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[cid]["last_active"] = time.time()
 
-    # ── CASCADE: concat prev query kalo BM25 3-4.9 (ada keyword BPS samar) ──
-    #    BM25 < 3 langsung tolak — pasti non-BPS, gak perlu cascade
+    # ── CASCADE: concat prev query kalo BM25 < 5 ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     cascade_used = False
     _cascade_query = None
-    if 3.0 <= bm25_top < 5.0 and prev_queries:
+    if bm25_top < 5.0 and prev_queries:
         for depth in range(1, min(4, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)
             bm25_cascade = get_bm25_score(enhanced_query)
             print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
-                bm25_top = bm25_cascade
-                _cascade_query = enhanced_query
-                _display_query += f" [cascade depth={depth}]"
-                cascade_used = True
-                print(f"[QUERY] Cascade depth={depth} berhasil! BM25={bm25_cascade:.1f}")
-                break
+                # E5 similarity guard: cek semantic kesamaan query vs prev query
+                _e5_sim = float(cosine_similarity(query_vec, encode_query(prev_queries[0]).reshape(1,-1)).flatten()[0]) if query_vec is not None else 0
+                _e5_threshold = 0.70
+                if _e5_sim >= _e5_threshold:
+                    bm25_top = bm25_cascade
+                    _cascade_query = enhanced_query
+                    _display_query += f" [cascade depth={depth}]"
+                    cascade_used = True
+                    print(f"[QUERY] Cascade depth={depth} berhasil! BM25={bm25_cascade:.1f}, E5 sim={_e5_sim:.2f}")
+                    break
+                else:
+                    print(f"[QUERY] Cascade depth={depth} E5 sim terlalu rendah ({_e5_sim:.2f}) — topic drift, skip cascade")
         if not cascade_used:
             print(f"[QUERY] Cascade 2-depth gagal — BM25 tertinggi {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
 
