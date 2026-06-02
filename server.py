@@ -200,8 +200,10 @@ async def chat(req: ChatRequest):
     cleanup_sessions()
     cid = req.chat_id
     # ===================== INPUT SANITASI =====================
+    # Simpan query asli untuk logging (sebelum normalisasi apapun)
+    _display_query = str(req.pertanyaan)
     req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
-    # Simpan query asli untuk multi-part detection (sebelum normalisasi koma)
+    # Simpan query dengan koma untuk multi-part detection
     _raw_query = req.pertanyaan
     # Normalisasi untuk consistency: koma → spasi (biar E5 embedding stabil)
     req.pertanyaan = req.pertanyaan.replace(',', ' ').replace(';', ' ')
@@ -268,7 +270,7 @@ async def chat(req: ChatRequest):
     centroid_sim = 0.0  # di-update pas domain check
     from core.intent_classifier import _ready, _using_fallback
     _clf_mode = "keyword_fallback" if _using_fallback else ("none" if not _ready else "scikit-learn")
-    print(f"[DOMAIN] '{req.pertanyaan[:60]}' → {ft_domain} ({ft_conf:.3f})")
+    print(f"[DOMAIN] '{_display_query[:60]}' → {ft_domain} ({ft_conf:.3f})")
 
     # Greeting — respon langsung, skip retrieval
     if ft_domain == "greeting":
@@ -282,7 +284,7 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
@@ -303,7 +305,7 @@ async def chat(req: ChatRequest):
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
@@ -314,7 +316,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "positive_feedback":
         jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
@@ -324,7 +326,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "negative_feedback":
         jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
         api_rate_limit[cid]["last_active"] = time.time()
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
@@ -340,7 +342,7 @@ async def chat(req: ChatRequest):
     if bm25_top < _BM25_THRESHOLD:
         jawaban = REJECTION_MSG
         api_rate_limit[cid]["last_active"] = time.time()
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   gate="OOC_BM25", dijawab=False, jawaban=jawaban,
@@ -421,7 +423,7 @@ async def chat(req: ChatRequest):
                 jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf, top5_faq=top5_all,
@@ -442,7 +444,7 @@ async def chat(req: ChatRequest):
         jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
-        log_query(req.pertanyaan, cid, source=req.source,
+        log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf,
@@ -473,7 +475,7 @@ async def chat(req: ChatRequest):
             jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             history.append({"role": "user", "content": req.pertanyaan})
             history.append({"role": "assistant", "content": jawaban})
-            log_query(req.pertanyaan, cid, source=req.source,
+            log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                       rrf_score=top_rrf,
@@ -500,7 +502,7 @@ async def chat(req: ChatRequest):
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
     top_faq = best_q if len(scores) > 0 else ""
-    log_query(req.pertanyaan, cid, source=req.source,
+    log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
               rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores)>0 else 0,
