@@ -11,9 +11,9 @@ import os
 import re
 import pickle
 
-_FT_DIR = os.path.dirname(os.path.abspath(__file__))
-_FT_TRAIN_PATH = os.path.join(_FT_DIR, "classifier_train.txt")
-_FT_MODEL_PATH = os.path.join(_FT_DIR, "domain_filter.ftz")
+_CLF_DIR = os.path.dirname(os.path.abspath(__file__))
+_CLF_TRAIN_PATH = os.path.join(_CLF_DIR, "classifier_train.txt")
+_CLF_MODEL_PATH = os.path.join(_CLF_DIR, "intent_model.pkl")
 
 _model = None
 _vectorizer = None
@@ -157,23 +157,23 @@ def init_classifier() -> None:
     global _model, _vectorizer, _ready, _using_fallback
 
     # Step 1: Coba load model yang udah ada
-    if os.path.exists(_FT_MODEL_PATH):
+    if os.path.exists(_CLF_MODEL_PATH):
         try:
-            with open(_FT_MODEL_PATH, 'rb') as f:
+            with open(_CLF_MODEL_PATH, 'rb') as f:
                 data = pickle.load(f)
             _vectorizer = data['vectorizer']
             _model = data['model']
             # Test predict
             _model.predict(_vectorizer.transform(["test"]))
             _ready = True
-            ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
-            print(f"[CLF] ✅ Loaded from {os.path.basename(_FT_MODEL_PATH)} ({ftz_size}KB)")
+            model_size = os.path.getsize(_CLF_MODEL_PATH) >> 10
+            print(f"[CLF] ✅ Loaded from {os.path.basename(_CLF_MODEL_PATH)} ({model_size}KB)")
             return
         except Exception as e:
             print(f"[CLF] ⚠️ Gagal load model: {str(e)[:60]}...")
 
     # Step 2: Train dari scratch
-    if not os.path.exists(_FT_TRAIN_PATH):
+    if not os.path.exists(_CLF_TRAIN_PATH):
         print("[CLF] ⚠️ Training data tidak ditemukan — keyword fallback")
         _using_fallback = True
         _ready = True
@@ -183,12 +183,12 @@ def init_classifier() -> None:
         from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.linear_model import SGDClassifier
 
-        texts, labels = _load_training_data(_FT_TRAIN_PATH)
+        texts, labels = _load_training_data(_CLF_TRAIN_PATH)
         unique_labels = len(set(labels))
-        print(f"[CLF] Training from {os.path.basename(_FT_TRAIN_PATH)} "
+        print(f"[CLF] Training from {os.path.basename(_CLF_TRAIN_PATH)} "
               f"({len(texts)} samples, {unique_labels} classes)...")
 
-        # Char n-gram + word n-gram — mirip FastText subword
+        # Char n-gram + word n-gram — mirip subword embedding
         _vectorizer = TfidfVectorizer(
             analyzer='char_wb', ngram_range=(2, 4),
             max_features=5000, lowercase=True
@@ -206,10 +206,10 @@ def init_classifier() -> None:
         print(f"[CLF] Training accuracy: {acc*100:.1f}%")
 
         # Save
-        with open(_FT_MODEL_PATH, 'wb') as f:
+        with open(_CLF_MODEL_PATH, 'wb') as f:
             pickle.dump({'vectorizer': _vectorizer, 'model': _model}, f)
-        ftz_size = os.path.getsize(_FT_MODEL_PATH) >> 10
-        print(f"[CLF] Ready — {ftz_size}KB model saved")
+        model_size = os.path.getsize(_CLF_MODEL_PATH) >> 10
+        print(f"[CLF] Ready — {model_size}KB model saved")
         _ready = True
 
     except ImportError:

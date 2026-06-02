@@ -173,7 +173,7 @@ chatbot-qna/
 │   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
 │   ├── intent_classifier.py  ←   scikit-learn SGDClassifier + TF-IDF intent classifier
 │   ├── classifier_train.txt  ←   Training data (478 sampel, 5 kelas)
-│   ├── domain_filter.ftz     ←   Pickle model scikit-learn (185KB, load instant)
+│   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL)
 │
@@ -630,11 +630,12 @@ TRUSTED_CHAT_IDS=1267972859
 ### 5. Install Python Dependencies
 
 ```cmd
-pip install fastapi uvicorn python-telegram-bot httpx sentence-transformers scikit-learn numpy python-dotenv easyocr requests flask rank-bm25
+pip install -r requirements.txt
 ```
 
 > **Catatan:** `sentence-transformers` akan download E5-base (~278MB) di first run.
 > **scikit-learn classifier:** pure Python — gak perlu C++ compiler. Training auto dari `classifier_train.txt`.
+> Semua dependency sudah diatur di `requirements.txt` — tinggal `pip install -r` aja.
 
 ### 6. Install Node.js Dependencies (WhatsApp Bridge)
 
@@ -686,7 +687,7 @@ python telegram_bot.py
 
 Double-click `start-all.bat` — langsung buka 4 terminal.
 
-### 9. Pindah ke PC Baru
+### 9. Pindah ke PC Baru (1 Langkah + .env)
 
 ```cmd
 git clone https://github.com/toha518/chatbot-qna.git
@@ -697,7 +698,7 @@ npm install
 npx puppeteer browsers install chrome
 ```
 
-Buat `.env`, terus `start-all.bat`. Selesai.
+Buat file `.env` (isi token), terus double-click `start-all.bat`. Selesai.
 
 </details>
 

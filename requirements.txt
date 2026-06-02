@@ -13,9 +13,6 @@ httpx
 # E5 embedding model (278MB)
 sentence-transformers>=2.2.0
 
-# FastText domain classifier (<0.5ms inferensi)
-fasttext>=0.9.2
-
 # Similarity computation
 numpy
 scikit-learn
@@ -32,6 +29,4 @@ python-telegram-bot>=20.0
 
 # ---- Optional / WA Bridge ----
 flask
-ollama
-google-generativeai
 rank-bm25>=0.2.2

@@ -40,7 +40,7 @@ if GSHEET_CSV_URL:
 else:
     print("[BOOT] ⚠️ GSHEET_CSV_URL tidak di-set!")
     total_qna = 0
-# Init FastText domain classifier (setelah embedder di-load)
+# Init scikit-learn classifier (setelah embedder di-load)
 init_classifier()
 load_llm_config()
 identity, system_template, greeting_template, acronyms = load_prompts()
