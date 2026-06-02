@@ -744,7 +744,7 @@
     </nav>
     <div class="sidebar-footer">
       <div>© 2026 BPS Bangka Belitung</div>
-      <div class="mt-1 text-muted">NARA v2.3.1</div>
+      <div class="mt-1 text-muted" id="naraVersion">NARA v<span class="version-placeholder">...</span></div>
     </div>
   </aside>
   <div class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle sidebar"><i class="bi bi-chevron-left"></i></div>
@@ -1567,6 +1567,17 @@
         if (saved !== null) cb.checked = saved === '1';
       });
     })();
+    // ── Auto-update version from git VERSION file ──
+    async function loadVersion() {
+      try {
+        const resp = await fetch('/api/version');
+        const data = await resp.json();
+        document.getElementById('naraVersion').innerHTML = `NARA ${data.version}`;
+      } catch(e) {
+        document.querySelector('.version-placeholder').textContent = '?';
+      }
+    }
+    loadVersion();
     loadStats();
   </script>
 </body>

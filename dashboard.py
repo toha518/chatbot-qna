@@ -21,6 +21,7 @@ import uvicorn
 DB = Path(__file__).parent / "query_log.db"
 TEMPLATE = Path(__file__).parent / "templates" / "dashboard.html"
 FAVICON = Path(__file__).parent / "templates" / "favicon.svg"
+VERSION_FILE = Path(__file__).parent / "VERSION"
 
 app = FastAPI(title="NARA Dashboard")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -54,6 +55,16 @@ def _rows(sql: str, params=()):
     rows = cur.fetchall()
     db.close()
     return [dict(zip(cols, r)) for r in rows]
+
+
+@app.get("/api/version")
+def get_version():
+    """Return NARA version from VERSION file."""
+    if VERSION_FILE.exists():
+        ver = VERSION_FILE.read_text(encoding="utf-8").strip()
+    else:
+        ver = "dev"
+    return {"version": ver}
 
 
 @app.get("/", response_class=HTMLResponse)
