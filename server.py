@@ -340,19 +340,24 @@ async def chat(req: ChatRequest):
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[cid]["last_active"] = time.time()
 
-    # ── CASCADE: coba concat prev query kalo BM25 < 5 ──
+    # ── CASCADE: coba concat prev query kalo BM25 < 5 (max depth 2) ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     cascade_used = False
     if bm25_top < 5.0 and prev_queries:
-        enhanced_query = prev_queries[0] + " — " + req.pertanyaan
-        bm25_cascade = get_bm25_score(enhanced_query)
-        print(f"[QUERY] Cascade BM25: {bm25_top:.1f} → {bm25_cascade:.1f} (concat prev)")
-        if bm25_cascade >= 5.0:
-            bm25_top = bm25_cascade
-            req.pertanyaan = enhanced_query
-            _display_query += f" [cascade: +{prev_queries[0][:40]}]"
-            cascade_used = True
-            print(f"[QUERY] Cascade berhasil! Lanjut ke hybrid dengan BM25={bm25_cascade:.1f}")
+        for depth in range(1, min(3, len(prev_queries) + 1)):
+            context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
+            enhanced_query = " — ".join(context_parts)
+            bm25_cascade = get_bm25_score(enhanced_query)
+            print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f} '{enhanced_query[:80]}'")
+            if bm25_cascade >= 5.0:
+                bm25_top = bm25_cascade
+                req.pertanyaan = enhanced_query
+                _display_query += f" [cascade depth={depth}]"
+                cascade_used = True
+                print(f"[QUERY] Cascade depth={depth} berhasil! BM25={bm25_cascade:.1f}")
+                break
+        if not cascade_used:
+            print(f"[QUERY] Cascade 2-depth gagal — BM25 tertinggi {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
         else:
             print(f"[QUERY] Cascade gagal — BM25 masih {bm25_cascade:.1f}")
 
