@@ -413,7 +413,6 @@ async def chat(req: ChatRequest):
     parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
-        from sklearn.metrics.pairwise import cosine_similarity
         _SEMANTIC_MERGE_THRESHOLD = 0.78
         merged_parts = [parts[0]]
         for i in range(1, len(parts)):
