@@ -386,7 +386,7 @@ async def chat(req: ChatRequest):
         relevant_answers = []
         skipped_parts = []
         for part in parts:
-            p_ctx, p_scores, p_best_q = hybrid_search(part, top_k=1)
+            p_ctx, p_scores, p_best_q, _ = hybrid_search(part, top_k=1)
             p_rrf = float(p_scores[2]) if len(p_scores) > 2 else 0
             if p_rrf < _ANSWER_THRESHOLD:
                 print(f"[QUERY] Part '{part[:30]}...' skip (RRF={p_rrf:.4f})")
