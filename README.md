@@ -1196,19 +1196,21 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 #### v2.4.2 — 2026-06-02
 
 **Added**
-- **`bm25_gate` field** di query log + dashboard — nilai max BM25 dari semua FAQ yang dipakai gate (sebelumnya `bm25_raw` saja yang nyatet BM25 FAQ top-RRF, bikin bingung debugging). Dua kolom terpisah: `bm25_gate` (gate) + `bm25_raw` (top-RRF)
-- **Dashboard version auto-detect** — baca dari `git describe --tags`, fallback ke file `VERSION`. Versi update otomatis setelah `git pull` + restart dashboard
+- **`bm25_gate` field** di query log + dashboard — nilai max BM25 dari semua FAQ yang dipakai gate. Dua kolom terpisah: `bm25_gate` (gate) + `bm25_raw` (top-RRF)
+- **Dashboard version auto-detect** — baca dari `git describe --tags`, fallback ke file `VERSION`. Update otomatis setelah `git pull` + restart
 - **Personality Nara** — "pendengar yang baik dan perhatian" di `identity.json`
+- **Ranked context format** — FAQ diberi label `⭐️ PERINGKAT 1 (JAWABAN UTAMA)` s.d. `PERINGKAT 5`. `context_header` di `responses.json` diperkuat: LLM diinstruksikan memilih peringkat yang PALING COCOK, dilarang jawab generik jika ada solusi spesifik. Berbasis riset Galileo AI RAG prompting + Thread of Thought (ThoT) + Chain-of-Note (CoN)
+- **Multi-part LLM routing** — tiap part di multi-part query sekarang di-routing melalui LLM (system prompt + ranked context + call_llm), bukan copy-paste mentah dari FAQ. Respons konsisten antara single-query dan multi-part
 
 **Changed**
-- **CLF training data rebuild** — 478 → **845 samples** (+193 greeting, +94 capability), **zero cross-domain overlap**. Sumber: NARA production logs + IndoNLU + Kaggle + UNSRI University Chatbot dataset. Akurasi training 98.1%, 5-fold CV 87.9%. Fix bug: 10 item yang overlap di dua domain (`ok`, `oke`, `sip`, `baik`, `makasih`, `terima kasih`, `thanks`, `siap`, `kamu bodoh`, `kamu jelek`) dihapus dari `forward`
-- **Greeting prompt simplified** — `greeting.md` dipangkas 13→6 baris, fokus greeting saja (capability udah ditangani template statis CLF)
+- **CLF training data rebuild** — 478 → **845 samples** (+193 greeting, +94 capability), **zero cross-domain overlap**. Sumber: NARA production logs + IndoNLU + Kaggle + UNSRI University Chatbot dataset. Akurasi training 98.1%, 5-fold CV 87.9%. Fix 10 item overlap dihapus dari `forward`
+- **Greeting prompt simplified** — `greeting.md` 13→6 baris (capability ditangani template statis CLF)
 - **System prompt refined** — lebih tegas di QNA link rule
 
 **Fixed**
-- **`hybrid_search()` unpack error** — multi-part split cuma unpack 3 values, padahal fungsi return 4 (tambah `top5`). Bikin 500 Internal Server Error pas ketrigger multi-part query
-- **Comma normalization** — koma dihapus di input sanitasi (`,` → spasi) sebelum E5 encoding, biar vektor embedding konsisten. `_raw_query` disimpan terpisah untuk multi-part comma detection. Fix double-answer untuk "Fasih gc pln, tidak bisa submit"
-- **Multi-part regex** — `[,;]\s*` dihapus, konjungsi lemah (`lalu`, `terus`, `trus`, `selanjutnya`, `berikutnya`, `sementara itu`, `adapun`, `pertama`, `kedua`, `ketiga`) dihapus. Cuma split di `dan`, `serta`, `sedangkan`, `namun`, `tetapi`, `tapi`, `,`, `.`, `?`
+- **`hybrid_search()` unpack error** — multi-part split cuma unpack 3 values, padahal fungsi return 4. Bikin 500 Internal Server Error saat multi-part query
+- **Comma normalization** — koma dihapus di input sanitasi (`,` → spasi) sebelum E5 encoding, biar vektor embedding konsisten. `_raw_query` disimpan terpisah untuk multi-part comma detection
+- **Multi-part regex** — `[,;]\s*` + konjungsi lemah dihapus. Hanya split di `dan`, `serta`, `sedangkan`, `namun`, `tetapi`, `tapi`, `,`, `.`, `?`. E5 tetap yang menentukan merge/split final
 - **Dashboard column toggles** — fix duplikasi `data-col` index + realign 25 kolom ke DT_HEADERS 1:1
 
 **Docs**
