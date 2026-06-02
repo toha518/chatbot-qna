@@ -261,17 +261,12 @@ USER CHAT
   ▼
 ┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  E5 semantic similarity  +  BM25 keyword scoring  │
-│  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
-│  Top-5 FAQ terpilih (RRF ranking, BUKAN gate)     │
+│  RRF ranking: 1/(rank_E5+K) + 1/(rank_BM25+K)    │
+│  Top-5 FAQ terpilih (RRF untuk ranking, bukan gate)│
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 7. RRF GATE (3 cabang) ────────────────────────┐
-│  (RRF digunakan untuk ranking, bukan gate)       │
-└───────────────────────────────────────────────────┘
-  │ (ANSWER)
-  ▼
-┌─ 8. LLM GENERATE ───────────────────────────────┐
+┌─ 7. LLM GENERATE ───────────────────────────────┐
 │  System prompt + 5 FAQ context + chat history     │
 │  Multi-provider failover (cloud → Ollama lokal)   │
 │  Timeout 30 detik per provider                    │
