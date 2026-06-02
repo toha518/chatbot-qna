@@ -343,15 +343,16 @@ async def chat(req: ChatRequest):
     # ── CASCADE: coba concat prev query kalo BM25 < 5 (max depth 2) ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     cascade_used = False
+    _cascade_query = None
     if bm25_top < 5.0 and prev_queries:
         for depth in range(1, min(3, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)
             bm25_cascade = get_bm25_score(enhanced_query)
-            print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f} '{enhanced_query[:80]}'")
+            print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
                 bm25_top = bm25_cascade
-                req.pertanyaan = enhanced_query
+                _cascade_query = enhanced_query
                 _display_query += f" [cascade depth={depth}]"
                 cascade_used = True
                 print(f"[QUERY] Cascade depth={depth} berhasil! BM25={bm25_cascade:.1f}")
@@ -388,8 +389,9 @@ async def chat(req: ChatRequest):
         return {"jawaban": jawaban, "skor": 0}
 
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
-    # ── HYBRID SEARCH (E5 + BM25 via RRF, hanya untuk ranking) ──
-    context, scores, best_q, top5_all = hybrid_search(req.pertanyaan, top_k=5)
+    # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
+    _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
+    context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
