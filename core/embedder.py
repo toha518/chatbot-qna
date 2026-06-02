@@ -302,6 +302,9 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
     # ── Format konteks ──
     context = ""
     seen_answers = set()
+    # ── Format konteks dengan peringkat ──
+    rank_labels = ["⭐️ PERINGKAT 1 (JAWABAN UTAMA)", "PERINGKAT 2", "PERINGKAT 3", "PERINGKAT 4", "PERINGKAT 5"]
+    rank_idx = 0
     for idx in best_idx:
         if rrf_scores[idx] < 0.001:
             continue
@@ -310,13 +313,17 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
             continue
         seen_answers.add(answer_key)
 
+        label = rank_labels[min(rank_idx, len(rank_labels)-1)]
+        rank_idx += 1
         k = categories[idx].strip() if idx < len(categories) and categories[idx].strip() else ""
         if k:
-            context += (f"KATEGORI: {k}\n"
+            context += (f"{label}\n"
+                        f"KATEGORI: {k}\n"
                         f"PERTANYAAN: {questions[idx]}\n"
                         f"JAWABAN: {answers[idx]}\n\n")
         else:
-            context += (f"PERTANYAAN: {questions[idx]}\n"
+            context += (f"{label}\n"
+                        f"PERTANYAAN: {questions[idx]}\n"
                         f"JAWABAN: {answers[idx]}\n\n")
 
     # ── Fallback ──

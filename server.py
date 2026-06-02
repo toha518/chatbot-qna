@@ -393,18 +393,24 @@ async def chat(req: ChatRequest):
         relevant_answers = []
         skipped_parts = []
         for part in parts:
-            p_ctx, p_scores, p_best_q, _ = hybrid_search(part, top_k=1)
+            p_ctx, p_scores, p_best_q, p_top5 = hybrid_search(part, top_k=5)
             p_rrf = float(p_scores[2]) if len(p_scores) > 2 else 0
             if p_rrf < _ANSWER_THRESHOLD:
                 print(f"[QUERY] Part '{part[:30]}...' skip (RRF={p_rrf:.4f})")
                 skipped_parts.append(part)
                 continue
-            for line in p_ctx.split('\n'):
-                if line.startswith('JAWABAN:'):
-                    relevant_answers.append(line.replace('JAWABAN: ', '').strip())
-                    break
+            # Route through LLM — same pipeline as single query
+            _system = build_system_prompt(system_template, identity, acronyms)
+            _msgs = [{"role": "system", "content": _system}]
+            _msgs.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=p_ctx)})
+            _msgs.append({"role": "user", "content": part})
+            _jawaban, _llm_model, _llm_provider, _llm_time = await call_llm(_msgs, timeout=30)
+            if not _jawaban:
+                _jawaban = p_ctx  # fallback: raw FAQ context
+                _llm_model = _llm_provider = ""; _llm_time = 0
+            relevant_answers.append(_jawaban)
         if relevant_answers:
-            jawaban = '\n\n'.join(relevant_answers)
+            jawaban = '\n\n---\n\n'.join(relevant_answers)
             if skipped_parts:
                 jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
             print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")

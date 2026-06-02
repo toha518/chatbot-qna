@@ -21,5 +21,5 @@
   "text_only": "⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.",
   "server_down": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan.",
   "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}",
-  "context_header": "Data referensi:\n{context}"
+  "context_header": "📚 Data Referensi (diurutkan dari PALING RELEVAN — Ranking #1 ke #5):\n\n{context}\n\n⚠️ Gunakan Ranking #1 sebagai acuan UTAMA. Jika Ranking #1 kurang sesuai, cek Ranking #2, #3, dst — pilih yang PALING COCOK dengan pertanyaan user. JANGAN membuat jawaban generik (\"coba cek dulu\", \"silakan dicoba\") jika data referensi sudah memiliki langkah spesifik."
 }
