@@ -62,7 +62,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Domain Gate** | BM25 threshold (≥3.0) — tolak query tanpa keyword BPS sebelum retrieval |
+| **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 2 untuk follow-up pendek |
 | **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=60) — E5 semantic + BM25 keyword, top-5 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
@@ -81,8 +81,8 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Domain Gate (BM25 Threshold)** | **BM25 ≥ 3.0** jadi domain check sebelum retrieval — query tanpa keyword BPS langsung ditolak. **Zero LLM cost untuk out-of-context.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
+| 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 2 untuk follow-up pendek seperti "linknya udah dicoba". **Zero LLM cost untuk out-of-context & borderline.** |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -91,13 +91,10 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback** | Hybrid score < threshold? Concatenate 1-2 query user sebelumnya, search ulang. Max depth 2. |
+| 🔄 **Cascade Fallback** | BM25 < 5? Concatenate 1-2 query user sebelumnya, hitung ulang BM25. Max depth 2. Berguna untuk follow-up seperti "linknya udah dicoba" setelah "aktivasi FASIH gimana?" |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
-| 📊 **Query Logging** | Semua pertanyaan dicatat dual-log (JSONL + SQLite) — 24 kolom: CLF, RRF, E5, BM25 Gate, BM25 Raw, gate status, LLM response time, source tracking (wa/telegram/api) |
-| 🧠 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 semantic merge. Cosim antar part ≥ 0.55? merge balik (1 konteks). < 0.55? split (beda intent). Bagian di luar BPS di-skip |
-| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter. Input dari OCR gambar **tidak kena limit 500 karakter** (screenshot error panjang tetap terbaca penuh) |
-| 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting biar bersih |
+| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
 
 ---
 
@@ -110,8 +107,8 @@ Bot ini punya **6 lapis proteksi**:
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
-| 5 | 🔍 **Domain Gate (BM25 Threshold)** | `core/bm25.py` → `server.py` | **BM25 keyword overlap check.** Query di-tokenisasi → skor BM25 vs semua FAQ. `BM25 < 3.0` → out-of-domain (tolak tanpa retrieval/LLM). `BM25 ≥ 3.0` → lanjut hybrid search + RRF gate. Threshold dari analisis 100+ query production. Centroid E5 di-log untuk analytics (bukan gate). **Zero LLM cost untuk out-of-context.** |
+| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%. Keyword fallback sbg safety net |
+| 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade BM25 depth 2 untuk follow-up. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Pipeline Domain Filter (BM25 Threshold)
@@ -120,7 +117,10 @@ Bot ini punya **6 lapis proteksi**:
 Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
                  → lainnya → BM25 keyword check
                               ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
-                              └─ BM25 ≥ 3.0 → hybrid_search (E5+BM25 via RRF) → LLM
+                              ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
+                              ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-2
+                              │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
+                              └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
 ```
 
 **Kenapa BM25?** Keyword overlap langsung mengukur "ada gak sih istilah BPS di pertanyaan ini?". Query tanpa satupun istilah FAQ (nasi goreng, presiden AS) langsung ketahuan dari BM25 rendah.
@@ -128,10 +128,12 @@ Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
 **Threshold BM25 (dari analisis 100+ query production):**
 | BM25 Range | Arti | Contoh Query |
 |:---------:|------|--------------|
-| **< 3.0** | Gak ada keyword BPS signifikan — tolak | "cara membuat nasi goreng" (0.0), "ibunya Jokowi" (0.0) |
-| **3.0 - 5.0** | Ada keyword generic samar | "di dtsen juga" (2.49), "tes" (5.28) |
-| **5.0 - 10.0** | Ada sinyal BPS jelas | "NIK sesuai KTP" (5.07), "FASIH gagal login" (6.79) |
-| **10.0+** | FAQ match kuat | "verifikasi NIK gagal" (10.66), OCR screenshot (34-42) |
+| BM25 Range | Arti | Gate | Contoh Query |
+|:---------:|------|:----:|--------------|
+| **< 3.0** | Gak ada keyword BPS signifikan | ❌ OOC_BM25 (tolak) | "cara membuat nasi goreng" (0.0), "resep nasi goreng" (0.0) |
+| **3.0 - 4.9** | Keyword generic — samar | ❌ BM25_BORDERLINE (QNA link) | "di dtsen juga" (2.49), "maaf pak mau tanya" (3.2), "nasi goreng ala bps" (4.8) |
+| **5.0 - 10.0** | Sinyal BPS jelas | ✅ Lanjut hybrid | "NIK sesuai KTP" (5.07), "FASIH gagal login" (6.79) |
+| **10.0+** | FAQ match kuat | ✅ Lanjut hybrid | "verifikasi NIK gagal" (10.66), OCR screenshot (34-42) |
 
 **Tambahan:** Centroid E5 dihitung (rata-rata vektor FAQ) dan di-log ke `query_log.db` untuk analytics dashboard, tapi **tidak digunakan sebagai gate**.
 
@@ -141,14 +143,13 @@ Ketika hybrid search mendeteksi pertanyaan **domain BPS tapi belum ada di FAQ**,
 
 **http://s.bps.go.id/nara-qna**
 
-Link keluar di 3 situasi:
-1. **BM25 reject** — BM25 < 3.0 (gak ada keyword BPS, tanpa retrieval)
-2. **RRF cascade gagal** — RRF ≥ 0.018 tapi < 0.025 (ada sinyal BPS, FAQ ga ketemu)
-3. **Multi-part gagal** — semua part di-skip (tidak ada FAQ match) tapi RRF ≥ 0.018
+Link keluar di 2 situasi:
+1. **BM25 < 3.0** — OOC_BM25 (gak ada keyword BPS, tolak total)
+2. **BM25 3.0-4.9** — BM25_BORDERLINE (ada sinyal BPS, tapi gak cukup kuat untuk FAQ match)
 
 Response templates di `prompts/responses.json`:
-- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (BM25 < 3.0 atau RRF < 0.018)
-- `rejection_no_answer` — "Silakan ajukan lewat form..." (BM25 ≥ 3.0, ga ada FAQ match)
+- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (BM25 < 3.0 — out of domain)
+- `rejection_no_answer` — "Silakan ajukan lewat form..." (BM25 3.0-4.9 — borderline, gak match FAQ)
 
 **Kenapa BM25 bisa jadi domain filter?**
 BM25 = keyword overlap antara query user dan seluruh FAQ. Query di luar domain → gak ada satupun istilah BPS → BM25 < 3.0 → **tolak tanpa retrieval maupun LLM**. Query BPS → BM25 ≥ 3.0 → lanjut hybrid search + LLM. **Zero LLM cost untuk out-of-context.**
@@ -238,11 +239,13 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │ (kalau forward)
   ▼
-┌─ 4. DOMAIN GATE: BM25 KEYWORD CHECK ─────────────┐
+┌─ 4. DOMAIN GATE: BM25 3-TIER ────────────────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
-│  • BM25 < 3.0  → ❌ OOC_BM25 (tolak langsung)     │
-│  • BM25 ≥ 3.0  → lanjut hybrid search ↓          │
-│  Centroid E5 di-log (analytics, bukan gate)       │
+│  • BM25 < 3.0    → ❌ OOC_BM25 (tolak)             │
+│  • BM25 3.0-4.9  → ❌ BM25_BORDERLINE (QNA link)   │
+│  • BM25 < 5 + history → CASCADE depth 1-2         │
+│  • BM25 ≥ 5.0    → ✅ lanjut hybrid ↓              │
+│  Cascade: concat prev query, hitung BM25 ulang     │
 └───────────────────────────────────────────────────┘
   │ (BM25 ≥ 3.0)
   ▼
@@ -257,15 +260,12 @@ USER CHAT
 ┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
-│  Top-5 FAQ terpilih                               │
+│  Top-5 FAQ terpilih (RRF ranking, BUKAN gate)     │
 └───────────────────────────────────────────────────┘
   │
   ▼
 ┌─ 7. RRF GATE (3 cabang) ────────────────────────┐
-│  RRF < 0.018         → ❌ OUT_OF_CONTEXT          │
-│  0.018 ≤ RRF < 0.025 → 🔄 CASCADE (2x, dg history)│
-│    Cascade gagal?     → 📩 QNA link               │
-│  RRF ≥ 0.025         → ✅ ANSWER → lanjut LLM ↓  │
+│  (RRF digunakan untuk ranking, bukan gate)       │
 └───────────────────────────────────────────────────┘
   │ (ANSWER)
   ▼
@@ -283,7 +283,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 gate (≥3.0)** → hybrid search (E5+BM25 RRF) → **RRF gate (ANSWER/OOC/CASCADE)** → LLM → jawab + log
+> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 3-tier gate (OOC/BORDERLINE/ANSWER)** → cascade depth 2 → hybrid search (E5+BM25 RRF) → LLM → jawab + log
 
 ---
 
@@ -316,7 +316,7 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 |-------|--------|-----------|--------|
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
-> **Catatan:** BM25 punya dua peran: (1) **Gate** — `get_bm25_score()` ambil max dari semua FAQ, putuskan lanjut/tolak. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 dihitung dan di-log untuk analytics tapi tidak digunakan sebagai gate.
+> **Catatan:** BM25 punya dua peran: (1) **Gate 3-tier** — `get_bm25_score()` ambil max dari semua FAQ, putuskan OOC/BM25_BORDERLINE/lanjut. Juga sebagai **cascade trigger** — concat prev query kalo BM25 < 5. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 di-log untuk analytics (bukan gate).
 
 **✅ Kelebihan:**
 - ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
@@ -427,7 +427,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 - Tanpa `capability` terpisah: LLM suka ngarang definisi palsu ("GC PBI = Ground Check Penggunaan Bahan Bakar Industri"). Template statis mencegah hal ini.
 
 **Model:**
-- **SGDClassifier + TF-IDF (185KB)** — pure Python, semua OS. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%, inferensi < 1ms
+- **SGDClassifier + TF-IDF (185KB)** — pure Python, semua OS. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%, inferensi < 1ms
 - **Keyword fallback** — auto aktif kalo scikit-learn gak terinstall. Akurasi: ~95%
 
 **Training data:** `core/classifier_train.txt` — 478 baris, format:
@@ -1192,6 +1192,53 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 
 ---
+
+---
+
+#### v2.5.0 — 2026-06-02
+
+**BREAKING: Domain Gate RRF Dihapus**
+- **RRF tidak lagi sebagai gate** — RRF hanya untuk ranking fusion E5+BM25. Skor RRF berkutat di rentang sempit (0.018-0.033) karena K=60, membuatnya tidak efektif sebagai domain filter
+- Gate label `OUT_OF_CONTEXT`, `CASCADE_QNA`, `CASCADE_FAILED` dihapus
+- **BM25 3-tier gate** menggantikan pipeline sebelumnya:
+  - `< 3.0` → `OOC_BM25` (tolak total)
+  - `3.0-4.9` → `BM25_BORDERLINE` (QNA link — ada sinyal BPS samar)
+  - `≥ 5.0` → lanjut hybrid search + LLM
+- **Cascade BM25 depth 2** — concat 1-2 prev query, hitung ulang BM25. Menggantikan cascade berbasis RRF sebelumnya. Depth 2 cukup karena keyword overlap dari query pertama masih dominan
+
+**Added**
+- **`bm25_gate` field** di query log + dashboard — nilai max BM25 dari semua FAQ yang dipakai gate. Dua kolom terpisah: `bm25_gate` (gate) + `bm25_raw` (BM25 FAQ top-RRF)
+- **Dashboard version auto-detect** — baca dari `git describe --tags`, fallback file `VERSION`. Update otomatis setelah `git pull` + restart
+- **Personality Nara** — "pendengar yang baik dan perhatian"
+- **Ranked context format** — FAQ diberi label `⭐️ PERINGKAT 1 (JAWABAN UTAMA)` s.d. `PERINGKAT 5`. Berbasis riset Galileo AI RAG prompting + Thread of Thought (ThoT) + Chain-of-Note (CoN)
+- **Multi-part LLM routing** — tiap part di multi-part query sekarang di-routing melalui LLM penuh, bukan copy-paste FAQ
+- **`_display_query` logging** — log mencatat teks asli dari user (termasuk koma, spasi, dll), bukan teks yang sudah dinormalisasi
+
+**Changed**
+- **CLF training data rebuild** — 478 → **845 samples** (+193 greeting, +94 capability), **zero cross-domain overlap**. Sumber: production logs + IndoNLU + Kaggle + UNSRI Chatbot dataset. Training accuracy 98.1%, 5-fold CV 87.9%. Fix 10 item overlap dihapus dari `forward`
+- **Greeting prompt simplified** — `greeting.md` 13→6 baris
+- **System prompt refined** — aturan ranking eksplisit: pilih FAQ yang PALING COCOK, jangan jawab generik jika ada solusi spesifik
+- **Personality & identity updates** — `identity.json`, `system.md`, `greeting.md` semua disederhanakan
+- **`responses.json`** — `context_header` dipindah ke `server.py` sebagai f-string (bukan user-facing template)
+
+**Fixed**
+- **`hybrid_search()` unpack error** — multi-part split cuma unpack 3 values, fungsi return 4 → 500 Internal Server Error
+- **Comma normalization** — koma dihapus di input sanitasi (`,` → spasi) untuk konsistensi E5 embedding. `_raw_query` disimpan terpisah untuk multi-part comma detection
+- **Multi-part regex** — `[,;]\s*` + konjungsi lemah dihapus. Hanya split di konjungsi kuat + koma + titik + tanda tanya
+- **Dashboard column toggles** — fix duplikasi `data-col` index, realign 25 kolom 1:1 ke DT_HEADERS
+- **top5_faq** — sekarang menampilkan ranking label: `#1`, `#2`, ...
+
+**Docs**
+- README instalasi Windows — update ke 5 terminal (include dashboard), pakai `pip install -r requirements.txt`
+- BM25 section — jelasin dual role + 3-tier gate + cascade BM25
+- Pipeline flowchart — update ke BM25 3-tier + cascade + hapus RRF gate
+- SETUP-WINDOWS.md — rewrite lengkap, tambah dashboard + pindah PC baru
+
+**Housekeeping**
+- `requirements.txt` — hapus `fasttext`, `google-generativeai`, `ollama` (tidak dipakai)
+- `.gitignore` — tambah `faq_categories.json`
+- `core/intent_classifier.py` — rename `FT_` → `CLF_` vars, model path `domain_filter.ftz` → `intent_model.pkl`
+- `VERSION` file — single source of truth untuk versi
 
 #### v2.4.2 — 2026-06-02
 
