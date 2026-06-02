@@ -345,7 +345,7 @@ async def chat(req: ChatRequest):
     cascade_used = False
     _cascade_query = None
     if bm25_top < 5.0 and prev_queries:
-        for depth in range(1, min(3, len(prev_queries) + 1)):
+        for depth in range(1, min(4, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)
             bm25_cascade = get_bm25_score(enhanced_query)
