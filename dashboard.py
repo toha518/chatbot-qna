@@ -59,11 +59,24 @@ def _rows(sql: str, params=()):
 
 @app.get("/api/version")
 def get_version():
-    """Return NARA version from VERSION file."""
-    if VERSION_FILE.exists():
-        ver = VERSION_FILE.read_text(encoding="utf-8").strip()
-    else:
-        ver = "dev"
+    """Return NARA version from git tag (auto). Fallback: VERSION file."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            capture_output=True, text=True, timeout=2,
+            cwd=str(Path(__file__).parent)
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            ver = result.stdout.strip()
+        else:
+            raise Exception("git describe failed")
+    except Exception:
+        # Fallback: baca VERSION file (kalo clone via ZIP, gak ada .git)
+        if VERSION_FILE.exists():
+            ver = VERSION_FILE.read_text(encoding="utf-8").strip()
+        else:
+            ver = "dev"
     return {"version": ver}
 
 
