@@ -332,16 +332,16 @@ async def chat(req: ChatRequest):
                   gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
         return {"jawaban": jawaban, "skor": 1.0}
 
-    # ── DOMAIN FILTER: BM25 threshold check ──
+    # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics
     from core.bm25 import get_bm25_score
     bm25_top = get_bm25_score(req.pertanyaan)
-    _BM25_THRESHOLD = 3.0  # BM25 < 3.0 = gak ada keyword BPS signifikan
-    print(f"[DOMAIN] BM25={bm25_top:.1f} (threshold={_BM25_THRESHOLD}, centroid={centroid_sim:.4f})")
-    if bm25_top < _BM25_THRESHOLD:
-        jawaban = REJECTION_MSG
-        api_rate_limit[cid]["last_active"] = time.time()
+    print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
+    api_rate_limit[cid]["last_active"] = time.time()
+    if bm25_top < 3.0:
+        # Tier 1: out-of-domain — tolak total
+        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -353,7 +353,22 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": 0}
 
-    # ── HYBRID SEARCH (gak ada domain filter terpisah — BM25=0 udah ditolak di atas) ──
+    if 3.0 <= bm25_top < 5.0:
+        # Tier 2: borderline — domain BPS possible tapi gak match FAQ → QNA link
+        jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
+        log_query(_display_query, cid, source=req.source,
+                  centroid_sim=centroid_sim,
+                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                  gate="BM25_BORDERLINE", dijawab=False, jawaban=jawaban,
+                  bm25_gate=bm25_top)
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        return {"jawaban": jawaban, "skor": 0}
+
+    # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → lanjut hybrid search
+    # ── HYBRID SEARCH ──
     context, scores, best_q, top5_all = hybrid_search(req.pertanyaan, top_k=5)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25)")
