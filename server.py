@@ -369,7 +369,7 @@ async def chat(req: ChatRequest):
                 else:
                     print(f"[QUERY] Cascade depth={depth} E5 sim terlalu rendah ({_e5_sim:.2f}) — topic drift, skip cascade")
         if not cascade_used:
-            print(f"[QUERY] Cascade 2-depth gagal — BM25 tertinggi {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
+            print(f"[QUERY] Cascade gagal di semua depth — BM25 max {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
