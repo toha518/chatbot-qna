@@ -340,11 +340,12 @@ async def chat(req: ChatRequest):
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[cid]["last_active"] = time.time()
 
-    # ── CASCADE: coba concat prev query kalo BM25 < 5 (max depth 2) ──
+    # ── CASCADE: concat prev query kalo BM25 3-4.9 (ada keyword BPS samar) ──
+    #    BM25 < 3 langsung tolak — pasti non-BPS, gak perlu cascade
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     cascade_used = False
     _cascade_query = None
-    if bm25_top < 5.0 and prev_queries:
+    if 3.0 <= bm25_top < 5.0 and prev_queries:
         for depth in range(1, min(4, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)

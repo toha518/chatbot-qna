@@ -91,7 +91,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (BM25-triggered)** | Jika BM25 < 5 ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Cascade lolos ke HYBRID search (E5+BM25 via RRF), bukan cuma BM25. Depth 3 berdasarkan best practice NVIDIA (3-5 turns) dan Chatnexus (sliding window 3). Jika cascade gagal → 3-tier BM25 gate. |
+| 🔄 **Cascade Fallback (BM25 3-4.9)** | Hanya berjalan jika original BM25 **≥ 3.0** (ada keyword BPS samar). BM25 < 3 langsung OOC — cegah topic drift dari query non-BPS yang numpang cascade. Concat prev query depth 1-3 lalu hitung BM25 ulang, lolos ke hybrid search jika ≥ 5.0. |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
 | 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
@@ -241,9 +241,9 @@ USER CHAT
   ▼
 ┌─ 4. DOMAIN GATE: BM25 3-TIER ────────────────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
-│  • BM25 < 3.0    → ❌ OOC_BM25 (tolak)             │
+│  • BM25 < 3.0    → ❌ OOC_BM25 (tolak, NO cascade) │
 │  • BM25 3.0-4.9  → ❌ BM25_BORDERLINE (QNA link)   │
-│  • BM25 < 5 + history → CASCADE depth 1-3         │
+│  • BM25 3-4.9 + history → CASCADE depth 1-3       │
 │  • BM25 ≥ 5.0    → ✅ lanjut hybrid ↓              │
 │  Cascade: concat prev query, hitung BM25 ulang     │
 └───────────────────────────────────────────────────┘
@@ -1204,10 +1204,11 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
   - `< 3.0` → `OOC_BM25` (tolak total)
   - `3.0-4.9` → `BM25_BORDERLINE` (QNA link — ada sinyal BPS samar)
   - `≥ 5.0` → lanjut hybrid search + LLM
-- **Cascade BM25 depth 3** — concat 1-3 prev query depth, hitung ulang BM25. Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25. Depth 3 berdasarkan riset: NVIDIA RAG Blueprint (3-5 turns), Chatnexus (sliding window 3), MTRAG paper (3-5 turns). Cascade sebelumnya depth 2, naik ke 3 setelah riset external. Penanganan bug fix: `_cascade_query` var terpisah (compounding) + `bm25_gate` proper logging.
+- **Cascade BM25 depth 3** — concat 1-3 prev query depth, hitung ulang BM25. Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25. Depth 3 berdasarkan NVIDIA (3-5 turns), Chatnexus (sliding window 3), MTRAG paper (3-5 turns).
+- **Cascade guard (BM25 ≥ 3)** — cascade hanya berjalan jika original BM25 **≥ 3.0**. BM25 < 3 langsung ditolak (OOC_BM25) tanpa cascade, mencegah topic drift dari query non-BPS yang numpang keyword dari history.
 
 **Fixed**
-- **Cascade compounding bug** — `req.pertanyaan` sebelumnya dimodifikasi oleh cascade, menyebabkan concat berantai di follow-up berikutnya. Sekarang `_cascade_query` terpisah, `req.pertanyaan` tetap original.
+- **Cascade compounding bug** — `req.pertanyaan` sebelumnya dimodifikasi oleh cascade, menyebabkan concat berantai di follow-up berikutnya. Sekarang `_cascade_query` terpisah.
 
 **Added**
 - **`bm25_gate` field** di query log + dashboard — nilai max BM25 dari semua FAQ yang dipakai gate. Dua kolom terpisah: `bm25_gate` (gate) + `bm25_raw` (BM25 FAQ top-RRF)
