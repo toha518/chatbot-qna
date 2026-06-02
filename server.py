@@ -201,6 +201,10 @@ async def chat(req: ChatRequest):
     cid = req.chat_id
     # ===================== INPUT SANITASI =====================
     req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
+    # Normalisasi tanda baca — koma ubah jadi spasi, hapus titik koma
+    req.pertanyaan = req.pertanyaan.replace(',', ' ').replace(';', ' ')
+    # Collapse multiple spaces
+    req.pertanyaan = re.sub(r'\s+', ' ', req.pertanyaan).strip()
     emojis = EMOJI_RE.findall(req.pertanyaan)
     if len(emojis) > 5:
         for em in set(emojis[5:]):
