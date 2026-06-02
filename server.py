@@ -358,8 +358,6 @@ async def chat(req: ChatRequest):
                 break
         if not cascade_used:
             print(f"[QUERY] Cascade 2-depth gagal — BM25 tertinggi {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
-        else:
-            print(f"[QUERY] Cascade gagal — BM25 masih {bm25_cascade:.1f}")
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
