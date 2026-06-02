@@ -352,9 +352,13 @@ async def chat(req: ChatRequest):
             bm25_cascade = get_bm25_score(enhanced_query)
             print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
-                # E5 similarity guard: cek semantic kesamaan query vs prev query
-                _e5_sim = float(cosine_similarity(query_vec.reshape(1, -1), encode_query(prev_queries[0]).reshape(1, -1)).flatten()[0]) if query_vec is not None else 0
-                _e5_threshold = 0.70
+                # E5 similarity guard: pattern sama kayak multi-part split
+                _prev_vec = encode_query(prev_queries[0])
+                _curr_vec = query_vec
+                if _prev_vec.ndim == 1: _prev_vec = _prev_vec.reshape(1, -1)
+                if _curr_vec.ndim == 1: _curr_vec = _curr_vec.reshape(1, -1)
+                _e5_sim = float(cosine_similarity(_prev_vec, _curr_vec).flatten()[0])
+                _e5_threshold = 0.78  # sama kayak multi-part merge
                 if _e5_sim >= _e5_threshold:
                     bm25_top = bm25_cascade
                     _cascade_query = enhanced_query
