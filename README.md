@@ -94,7 +94,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Cascade Fallback** | Hybrid score < threshold? Concatenate 1-2 query user sebelumnya, search ulang. Max depth 2. |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
-| 📊 **Query Logging** | Semua pertanyaan dicatat ke `query_log.jsonl` — BM25 score, status, jawaban |
+| 📊 **Query Logging** | Semua pertanyaan dicatat dual-log (JSONL + SQLite) — 24 kolom: CLF, RRF, E5, BM25 Gate, BM25 Raw, gate status, LLM response time, source tracking (wa/telegram/api) |
 | 🧠 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 semantic merge. Cosim antar part ≥ 0.55? merge balik (1 konteks). < 0.55? split (beda intent). Bagian di luar BPS di-skip |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter. Input dari OCR gambar **tidak kena limit 500 karakter** (screenshot error panjang tetap terbaca penuh) |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting biar bersih |
@@ -279,7 +279,7 @@ USER CHAT
 ┌─ 9. RESPONSE + LOGGING ─────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
 │  DUAL-LOGGED: JSONL + SQLite (non-blocking thread)│
-│  Kolom: BM25, RRF, E5, centroid_sim, gate, LLM ms│
+│  Kolom: BM25 Gate, BM25 Raw, RRF, E5, centroid_sim, gate │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -316,7 +316,7 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 |-------|--------|-----------|--------|
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
-> **Catatan:** BM25 sekarang berfungsi sebagai **domain gate** sebelum hybrid search — query dengan BM25 < 3.0 langsung ditolak. Centroid E5 dihitung dan di-log untuk analytics tapi tidak digunakan sebagai gate.
+> **Catatan:** BM25 punya dua peran: (1) **Gate** — `get_bm25_score()` ambil max dari semua FAQ, putuskan lanjut/tolak. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 dihitung dan di-log untuk analytics tapi tidak digunakan sebagai gate.
 
 **✅ Kelebihan:**
 - ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
