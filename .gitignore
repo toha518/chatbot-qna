@@ -14,6 +14,9 @@ __pycache__/
 *.pkl
 qna_index.pkl
 
+# === Auto-generated ===
+faq_categories.json
+
 # === Logs ===
 *.log
 *.log.*
@@ -37,5 +40,5 @@ Thumbs.db
 .vscode/
 .idea/
 
-# === FastText model is tracked (4MB) — only ignore .bin ===
+# === Binary models (tracked) ===
 *.bin

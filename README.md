@@ -62,13 +62,16 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
-| **Hybrid Retrieval + Domain Filter** | BM25 threshold (≥3.0) → E5+BM25 RRF fusion — E5 embedding cached (LRU 128) + centroid logging |
-| **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) |
-| **LLM Gateway** | Cloud API / Local (Ollama) — auto failover |
-| **Database** | Google Sheets (FAQ) + SQLite (chat history) |
+| **Domain Gate** | BM25 threshold (≥3.0) — tolak query tanpa keyword BPS sebelum retrieval |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=60) — E5 semantic + BM25 keyword, top-5 FAQ |
+| **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
+| **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
+| **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
+| **Database** | Google Sheets (FAQ live sync) + SQLite (chat history + daily limit) |
 | **Telegram** | python-telegram-bot (Polling) |
-| **WhatsApp** | whatsapp-web.js (Node.js bridge) |
-| **OCR** | EasyOCR (Indonesia + Inggris) |
+| **WhatsApp** | whatsapp-web.js (Node.js bridge via Flask) |
+| **OCR** | EasyOCR (Indonesia + Inggris, lazy load ~500MB) |
+| **Dashboard** | FastAPI + vanilla HTML/CSS/JS (port 8001) — Live Terminal, RRF chart, Query Monitor |
 | **Bahasa** | Python 3.11+ / Node.js v20 LTS
 
 ---
@@ -78,13 +81,19 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Hybrid Search + Domain Filter (BM25 + E5+BM25 RRF)** | **BM25 threshold ≥ 3.0** jadi domain gate sebelum retrieval — query tanpa keyword BPS langsung ditolak. E5 semantic + BM25 keyword via RRF untuk ranking. Kategori metadata terpisah (gak di-embedding). top_k=5. Centroid di-log untuk analytics. |
-| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas spesifik respon langsung, skip retrieval & LLM. Keyword fallback sbg safety net |
-| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, kirim pesan biasa (bukan reply), support gambar + OCR |
-| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." untuk image processing (auto-hapus setelah jawaban datang) |
-| 🗣️ **OCR Gambar** | Screenshot/foto dibaca otomatis pakai EasyOCR. Support Indo + Inggris |
+| 🧠 **Domain Gate (BM25 Threshold)** | **BM25 ≥ 3.0** jadi domain check sebelum retrieval — query tanpa keyword BPS langsung ditolak. **Zero LLM cost untuk out-of-context.** |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
+| 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
+| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
+| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
+| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
+| 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
-| 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom `kendala` & `solusi` |
+| 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
+| 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
+| 🔄 **Cascade Fallback** | Hybrid score < threshold? Concatenate 1-2 query user sebelumnya, search ulang. Max depth 2. |
+| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
+| 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
 | 📊 **Query Logging** | Semua pertanyaan dicatat ke `query_log.jsonl` — BM25 score, status, jawaban |
 | 🧠 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 semantic merge. Cosim antar part ≥ 0.55? merge balik (1 konteks). < 0.55? split (beda intent). Bagian di luar BPS di-skip |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter. Input dari OCR gambar **tidak kena limit 500 karakter** (screenshot error panjang tetap terbaca penuh) |
@@ -102,7 +111,7 @@ Bot ini punya **6 lapis proteksi**:
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (478 baris), akurasi 97.4%. Keyword fallback sbg safety net |
-| 5 | 🔍 **Domain Filter (BM25 Threshold)** | `core/bm25.py` → `server.py` | **BM25 keyword overlap check.** Query di-tokenisasi → skor BM25 vs semua FAQ. `BM25 < 3.0` → out-of-domain (tolak tanpa retrieval/LLM). `BM25 ≥ 3.0` → lanjut hybrid search + RRF gate. Threshold dihitung dari analisis 100+ query production. Centroid di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
+| 5 | 🔍 **Domain Gate (BM25 Threshold)** | `core/bm25.py` → `server.py` | **BM25 keyword overlap check.** Query di-tokenisasi → skor BM25 vs semua FAQ. `BM25 < 3.0` → out-of-domain (tolak tanpa retrieval/LLM). `BM25 ≥ 3.0` → lanjut hybrid search + RRF gate. Threshold dari analisis 100+ query production. Centroid E5 di-log untuk analytics (bukan gate). **Zero LLM cost untuk out-of-context.** |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Pipeline Domain Filter (BM25 Threshold)
@@ -124,7 +133,7 @@ Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
 | **5.0 - 10.0** | Ada sinyal BPS jelas | "NIK sesuai KTP" (5.07), "FASIH gagal login" (6.79) |
 | **10.0+** | FAQ match kuat | "verifikasi NIK gagal" (10.66), OCR screenshot (34-42) |
 
-**Tambahan:** Centroid E5 dihitung (rata-rata vektor FAQ) dan di-log ke `query_log.db` untuk analytics, tapi tidak digunakan sebagai gate.
+**Tambahan:** Centroid E5 dihitung (rata-rata vektor FAQ) dan di-log ke `query_log.db` untuk analytics dashboard, tapi **tidak digunakan sebagai gate**.
 
 ### 📩 QNA Form Link
 
@@ -165,31 +174,37 @@ chatbot-qna/
 ├── server.py                 ← FastAPI router — inti logika chatbot
 ├── telegram_bot.py           ← Layer Telegram (OCR, sanitasi, kirim API)
 ├── wa_handler.py             ← Layer WhatsApp (Flask, terima dari bridge)
-├── start-all.bat             ← 1 klik buka 4 terminal
+├── dashboard.py              ← Dashboard monitoring (port 8001)
+├── start-all.bat             ← 1 klik buka 5 terminal + dashboard
 │
 ├── core/                     ← 🔧 Mesin utama
 │   ├── database.py           ←   SQLite: session chat history, daily limit
-│   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25)
-│   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval
+│   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25 RRF)
+│   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval + domain gate
 │   ├── intent_classifier.py  ←   scikit-learn SGDClassifier + TF-IDF intent classifier
 │   ├── classifier_train.txt  ←   Training data (478 sampel, 5 kelas)
 │   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
-│   └── query_logger.py       ←   Query evaluation logging (JSONL)
+│   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
 │
 ├── security/                 ← 🔒 Lapisan pengaman
-│   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user
+│   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user, daily limit
 │   └── session.py            ←   Session: timeout 30 menit, watchdog
 │
 ├── prompts/                  ← 🎯 IDENTITAS & ATURAN (ganti untuk replikasi)
 │   ├── identity.json         ←   Nama, role, topik (ubah ini saja untuk bot berbeda)
 │   ├── system.md             ←   System prompt — aturan main LLM
-│   └── greeting.md           ←   Template sapaan pertama
+│   ├── greeting.md           ←   Template sapaan pertama
+│   └── responses.json        ←   Semua user-facing text (tolak, error, dll)
+│
+├── templates/                ← 🎨 HTML Template
+│   └── dashboard.html        ←   Dashboard UI (1447 baris vanilla HTML/CSS/JS)
 │
 ├── whatsapp-bridge/          ← 📱 Bridge WhatsApp
 │   ├── bridge.js             ←   whatsapp-web.js client (QR scan, typing, image)
 │   └── package.json          ←   Node.js dependencies
 │
+├── faq_categories.json       ← 📊 Auto-generated kategori FAQ (dipake dashboard)
 └── query_log.jsonl           ← 📊 Log evaluasi query (auto-generated)
 ```
 
@@ -234,7 +249,7 @@ USER CHAT
 ┌─ 5. MULTI-PART SPLIT? ───────────────────────────┐
 │  Ada konjungsi ("dan", "serta", "juga")?          │
 │  YA → Split → tiap part hybrid search sendiri     │
-│        Merge kalo E5 similarity ≥ 0.55            │
+│        Merge kalo E5 similarity ≥ 0.78            │
 │  TIDAK → Single question ↓                        │
 └───────────────────────────────────────────────────┘
   │
@@ -646,16 +661,16 @@ npx puppeteer browsers install chrome
 cd ..
 ```
 
-### 7. Jalankan (4 Terminal)
+### 7. Jalankan (5 Terminal)
 
 **Skema arsitektur:**
 ```
 Telegram ──> telegram_bot.py ──┐
                               ├──> server.py:8000 (E5 + BM25 + LLM)
-WhatsApp ──> wa_handler.py:3001 ─┘
-                ^
-                │
-         bridge.js:3000 (Chrome/WA Web)
+WhatsApp ──> wa_handler.py:3001 ─┘                │
+                ^                                 ├──> dashboard.py:8001 (Monitoring UI)
+                │                                 │
+         bridge.js:3000 (Chrome/WA Web)           │
 ```
 
 **Terminal 1 — Server API (port 8000):**
@@ -664,20 +679,26 @@ cd C:\Proyek\chatbot-qna
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-**Terminal 2 — WhatsApp Handler (port 3001):**
+**Terminal 2 — Dashboard (port 8001):**
+```cmd
+cd C:\Proyek\chatbot-qna
+python dashboard.py
+```
+
+**Terminal 3 — WhatsApp Handler (port 3001):**
 ```cmd
 cd C:\Proyek\chatbot-qna
 python wa_handler.py
 ```
 
-**Terminal 3 — WhatsApp Bridge (port 3000):**
+**Terminal 4 — WhatsApp Bridge (port 3000):**
 ```cmd
 cd C:\Proyek\chatbot-qna\whatsapp-bridge
 node bridge.js
 ```
 QR code muncul → scan pake WhatsApp > Linked Devices.
 
-**Terminal 4 — Telegram Bot:**
+**Terminal 5 — Telegram Bot:**
 ```cmd
 cd C:\Proyek\chatbot-qna
 python telegram_bot.py
@@ -685,7 +706,7 @@ python telegram_bot.py
 
 ### 8. Start All (1 Klik)
 
-Double-click `start-all.bat` — langsung buka 4 terminal.
+Double-click `start-all.bat` — langsung buka 5 terminal + buka dashboard otomatis di browser.
 
 ### 9. Pindah ke PC Baru (1 Langkah + .env)
 
@@ -803,16 +824,16 @@ npx puppeteer browsers install chrome
 cd ..
 ```
 
-### 7. Jalankan (4 Terminal)
+### 7. Jalankan (5 Terminal)
 
 **Skema arsitektur:**
 ```
 Telegram ──> telegram_bot.py ──┐
                               ├──> server.py:8000 (E5 + BM25 + LLM)
-WhatsApp ──> wa_handler.py:3001 ─┘
-                ^
-                │
-         bridge.js:3000 (Chrome/WA Web)
+WhatsApp ──> wa_handler.py:3001 ─┘                │
+                ^                                 ├──> dashboard.py:8001 (Monitoring UI)
+                │                                 │
+         bridge.js:3000 (Chrome/WA Web)           │
 ```
 
 **Terminal 1 — Server API (port 8000):**
@@ -822,21 +843,28 @@ source venv/bin/activate
 python -m uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-**Terminal 2 — WhatsApp Handler (port 3001):**
+**Terminal 2 — Dashboard (port 8001):**
+```bash
+cd chatbot-qna
+source venv/bin/activate
+python dashboard.py
+```
+
+**Terminal 3 — WhatsApp Handler (port 3001):**
 ```bash
 cd chatbot-qna
 source venv/bin/activate
 python wa_handler.py
 ```
 
-**Terminal 3 — WhatsApp Bridge (port 3000):**
+**Terminal 4 — WhatsApp Bridge (port 3000):**
 ```bash
 cd chatbot-qna/whatsapp-bridge
 node bridge.js
 ```
 QR code muncul → scan pake WhatsApp > Perangkat Tertaut.
 
-**Terminal 4 — Telegram Bot:**
+**Terminal 5 — Telegram Bot:**
 ```bash
 cd chatbot-qna
 source venv/bin/activate
@@ -852,8 +880,8 @@ echo "=== Starting NARA Services ==="
 cd "$(dirname "$0")"
 source venv/bin/activate
 
-# Terminal via gnome-terminal (kalo pake GUI)
 gnome-terminal -- bash -c "python -m uvicorn server:app --host 0.0.0.0 --port 8000; exec bash"
+gnome-terminal -- bash -c "source venv/bin/activate && python dashboard.py; exec bash"
 gnome-terminal -- bash -c "source venv/bin/activate && python wa_handler.py; exec bash"
 gnome-terminal -- bash -c "cd whatsapp-bridge && node bridge.js; exec bash"
 gnome-terminal -- bash -c "source venv/bin/activate && python telegram_bot.py; exec bash"
