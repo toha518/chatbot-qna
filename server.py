@@ -367,17 +367,13 @@ async def chat(req: ChatRequest):
             jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
         return {"jawaban": jawaban, "skor": 0}
 
-    # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → lanjut hybrid search
-    # ── HYBRID SEARCH ──
+    # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
+    # ── HYBRID SEARCH (E5 + BM25 via RRF, hanya untuk ranking) ──
     context, scores, best_q, top5_all = hybrid_search(req.pertanyaan, top_k=5)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
-    print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25)")
+    print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
-    # Gate 0: out-of-context (BM25=0 → RRF ≤ 0.0164, ga mungkin ≥ 0.018)
-    _OOC_THRESHOLD = 0.018   # < 0.018 = out of context total
-    _ANSWER_THRESHOLD = 0.025  # ≥ 0.025 = ada FAQ match yang jelas
-
-    # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
+    # ── MULTI-PART SPLIT (E5 Semantic Boundary) ──
     _SPLIT_PATTERN = re.compile(
         r'\s+(?:dan|serta|sedangkan|namun|tetapi|tapi)\s+'
         r'|(?<=\?)\s+(?=[A-Za-z])'
@@ -385,7 +381,6 @@ async def chat(req: ChatRequest):
         r'|,\s*'
     )
     parts = _SPLIT_PATTERN.split(_raw_query.strip())
-    # Normalize tiap part (hapus koma, collapse spaces) biar E5 konsisten
     parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
@@ -408,125 +403,48 @@ async def chat(req: ChatRequest):
 
     if len(parts) > 1:
         relevant_answers = []
-        skipped_parts = []
         for part in parts:
-            p_ctx, p_scores, p_best_q, p_top5 = hybrid_search(part, top_k=5)
-            p_rrf = float(p_scores[2]) if len(p_scores) > 2 else 0
-            if p_rrf < _ANSWER_THRESHOLD:
-                print(f"[QUERY] Part '{part[:30]}...' skip (RRF={p_rrf:.4f})")
-                skipped_parts.append(part)
-                continue
-            # Route through LLM — same pipeline as single query
+            p_ctx, p_scores, _, p_top5 = hybrid_search(part, top_k=5)
             _system = build_system_prompt(system_template, identity, acronyms)
             _msgs = [{"role": "system", "content": _system}]
             _msgs.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{p_ctx}"})
             _msgs.append({"role": "user", "content": part})
             _jawaban, _llm_model, _llm_provider, _llm_time = await call_llm(_msgs, timeout=30)
             if not _jawaban:
-                _jawaban = p_ctx  # fallback: raw FAQ context
+                _jawaban = p_ctx
                 _llm_model = _llm_provider = ""; _llm_time = 0
             relevant_answers.append(_jawaban)
-        if relevant_answers:
-            jawaban = '\n\n---\n\n'.join(relevant_answers)
-            if skipped_parts:
-                jawaban += "\n\n---\nℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: " + ', '.join(skipped_parts)
-            print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian terjawab")
-        else:
-            if top_rrf < _OOC_THRESHOLD:
-                jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
-            else:
-                jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
-        history.append({"role": "user", "content": req.pertanyaan})
-        history.append({"role": "assistant", "content": jawaban})
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  rrf_score=top_rrf, top5_faq=top5_all,
-                  gate="MULTI_PART" if relevant_answers else "MULTI_PART_QNA",
-                  bm25_gate=bm25_top,
-                  dijawab=bool(relevant_answers), jawaban=jawaban,
-                  multi_part=True, session_baru=session_baru)
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\nSesi obrolan baru telah dibuka — pukul {now} WIB"
-        return {"jawaban": jawaban, "skor": top_rrf}
+        jawaban = '\n\n---\n\n'.join(relevant_answers)
+        print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab")
+        gate_label = "MULTI_PART"
+    else:
+        # Single question — langsung LLM dengan context
+        system_prompt = build_system_prompt(system_template, identity, acronyms)
+        messages = [{"role": "system", "content": system_prompt}]
+        messages.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{context}"})
+        for msg in history:
+            messages.append(msg)
+        messages.append({"role": "user", "content": req.pertanyaan})
+        jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+        if not jawaban:
+            llm_model = llm_provider = ""; llm_time = 0
+            jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
+        gate_label = "ANSWER"
 
-    # ── SINGLE QUESTION: gate out-of-context / cascade / answer ──
-    # Gate 1: out-of-context total → tolak
-    if top_rrf < _OOC_THRESHOLD:
-        print(f"[QUERY] Out of context (RRF={top_rrf:.4f})")
-        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
-        history.append({"role": "user", "content": req.pertanyaan})
-        history.append({"role": "assistant", "content": jawaban})
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  rrf_score=top_rrf,
-                  gate="OUT_OF_CONTEXT", dijawab=False, jawaban=jawaban,
-                  bm25_gate=bm25_top,
-                  session_baru=session_baru)
-        return {"jawaban": jawaban, "skor": top_rrf}
-
-    # Gate 2: RRF rendah tapi ada sinyal → cascade dulu, kalo gagal → QNA
-    if top_rrf < _ANSWER_THRESHOLD:
-        prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
-        cascade_ok = False
-        for depth in range(1, min(3, len(prev_queries) + 1)):
-            context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
-            enhanced_query = " — ".join(context_parts)
-            print(f"[QUERY] Cascade depth={depth}: '{enhanced_query[:120]}'")
-            ctx2, scores2, bq2 = hybrid_search(enhanced_query, top_k=5)
-            ts2 = float(scores2[2]) if len(scores2) > 2 else 0
-            if ts2 >= _ANSWER_THRESHOLD:
-                print(f"[QUERY] Cascade depth={depth} berhasil: RRF {top_rrf:.4f} → {ts2:.4f}")
-                top_rrf = ts2
-                context = ctx2
-                best_q = bq2
-                cascade_ok = True
-                break
-        if not cascade_ok:
-            print(f"[QUERY] Cascade gagal → QNA link (RRF={top_rrf:.4f})")
-            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
-            history.append({"role": "user", "content": req.pertanyaan})
-            history.append({"role": "assistant", "content": jawaban})
-            log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                      rrf_score=top_rrf,
-                      gate="CASCADE_QNA", dijawab=False, jawaban=jawaban,
-                      bm25_gate=bm25_top,
-                      session_baru=session_baru)
-            if session_baru:
-                wib = timezone(timedelta(hours=7))
-                now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-            return {"jawaban": jawaban, "skor": top_rrf}
-
-    # Gate 3: RRF ≥ ANSWER threshold → jawab pake LLM
-    system_prompt = build_system_prompt(system_template, identity, acronyms)
-    messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{context}"})
-    for msg in history:
-        messages.append(msg)
-    messages.append({"role": "user", "content": req.pertanyaan})
-    jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-    if not jawaban:
-        llm_model = llm_provider = ""; llm_time = 0
-        jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
-    top_faq = best_q if len(scores) > 0 else ""
     log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
+              centroid_sim=centroid_sim,
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-              rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores)>0 else 0,
-              bm25_raw=float(scores[1]) if len(scores)>1 else 0,
+              rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores) > 0 else 0,
+              bm25_raw=float(scores[1]) if len(scores) > 1 else 0,
               top5_faq=top5_all,
-              gate="ANSWER", dijawab=True, jawaban=jawaban,
+              gate=gate_label, dijawab=True, jawaban=jawaban,
               bm25_gate=bm25_top,
-              multi_part=False, session_baru=session_baru,
-              llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
+              multi_part=bool(len(parts) > 1), session_baru=session_baru,
+              llm_model=llm_model if 'llm_model' in dir() else "",
+              llm_provider=llm_provider if 'llm_provider' in dir() else "",
+              llm_time_ms=llm_time if 'llm_time' in dir() else 0)
     if session_baru:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")
