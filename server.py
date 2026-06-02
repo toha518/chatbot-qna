@@ -353,7 +353,7 @@ async def chat(req: ChatRequest):
             print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
                 # E5 similarity guard: cek semantic kesamaan query vs prev query
-                _e5_sim = float(cosine_similarity(query_vec, encode_query(prev_queries[0]).reshape(1,-1)).flatten()[0]) if query_vec is not None else 0
+                _e5_sim = float(cosine_similarity(query_vec.reshape(1, -1), encode_query(prev_queries[0]).reshape(1, -1)).flatten()[0]) if query_vec is not None else 0
                 _e5_threshold = 0.70
                 if _e5_sim >= _e5_threshold:
                     bm25_top = bm25_cascade
