@@ -338,7 +338,8 @@ async def chat(req: ChatRequest):
         log_query(req.pertanyaan, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="OOC_BM25", dijawab=False, jawaban=jawaban)
+                  gate="OOC_BM25", dijawab=False, jawaban=jawaban,
+                  bm25_gate=bm25_top)
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
@@ -413,6 +414,7 @@ async def chat(req: ChatRequest):
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf, top5_faq=top5_all,
                   gate="MULTI_PART" if relevant_answers else "MULTI_PART_QNA",
+                  bm25_gate=bm25_top,
                   dijawab=bool(relevant_answers), jawaban=jawaban,
                   multi_part=True, session_baru=session_baru)
         if session_baru:
@@ -433,6 +435,7 @@ async def chat(req: ChatRequest):
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                   rrf_score=top_rrf,
                   gate="OUT_OF_CONTEXT", dijawab=False, jawaban=jawaban,
+                  bm25_gate=bm25_top,
                   session_baru=session_baru)
         return {"jawaban": jawaban, "skor": top_rrf}
 
@@ -463,6 +466,7 @@ async def chat(req: ChatRequest):
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
                       rrf_score=top_rrf,
                       gate="CASCADE_QNA", dijawab=False, jawaban=jawaban,
+                      bm25_gate=bm25_top,
                       session_baru=session_baru)
             if session_baru:
                 wib = timezone(timedelta(hours=7))
@@ -491,6 +495,7 @@ async def chat(req: ChatRequest):
               bm25_raw=float(scores[1]) if len(scores)>1 else 0,
               top5_faq=top5_all,
               gate="ANSWER", dijawab=True, jawaban=jawaban,
+              bm25_gate=bm25_top,
               multi_part=False, session_baru=session_baru,
               llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
     if session_baru:

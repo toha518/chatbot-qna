@@ -66,6 +66,11 @@ def _ensure_sqlite():
             db.execute("ALTER TABLE logs ADD COLUMN source TEXT DEFAULT ''")
         except Exception:
             pass
+        # Migrasi: tambah kolom bm25_gate kalo belum ada
+        try:
+            db.execute("ALTER TABLE logs ADD COLUMN bm25_gate REAL DEFAULT 0")
+        except Exception:
+            pass
         # Migrasi: tambah kolom centroid_sim kalo belum ada
         try:
             db.execute("ALTER TABLE logs ADD COLUMN centroid_sim REAL DEFAULT 0")
@@ -92,6 +97,7 @@ def log_query(
     rrf_score: float = 0.0,
     e5_top: float = 0.0,
     bm25_raw: float = 0.0,
+    bm25_gate: float = 0.0,
     top5_faq: list = None,
     gate: str = "",
     gate_detail: str = "",
@@ -119,6 +125,7 @@ def log_query(
         "rrf_score": round(rrf_score, 4),
         "e5_top": round(e5_top, 4),
         "bm25_raw": round(bm25_raw, 2),
+        "bm25_gate": round(bm25_gate, 2),
         "top5_faq": top5_faq or [],
         "gate": gate,
         "gate_detail": gate_detail,
@@ -153,16 +160,16 @@ def log_query(
                     INSERT INTO logs (
                         waktu, chat_id, pertanyaan,
                         clf_domain, clf_confidence, clf_mode,
-                        rrf_score, e5_top, bm25_raw, top5_faq,
+                        rrf_score, e5_top, bm25_raw, bm25_gate, top5_faq,
                         source, gate, gate_detail, dijawab,
                         jawaban, jawaban_length,
                         llm_model, llm_provider, llm_time_ms,
                         multi_part, session_baru, centroid_sim, error
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     entry["waktu"], entry["chat_id"], entry["pertanyaan"],
                     clf_domain, clf_confidence, clf_mode,
-                    rrf_score, e5_top, bm25_raw, json.dumps(top5_faq or []),
+                    rrf_score, e5_top, bm25_raw, bm25_gate, json.dumps(top5_faq or []),
                     source, gate, gate_detail, int(dijawab),
                     jawaban, len(jawaban),
                     llm_model, llm_provider, llm_time_ms,
