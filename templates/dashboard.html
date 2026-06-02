@@ -855,32 +855,36 @@
           <label class="col-toggle-pill" title="Chat ID"><input type="checkbox" data-col="2" checked onchange="toggleDTColumn(this)"><span>Chat ID</span></label>
           <label class="col-toggle-pill" title="Pertanyaan"><input type="checkbox" data-col="3" checked onchange="toggleDTColumn(this)"><span>Pertanyaan</span></label>
           <label class="col-toggle-pill" title="Jawaban"><input type="checkbox" data-col="4" onchange="toggleDTColumn(this)"><span>Jawaban</span></label>
-          <label class="col-toggle-pill" title="Gate"><input type="checkbox" data-col="12" checked onchange="toggleDTColumn(this)"><span>Gate</span></label>
-          <label class="col-toggle-pill" title="Source"><input type="checkbox" data-col="11" checked onchange="toggleDTColumn(this)"><span>Source</span></label>
-          <label class="col-toggle-pill" title="Dijawab"><input type="checkbox" data-col="13" onchange="toggleDTColumn(this)"><span>Answered</span></label>
+
+          <span class="text-muted small me-1 ms-2 fw-semibold">🎯 CLF</span>
+          <label class="col-toggle-pill" title="CLF Domain"><input type="checkbox" data-col="5" checked onchange="toggleDTColumn(this)"><span>Domain</span></label>
+          <label class="col-toggle-pill" title="CLF Confidence"><input type="checkbox" data-col="6" onchange="toggleDTColumn(this)"><span>Conf</span></label>
+          <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="7" onchange="toggleDTColumn(this)"><span>Mode</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📊 Scoring</span>
-          <label class="col-toggle-pill" title="Gate Detail"><input type="checkbox" data-col="14" onchange="toggleDTColumn(this)"><span>Gate Detail</span></label>
-          <label class="col-toggle-pill" title="CLF Domain"><input type="checkbox" data-col="5" checked onchange="toggleDTColumn(this)"><span>CLF Domain</span></label>
-          <label class="col-toggle-pill" title="CLF Confidence"><input type="checkbox" data-col="6" onchange="toggleDTColumn(this)"><span>CLF Conf</span></label>
-          <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="7" onchange="toggleDTColumn(this)"><span>CLF Mode</span></label>
           <label class="col-toggle-pill" title="RRF Score"><input type="checkbox" data-col="8" checked onchange="toggleDTColumn(this)"><span>RRF</span></label>
           <label class="col-toggle-pill" title="E5 Top Score"><input type="checkbox" data-col="9" onchange="toggleDTColumn(this)"><span>E5 Top</span></label>
           <label class="col-toggle-pill" title="BM25 Raw (top-RRF)"><input type="checkbox" data-col="10" onchange="toggleDTColumn(this)"><span>BM25 Raw</span></label>
-          <label class="col-toggle-pill" title="BM25 Gate (max all FAQ)"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>BM25 Gate</span></label>
+          <label class="col-toggle-pill" title="BM25 Gate (max all FAQ)"><input type="checkbox" data-col="11" onchange="toggleDTColumn(this)"><span>BM25 Gate</span></label>
+
+          <span class="text-muted small me-1 ms-2 fw-semibold">🔀 Status</span>
+          <label class="col-toggle-pill" title="Source"><input type="checkbox" data-col="12" checked onchange="toggleDTColumn(this)"><span>Source</span></label>
+          <label class="col-toggle-pill" title="Gate"><input type="checkbox" data-col="13" checked onchange="toggleDTColumn(this)"><span>Gate</span></label>
+          <label class="col-toggle-pill" title="Answered"><input type="checkbox" data-col="14" onchange="toggleDTColumn(this)"><span>Answered</span></label>
+          <label class="col-toggle-pill" title="Gate Detail"><input type="checkbox" data-col="15" onchange="toggleDTColumn(this)"><span>Detail</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">🤖 LLM</span>
-          <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="17" checked onchange="toggleDTColumn(this)"><span>Model</span></label>
-          <label class="col-toggle-pill" title="LLM Provider"><input type="checkbox" data-col="18" onchange="toggleDTColumn(this)"><span>Provider</span></label>
-          <label class="col-toggle-pill" title="LLM Time (ms)"><input type="checkbox" data-col="19" onchange="toggleDTColumn(this)"><span>LLM ms</span></label>
-          <label class="col-toggle-pill" title="Jawaban Length"><input type="checkbox" data-col="15" onchange="toggleDTColumn(this)"><span>Jwb Len</span></label>
+          <label class="col-toggle-pill" title="Jawaban Length"><input type="checkbox" data-col="16" onchange="toggleDTColumn(this)"><span>Jwb Len</span></label>
+          <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="18" checked onchange="toggleDTColumn(this)"><span>Model</span></label>
+          <label class="col-toggle-pill" title="LLM Provider"><input type="checkbox" data-col="19" onchange="toggleDTColumn(this)"><span>Provider</span></label>
+          <label class="col-toggle-pill" title="LLM Time (ms)"><input type="checkbox" data-col="20" onchange="toggleDTColumn(this)"><span>LLM ms</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">📎 Meta</span>
-          <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="16" onchange="toggleDTColumn(this)"><span>Top5 FAQ</span></label>
-          <label class="col-toggle-pill" title="Centroid"><input type="checkbox" data-col="20" onchange="toggleDTColumn(this)"><span>Centroid</span></label>
-          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>Multi</span></label>
-          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Sesi Baru</span></label>
-          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="23" onchange="toggleDTColumn(this)"><span>Error</span></label>
+          <label class="col-toggle-pill" title="Top5 FAQ"><input type="checkbox" data-col="17" onchange="toggleDTColumn(this)"><span>Top5</span></label>
+          <label class="col-toggle-pill" title="Centroid"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>Centroid</span></label>
+          <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Multi</span></label>
+          <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="23" onchange="toggleDTColumn(this)"><span>Sesi</span></label>
+          <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="24" onchange="toggleDTColumn(this)"><span>Error</span></label>
         </div>
       </div>
 
