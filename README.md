@@ -1193,6 +1193,36 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 ---
 
+#### v2.4.2 — 2026-06-02
+
+**Added**
+- **`bm25_gate` field** di query log + dashboard — nilai max BM25 dari semua FAQ yang dipakai gate (sebelumnya `bm25_raw` saja yang nyatet BM25 FAQ top-RRF, bikin bingung debugging). Dua kolom terpisah: `bm25_gate` (gate) + `bm25_raw` (top-RRF)
+- **Dashboard version auto-detect** — baca dari `git describe --tags`, fallback ke file `VERSION`. Versi update otomatis setelah `git pull` + restart dashboard
+- **Personality Nara** — "pendengar yang baik dan perhatian" di `identity.json`
+
+**Changed**
+- **CLF training data rebuild** — 478 → **845 samples** (+193 greeting, +94 capability), **zero cross-domain overlap**. Sumber: NARA production logs + IndoNLU + Kaggle + UNSRI University Chatbot dataset. Akurasi training 98.1%, 5-fold CV 87.9%. Fix bug: 10 item yang overlap di dua domain (`ok`, `oke`, `sip`, `baik`, `makasih`, `terima kasih`, `thanks`, `siap`, `kamu bodoh`, `kamu jelek`) dihapus dari `forward`
+- **Greeting prompt simplified** — `greeting.md` dipangkas 13→6 baris, fokus greeting saja (capability udah ditangani template statis CLF)
+- **System prompt refined** — lebih tegas di QNA link rule
+
+**Fixed**
+- **`hybrid_search()` unpack error** — multi-part split cuma unpack 3 values, padahal fungsi return 4 (tambah `top5`). Bikin 500 Internal Server Error pas ketrigger multi-part query
+- **Comma normalization** — koma dihapus di input sanitasi (`,` → spasi) sebelum E5 encoding, biar vektor embedding konsisten. `_raw_query` disimpan terpisah untuk multi-part comma detection. Fix double-answer untuk "Fasih gc pln, tidak bisa submit"
+- **Multi-part regex** — `[,;]\s*` dihapus, konjungsi lemah (`lalu`, `terus`, `trus`, `selanjutnya`, `berikutnya`, `sementara itu`, `adapun`, `pertama`, `kedua`, `ketiga`) dihapus. Cuma split di `dan`, `serta`, `sedangkan`, `namun`, `tetapi`, `tapi`, `,`, `.`, `?`
+- **Dashboard column toggles** — fix duplikasi `data-col` index + realign 25 kolom ke DT_HEADERS 1:1
+
+**Docs**
+- **README instalasi Windows** — update ke 5 terminal (include dashboard), pakai `pip install -r requirements.txt`
+- **BM25 section** — jelasin dual role: `bm25_gate` (max semua FAQ) vs `bm25_raw` (top-RRF), keduanya di-log terpisah
+- **SETUP-WINDOWS.md** — rewrite lengkap, tambah step dashboard + petunjuk pindah PC baru
+
+**Housekeeping**
+- `requirements.txt` — hapus `fasttext`, `google-generativeai`, `ollama` (gak dipake)
+- `.gitignore` — tambah `faq_categories.json` (auto-generated)
+- `core/intent_classifier.py` — rename `FT_` → `CLF_` vars, model path `domain_filter.ftz` → `intent_model.pkl`
+
+---
+
 #### v2.4.1 — 2026-06-01
 
 **Performance (7 optimasi)**
