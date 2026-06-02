@@ -201,9 +201,10 @@ async def chat(req: ChatRequest):
     cid = req.chat_id
     # ===================== INPUT SANITASI =====================
     req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
-    # Normalisasi tanda baca — koma ubah jadi spasi, hapus titik koma
+    # Simpan query asli untuk multi-part detection (sebelum normalisasi koma)
+    _raw_query = req.pertanyaan
+    # Normalisasi untuk consistency: koma → spasi (biar E5 embedding stabil)
     req.pertanyaan = req.pertanyaan.replace(',', ' ').replace(';', ' ')
-    # Collapse multiple spaces
     req.pertanyaan = re.sub(r'\s+', ' ', req.pertanyaan).strip()
     emojis = EMOJI_RE.findall(req.pertanyaan)
     if len(emojis) > 5:
@@ -361,12 +362,14 @@ async def chat(req: ChatRequest):
 
     # ── MULTI-PART SPLIT (Enhanced: E5 Semantic Boundary) ──
     _SPLIT_PATTERN = re.compile(
-        r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'
+        r'\s+(?:dan|serta|sedangkan|namun|tetapi|tapi)\s+'
         r'|(?<=\?)\s+(?=[A-Za-z])'
         r'|\.\s+'
+        r'|,\s*'
     )
-    parts = _SPLIT_PATTERN.split(req.pertanyaan.strip())
-    parts = [p.strip().rstrip('?.').strip() for p in parts if p.strip()]
+    parts = _SPLIT_PATTERN.split(_raw_query.strip())
+    # Normalize tiap part (hapus koma, collapse spaces) biar E5 konsisten
+    parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
         from sklearn.metrics.pairwise import cosine_similarity
