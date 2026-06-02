@@ -402,7 +402,7 @@ async def chat(req: ChatRequest):
             # Route through LLM — same pipeline as single query
             _system = build_system_prompt(system_template, identity, acronyms)
             _msgs = [{"role": "system", "content": _system}]
-            _msgs.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=p_ctx)})
+            _msgs.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{p_ctx}"})
             _msgs.append({"role": "user", "content": part})
             _jawaban, _llm_model, _llm_provider, _llm_time = await call_llm(_msgs, timeout=30)
             if not _jawaban:
@@ -489,7 +489,7 @@ async def chat(req: ChatRequest):
     # Gate 3: RRF ≥ ANSWER threshold → jawab pake LLM
     system_prompt = build_system_prompt(system_template, identity, acronyms)
     messages = [{"role": "system", "content": system_prompt}]
-    messages.append({"role": "system", "content": responses.get("context_header", "Data referensi:\n{context}").format(context=context)})
+    messages.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{context}"})
     for msg in history:
         messages.append(msg)
     messages.append({"role": "user", "content": req.pertanyaan})

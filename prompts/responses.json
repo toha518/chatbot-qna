@@ -20,6 +20,5 @@
   "image_failed": "⚠️ Gagal memproses gambar: {error}",
   "text_only": "⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.",
   "server_down": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan.",
-  "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}",
-  "context_header": "📚 Data Referensi (diurutkan dari paling relevan):\n\n{context}"
+  "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}"
 }
