@@ -340,7 +340,7 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
 
     # ── Return: scores array [E5, BM25, RRF] + top-5 FAQ list ──
     best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
-    top5 = [questions[i] for i in best_idx[:5]]  # semua 5 FAQ
+    top5 = [f"#{i+1} {questions[idx]}" for i, idx in enumerate(best_idx[:5])]  # semua 5 FAQ dengan ranking
     top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_bm25 = float(bm25_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_rrf = float(rrf_scores[best_idx[0]]) if len(best_idx) > 0 else 0
