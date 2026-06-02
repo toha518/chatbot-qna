@@ -360,7 +360,6 @@ async def chat(req: ChatRequest):
         r'\s+(?:dan|serta|sedangkan|lalu|terus|trus|sementara itu|adapun|namun|tetapi|tapi|selanjutnya|berikutnya|pertama|kedua|ketiga)\s+'
         r'|(?<=\?)\s+(?=[A-Za-z])'
         r'|\.\s+'
-        r'|[,;]\s*'
     )
     parts = _SPLIT_PATTERN.split(req.pertanyaan.strip())
     parts = [p.strip().rstrip('?.').strip() for p in parts if p.strip()]
