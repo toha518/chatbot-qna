@@ -31,7 +31,7 @@ from security.rate_limiter import (
 from security.session import (
     cleanup_sessions, init_session, session_watchdog,
     sessions, session_activity, session_start_times,
-    format_durasi
+    format_durasi, session_has_forward
 )
 # ===================== INIT =====================
 init_db()
@@ -145,6 +145,7 @@ async def stop_session(req: StopRequest):
     durasi_str = format_durasi(now_stop - start) if start else "-"
     sessions.pop(cid, None)
     session_activity.pop(cid, None)
+    session_has_forward.pop(cid, None)
     return {
         "status": "ok",
         "message": (
@@ -315,23 +316,49 @@ async def chat(req: ChatRequest):
 
     # Acknowledgment — respon langsung (makasih, ok, sip, dll)
     if ft_domain == "positive_feedback":
-        jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
-        api_rate_limit[cid]["last_active"] = time.time()
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
-        return {"jawaban": jawaban, "skor": 1.0}
+        if session_has_forward.get(cid, False):
+            # Ada interaksi sebelumnya → balas feedback
+            jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
+            api_rate_limit[cid]["last_active"] = time.time()
+            log_query(_display_query, cid, source=req.source,
+                      centroid_sim=centroid_sim,
+                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                      gate="CLF_POSITIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
+            return {"jawaban": jawaban, "skor": 1.0}
+        else:
+            # Tanpa konteks → treat sebagai greeting
+            print(f"[DOMAIN] positive_feedback tanpa konteks → greeting")
+            messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
+            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            if not jawaban:
+                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+            api_rate_limit[cid]["last_active"] = time.time()
+            if session_baru:
+                wib = timezone(timedelta(hours=7))
+                now = datetime.now(wib).strftime("%H:%M")
+                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            log_query(_display_query, cid, source=req.source,
+                      centroid_sim=centroid_sim,
+                      clf_domain="greeting", clf_confidence=0.0, clf_mode=_clf_mode,
+                      gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
+                      session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
+            return {"jawaban": jawaban, "skor": 1.0}
 
     # Negative feedback — respon langsung (kamu tidak membantu, dll)
     if ft_domain == "negative_feedback":
-        jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
-        api_rate_limit[cid]["last_active"] = time.time()
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
-        return {"jawaban": jawaban, "skor": 1.0}
+        if session_has_forward.get(cid, False):
+            # Ada interaksi sebelumnya → balas feedback
+            jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
+            api_rate_limit[cid]["last_active"] = time.time()
+            log_query(_display_query, cid, source=req.source,
+                      centroid_sim=centroid_sim,
+                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                      gate="CLF_NEGATIVE_FEEDBACK", dijawab=True, jawaban=jawaban)
+            return {"jawaban": jawaban, "skor": 1.0}
+        else:
+            # Tanpa konteks → treat sebagai forward (biar kena domain check normal)
+            print(f"[DOMAIN] negative_feedback tanpa konteks → forward")
 
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = encode_query(req.pertanyaan)
@@ -400,6 +427,8 @@ async def chat(req: ChatRequest):
         return {"jawaban": jawaban, "skor": 0}
 
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
+    # Tandai bahwa session ini pernah dapat forward yang legitimate
+    session_has_forward[cid] = True
     # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
     _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
     context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5)

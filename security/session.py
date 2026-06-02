@@ -26,6 +26,7 @@ session_activity: dict = {}          # {chat_id: timestamp_terakhir}
 session_start_times: dict = {}       # {chat_id: timestamp_mulai}
 session_notified: set = set()        # chat_id yang sudah dikirimin notif
 session_expired_queue: list = []     # Antrian yang perlu dikirimin notif
+session_has_forward: dict[str, bool] = {}  # {chat_id: pernah dapat forward?}
 
 
 def format_durasi(detik: float) -> str:
@@ -74,6 +75,7 @@ def cleanup_sessions():
         session_activity.pop(cid, None)
         session_start_times.pop(cid, None)
         session_notified.discard(cid)
+        session_has_forward.pop(cid, None)
         session_expired_queue.append(cid)
 
 
@@ -90,6 +92,9 @@ def init_session(cid: str):
 
     history = sessions[cid]
     session_activity[cid] = time.time()
+
+    if cid not in session_has_forward:
+        session_has_forward[cid] = False
 
     # Batasi history — maks 10 tanya-jawab
     while len(history) > MAX_HISTORY * 2:
@@ -118,6 +123,7 @@ async def session_watchdog():
                 end_msg = format_end_msg(cid, now)
                 session_start_times.pop(cid, None)
                 session_notified.discard(cid)
+                session_has_forward.pop(cid, None)
 
                 if cid.lstrip('-').isdigit():
                     # Telegram — kirim via Bot API
