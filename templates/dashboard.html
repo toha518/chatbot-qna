@@ -866,7 +866,8 @@
           <label class="col-toggle-pill" title="CLF Mode"><input type="checkbox" data-col="7" onchange="toggleDTColumn(this)"><span>CLF Mode</span></label>
           <label class="col-toggle-pill" title="RRF Score"><input type="checkbox" data-col="8" checked onchange="toggleDTColumn(this)"><span>RRF</span></label>
           <label class="col-toggle-pill" title="E5 Top Score"><input type="checkbox" data-col="9" onchange="toggleDTColumn(this)"><span>E5 Top</span></label>
-          <label class="col-toggle-pill" title="BM25 Raw"><input type="checkbox" data-col="10" onchange="toggleDTColumn(this)"><span>BM25</span></label>
+          <label class="col-toggle-pill" title="BM25 Raw (top-RRF)"><input type="checkbox" data-col="10" onchange="toggleDTColumn(this)"><span>BM25 Raw</span></label>
+          <label class="col-toggle-pill" title="BM25 Gate (max all FAQ)"><input type="checkbox" data-col="21" onchange="toggleDTColumn(this)"><span>BM25 Gate</span></label>
 
           <span class="text-muted small me-1 ms-2 fw-semibold">🤖 LLM</span>
           <label class="col-toggle-pill" title="LLM Model"><input type="checkbox" data-col="17" checked onchange="toggleDTColumn(this)"><span>Model</span></label>
@@ -1084,7 +1085,8 @@
       { label: 'CLF Mode', render: l => l.clf_mode||'-' },
       { label: 'RRF', render: l => (l.rrf_score||0).toFixed(4) },
       { label: 'E5 Top', render: l => (l.e5_top||0).toFixed(4) },
-      { label: 'BM25', render: l => (l.bm25_raw||0).toFixed(4) },
+      { label: 'BM25 Raw', render: l => (l.bm25_raw||0).toFixed(2) },
+      { label: 'BM25 Gate', render: l => (l.bm25_gate||0).toFixed(2) },
       { label: 'Source', render: l => `<span class="badge ${l.source==='wa'?'badge-success':l.source==='telegram'?'badge-info':'badge-secondary'}">${l.source||'-'}</span>` },
       { label: 'Gate', render: l => `<span class="badge ${l.gate?.includes('CLF')?'badge-info':l.gate==='ANSWER'?'badge-success':l.gate==='REJECT'?'badge-danger':'badge-secondary'}">${l.gate||'-'}</span>` },
       { label: 'Answered', render: l => l.dijawab ? '<span class="text-success">✅</span>' : '<span class="text-danger">❌</span>' },

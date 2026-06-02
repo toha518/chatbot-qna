@@ -152,7 +152,7 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
         traceback.print_exc()
         return {"logs": [], "total": 0, "error": str(e)}
     # Sanitize values — convert None & strings to proper types
-    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"}
+    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "bm25_gate", "jawaban_length"}
     INT_COLS = {"dijawab", "multi_part", "session_baru"}
     for l in logs:
         for k in list(l.keys()):
@@ -215,7 +215,7 @@ def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int
     rows = _rows(f"SELECT * FROM logs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?", params + [length, start])
 
     # Sanitize
-    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "jawaban_length"}
+    NUMERIC_COLS = {"rrf_score", "clf_confidence", "llm_time_ms", "e5_top", "bm25_raw", "bm25_gate", "jawaban_length"}
     INT_COLS = {"dijawab", "multi_part", "session_baru"}
     for row in rows:
         for k in list(row.keys()):
