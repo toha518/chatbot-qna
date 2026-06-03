@@ -264,7 +264,7 @@ USER CHAT
 ┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
-│  Top-5 FAQ terpilih (RRF ranking, BUKAN gate)     │
+│  Top-5 FAQ terpilih (RRF ranking)     │
 └───────────────────────────────────────────────────┘
   │
   ▼
