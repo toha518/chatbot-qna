@@ -25,9 +25,9 @@ if os.path.exists(_resp_path):
 if os.path.exists(_id_path):
     with open(_id_path, "r", encoding="utf-8") as f:
         _IDENTITY = json.load(f)
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 # ===================== OCR ENGINE (EasyOCR) =====================
 # Model ~500MB, di-load pas pertama kali ada gambar masuk
@@ -208,16 +208,63 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not jawaban:
             # Silent block — gak kirim apapun, typing auto ilang ~5 detik
             return
-        try:
-            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
-        except Exception:
-            # Fallback: kalo markdown error, kirim plain text
-            await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+        # Cek apakah jawaban mengandung feedback_footer
+        # Strip footer dan kirim sebagai inline keyboard
+        _feedback_sep = "\n━━━━━━━━━━━━━━━━━━━━\n"
+        if _feedback_sep in jawaban:
+            answer_text, _ = jawaban.split(_feedback_sep, 1)
+            feedback_keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Sudah", callback_data="fb_yes"),
+                InlineKeyboardButton("❌ Belum", callback_data="fb_no"),
+            ]])
+            try:
+                await update.message.reply_text(answer_text, reply_markup=feedback_keyboard, parse_mode=ParseMode.MARKDOWN)
+            except Exception:
+                await update.message.reply_text(answer_text, reply_markup=feedback_keyboard)
+        else:
+            try:
+                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+            except Exception:
+                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
         await update.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
+async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler untuk tombol feedback ✅ Sudah / ❌ Belum"""
+    query = update.callback_query
+    await query.answer()
+    chat_id = str(update.effective_chat.id)
 
+    if query.data == "fb_yes":
+        # Kirim positive_feedback ke server — server akan stop session
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    CHATBOT_URL,
+                    json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "source": "telegram"}
+                )
+                data = resp.json()
+                jawaban = data.get("jawaban", "")
+                await query.edit_message_reply_markup(reply_markup=None)
+                await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+        except Exception as e:
+            await query.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
+
+    elif query.data == "fb_no":
+        # Kirim negative_feedback ke server
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    CHATBOT_URL,
+                    json={"pertanyaan": "feedback_no", "chat_id": chat_id, "source": "telegram"}
+                )
+                data = resp.json()
+                jawaban = data.get("jawaban", "")
+                await query.edit_message_reply_markup(reply_markup=None)
+                await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+        except Exception as e:
+            await query.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
 # ===================== MAIN =====================
@@ -253,6 +300,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("topics", topics_command))
     app.add_handler(CommandHandler("stop", stop_command))
+    app.add_handler(CallbackQueryHandler(feedback_callback, pattern="^fb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & ~filters.PHOTO, handle_message))
     # Tolak sticker, gambar, voice dll
     async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):

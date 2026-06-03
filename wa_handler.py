@@ -111,6 +111,28 @@ def wa_message():
 
     # ===================== COMMAND HANDLER (seperti /start di Telegram) =====================
     cmd = pertanyaan.strip().lower()
+
+    # Feedback button dari WhatsApp (user pencet tombol ✅ Sudah / ❌ Belum)
+    if cmd in ['✅ sudah', 'sudah']:
+        payload = {"pertanyaan": "feedback_yes", "chat_id": sender, "source": "wa"}
+        try:
+            api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
+            resp = requests.post(api_url, json=payload, timeout=30)
+            data = resp.json()
+            return jsonify({"jawaban": _strip_markdown(data.get("jawaban", ""))})
+        except Exception as e:
+            print(f"[WA FB] Error: {e}")
+
+    if cmd in ['❌ belum', 'belum']:
+        payload = {"pertanyaan": "feedback_no", "chat_id": sender, "source": "wa"}
+        try:
+            api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
+            resp = requests.post(api_url, json=payload, timeout=30)
+            data = resp.json()
+            return jsonify({"jawaban": _strip_markdown(data.get("jawaban", ""))})
+        except Exception as e:
+            print(f"[WA FB] Error: {e}")
+
     if cmd == '/start':
         topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(_IDENTITY.get("topics", [])))
         name = _IDENTITY.get("name", "Nara")

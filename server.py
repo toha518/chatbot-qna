@@ -267,6 +267,29 @@ async def chat(req: ChatRequest):
             return {"jawaban": "", "skor": 0}
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
+
+    # Synthetic feedback button callbacks (dari Telegram inline keyboard)
+    if req.pertanyaan == "feedback_yes":
+        if session_has_forward.get(cid, False):
+            jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
+            jawaban += responses.get("session_ended", "")
+            sessions.pop(cid, None)
+            session_activity.pop(cid, None)
+            session_has_forward.pop(cid, None)
+            return {"jawaban": jawaban, "skor": 1.0}
+        else:
+            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+            return {"jawaban": jawaban, "skor": 1.0}
+
+    if req.pertanyaan == "feedback_no":
+        if session_has_forward.get(cid, False):
+            jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
+            return {"jawaban": jawaban, "skor": 1.0}
+        else:
+            # Treat sebagai forward
+            pass
+
     # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
     ft_domain, ft_conf = ft_classify(req.pertanyaan)
     centroid_sim = 0.0  # di-update pas domain check
@@ -317,8 +340,13 @@ async def chat(req: ChatRequest):
     # Acknowledgment — respon langsung (makasih, ok, sip, dll)
     if ft_domain == "positive_feedback":
         if session_has_forward.get(cid, False):
-            # Ada interaksi sebelumnya → balas feedback
+            # Ada interaksi sebelumnya → balas feedback + stop session
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
+            jawaban += responses.get("session_ended", "")
+            # Stop session internal
+            sessions.pop(cid, None)
+            session_activity.pop(cid, None)
+            session_has_forward.pop(cid, None)
             api_rate_limit[cid]["last_active"] = time.time()
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
@@ -493,6 +521,9 @@ async def chat(req: ChatRequest):
             llm_model = llm_provider = ""; llm_time = 0
             jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
         gate_label = "ANSWER"
+
+    # Feedback footer untuk forward answer
+    jawaban += responses.get("feedback_footer", "")
 
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})
