@@ -5,7 +5,7 @@
 // Cara jalanin: node bridge.js
 // QR code muncul di terminal → scan pake WhatsApp
 
-const { Client, LocalAuth, MessageMedia, Buttons } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const express = require('express');
 const axios = require('axios');
 const qrcode = require('qrcode-terminal');
@@ -143,25 +143,15 @@ client.on('message', async (msg) => {
             // Pisahkan jawaban dari footer
             const parts = reply.split(_fb_sep);
             const answerText = parts[0].trim();
+            const footerText = parts.slice(1).join(_fb_sep).trim();
 
             // Kirim jawaban dulu
             await client.sendMessage(sender, answerText);
 
-            // Kirim tombol feedback (dengan fallback)
-            try {
-                const feedbackButtons = new Buttons(
-                    '💡 Apakah jawaban ini sudah membantu?',
-                    [
-                        { body: '✅ Sudah' },
-                        { body: '❌ Belum' }
-                    ],
-                    'Nara'
-                );
-                await client.sendMessage(sender, feedbackButtons);
-            } catch (btnErr) {
-                console.log(`[WA BTN] Gagal kirim tombol: ${btnErr.message} — fallback teks`);
-                await client.sendMessage(sender, _fb_sep.trim());
-            }
+            // WA buttons udah deprecated & gak work — kirim teks footer aja
+            // User bisa reply pake emoji 👍 / 👎 atau teks "sudah" / "belum"
+            // wa_handler.py udah handle deteksinya
+            await client.sendMessage(sender, footerText);
         } else {
             await client.sendMessage(sender, reply);
         }
