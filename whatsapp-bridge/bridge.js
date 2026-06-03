@@ -149,7 +149,7 @@ client.on('message', async (msg) => {
 
             // Kirim native WA Poll — user tinggal tap ✅ atau ❌
             // otomatis dihapus pas user vote
-            const pollBody = new Poll('💡 Apakah jawaban ini membantu?', [
+            const pollBody = new Poll('💡 Apakah jawaban ini sudah membantu?', [
                 '✅ Sudah',
                 '❌ Belum'
             ], { allowMultipleAnswers: false });

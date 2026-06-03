@@ -209,18 +209,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Silent block — gak kirim apapun, typing auto ilang ~5 detik
             return
         # Cek apakah jawaban mengandung feedback_footer
-        # Strip footer dan kirim sebagai inline keyboard
+        # Tampilkan jawaban + pertanyaan, kirim tombol sebagai inline keyboard
         _feedback_sep = "\n━━━━━━━━━━━━━━━━━━━━\n"
         if _feedback_sep in jawaban:
-            answer_text, _ = jawaban.split(_feedback_sep, 1)
+            answer_text, footer_part = jawaban.split(_feedback_sep, 1)
+            # Ambil baris pertanyaan dari footer (baris pertama yang bukan kosong)
+            footer_lines = [l.strip() for l in footer_part.split('\n') if l.strip()]
+            question_line = footer_lines[0] if footer_lines else '💡 Apakah jawaban ini sudah membantu?'
+            display_text = f"{answer_text}\n\n{question_line}"
             feedback_keyboard = InlineKeyboardMarkup([[
                 InlineKeyboardButton("✅ Sudah", callback_data="fb_yes"),
                 InlineKeyboardButton("❌ Belum", callback_data="fb_no"),
             ]])
             try:
-                await update.message.reply_text(answer_text, reply_markup=feedback_keyboard, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(display_text, reply_markup=feedback_keyboard, parse_mode=ParseMode.MARKDOWN)
             except Exception:
-                await update.message.reply_text(answer_text, reply_markup=feedback_keyboard)
+                await update.message.reply_text(display_text, reply_markup=feedback_keyboard)
         else:
             try:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
