@@ -360,6 +360,10 @@ async def chat(req: ChatRequest):
             # Tanpa konteks → treat sebagai forward (biar kena domain check normal)
             print(f"[DOMAIN] negative_feedback tanpa konteks → forward")
 
+    # Tandai session — CLF return forward, ada interaksi
+    if ft_domain == "forward":
+        session_has_forward[cid] = True
+
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics
@@ -427,8 +431,6 @@ async def chat(req: ChatRequest):
         return {"jawaban": jawaban, "skor": 0}
 
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
-    # Tandai bahwa session ini pernah dapat forward yang legitimate
-    session_has_forward[cid] = True
     # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
     _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
     context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5)
