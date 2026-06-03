@@ -311,6 +311,7 @@ USER CHAT
 ┌─ 10. RESPONSE ──────────────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
 │  Tambah footer kalo session baru                  │
+│  + Feedback poll/buttons (✅/❌) di WA & Telegram  │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -442,7 +443,9 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
               ├─ positive_feedback   → Template: "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊"
               │                        (hanya direspon jika session punya riwayat forward;
               │                         tanpa konteks → treat sebagai greeting)
-              ├─ negative_feedback   → Template + link QNA: "Maaf ya... silakan ajukan lewat form"
+              ├─ negative_feedback   → Template: "Maaf kalau jawaban saya belum membantu. 🙏\n"
+              │                        "Biar saya bantu lebih lanjut, boleh info:"
+              │                        minta detail aplikasi + kendala + error + link QNA
               │                        (hanya direspon jika session punya riwayat forward;
               │                         tanpa konteks → treat sebagai forward)
               └─ forward             → Lanjut ke BM25 gate → hybrid search → LLM
@@ -458,7 +461,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 | **greeting** | User menyapa | "halo", "pagi nara", "assalamualaikum", "met malem", "hi bang" | LLM — sapaan ramah + tawarkan bantuan | `prompts/greeting.md` |
 | **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
 | **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊" | `responses.json → positive_feedback` (hanya jika ada riwayat forward; tanpa konteks → greeting) |
-| **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
+| **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | Template minta detail (aplikasi + kendala + error) + link QNA | `responses.json → negative_feedback` (hanya jika ada riwayat forward; tanpa konteks → forward pipeline) |
 | **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → LLM | BM25 3-tier + RRF ranking |
 
 **Kenapa perlu 5 kelas?**
@@ -1228,15 +1231,39 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 #### v2.5.1 — 2026-06-03
 
-**Context-Aware Feedback + Positive Response Update**
+**Context-Aware Feedback + WA Polls + Session Closure**
+
+**Added**
+- **Feedback footer** — setiap jawaban (CLF forward) ditambahi footer "💡 Apakah jawaban ini sudah membantu?"
+- **Telegram inline keyboard** — ✅ Sudah / ❌ Belum sebagai tombol di bawah jawaban, dengan teks pertanyaan sebelumnya
+- **WhatsApp native Poll** — ganti Buttons (deprecated sejak 2023) dengan native WhatsApp Poll. Work di Web, Android, iOS.
+  - User vote → poll otomatis dihapus (delete for everyone) — cegah ganti pilihan
+  - Event `vote_update` → route ke `feedback_yes` / `feedback_no` di server
+  - Fallback: user tetap bisa reply 👍 / 👎 / teks "sudah"/"belum"
+- **Stop session on ✅** — positive_feedback dengan konteks → balas + stop session + footer jam/durasi (via `_format_end_footer`)
+- **`requests`** ditambahkan ke `requirements.txt`
 
 **Changed**
 - **Positive feedback response** diperbarui: "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊"
+- **Negative feedback template** diubah dari langsung link QNA → minta detail:
+  - Aplikasi yang dimaksud?
+  - Kendala yang muncul?
+  - Pesan error yang terlihat?
+  - Tetap ada link QNA sebagai opsi terakhir
 - **Context-aware feedback:** `positive_feedback` / `negative_feedback` hanya direspon jika session punya riwayat CLF `forward` (user pernah bertanya).
   - `positive_feedback` tanpa konteks → treat sebagai greeting.
   - `negative_feedback` tanpa konteks → treat sebagai forward (domain check normal).
   - Tracking via `session_has_forward` dict di `security/session.py`.
-- File diubah: `prompts/responses.json`, `server.py`, `security/session.py`
+
+**Node.js**
+- v20 (Iron) sudah EOL (March 2026) → update referensi ke **v22 LTS (Jod)** di README
+- Puppeteer modern butuh Node 22.12+
+
+**Fixed**
+- `whatsapp-web.js` Buttons class deprecated — ganti native Poll
+- `format_end_msg()` tidak digunakan untuk ✅ Sudah → pakai `_format_end_footer()` yang hanya menampilkan jam + durasi (tanpa teks panjang)
+
+**Files changed:** `prompts/responses.json`, `server.py`, `security/session.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `requirements.txt`, `README.md`, `VERSION`
 
 ---
 
