@@ -95,10 +95,10 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.70). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
+| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
-| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
+| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 24 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
 
 ---
 
@@ -122,7 +122,7 @@ Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
                  → lainnya → BM25 keyword check
                               ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
                               ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
-                              ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-2
+                              ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-3
                               │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
                               └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
 ```
@@ -187,7 +187,7 @@ chatbot-qna/
 │   ├── embedder.py           ←   E5-base: load, encode, hybrid search (E5+BM25 RRF)
 │   ├── bm25.py               ←   BM25: per-doc scoring untuk hybrid retrieval + domain gate
 │   ├── intent_classifier.py  ←   scikit-learn SGDClassifier + TF-IDF intent classifier
-│   ├── classifier_train.txt  ←   Training data (478 sampel, 5 kelas)
+│   ├── classifier_train.txt  ←   Training data (845 sampel, 5 kelas)
 │   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
@@ -287,7 +287,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 3-tier gate (OOC/BORDERLINE/ANSWER)** → cascade depth 2 → hybrid search (E5+BM25 RRF) → LLM → jawab + log
+> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 3-tier gate (OOC/BORDERLINE/ANSWER)** → cascade depth 1-3 → hybrid search (E5+BM25 RRF) → LLM → jawab + log
 
 ---
 
@@ -418,7 +418,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
               ├─ negative_feedback   → Template + link QNA: "Maaf ya... silakan ajukan lewat form"
               │                        (hanya direspon jika session punya riwayat forward;
               │                         tanpa konteks → treat sebagai forward)
-              └─ forward             → Lanjut ke hybrid search + domain filter (RRF gate)
+              └─ forward             → Lanjut ke BM25 gate → hybrid search → LLM
 ```
 
 **Context-aware feedback (v2.5.1+):**
@@ -432,7 +432,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 | **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
 | **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊" | `responses.json → positive_feedback` (hanya jika ada riwayat forward; tanpa konteks → greeting) |
 | **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
-| **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → RRF gate | BM25 + RRF 2-layer |
+| **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → LLM | BM25 3-tier + RRF ranking |
 
 **Kenapa perlu 5 kelas?**
 - Tanpa `positive_feedback`: "makasih" masuk forward → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
@@ -443,7 +443,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 - **SGDClassifier + TF-IDF (185KB)** — pure Python, semua OS. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%, inferensi < 1ms
 - **Keyword fallback** — auto aktif kalo scikit-learn gak terinstall. Akurasi: ~95%
 
-**Training data:** `core/classifier_train.txt` — 478 baris, format:
+**Training data:** `core/classifier_train.txt` — 845 baris, format:
 ```
 __label__greeting halo
 __label__greeting pagi nara
@@ -501,30 +501,21 @@ else:
 
 ### 🔄 Cascade Fallback
 
-Hybrid search RRF udah lumayan, tapi ada kasus follow-up pendek yang jeblok:
-```
-User: "aktivasi FASIH gimana caranya?"  → skor hybrid 0.88 ✅
-User: "linknya udah dicoba"             → skor hybrid 0.65 ❌ (terlalu pendek, gak nyambung ke FAQ)
-```
+Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabisa" setelah "verifikasi NIK gimana"), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
 
-**Solusi — Cascade Fallback:**
+**Cara kerja (BM25 + E5 similarity guard):**
+1. **BM25 original < 5** + ada history → concat prev query depth 1-3, hitung BM25 ulang
+2. Jika **BM25 cascade ≥ 5** (dapat keyword dari prev query) → cek **E5 cosine similarity** antara query asli vs prev query
+3. **E5 sim ≥ 0.78** → masih satu topik → ✅ lanjut hybrid search → LLM
+4. **E5 sim < 0.78** → topic drift → ❌ cascade skip, jatuh ke 3-tier BM25 gate
 
-| Depth | Aksi | Threshold |
-|:-----:|------|:---------:|
-| 0 | Search dengan query original | RRF < 0.025 → depth 1 |
-| 1 | **Concat** 1 query user sebelumnya + query saat ini → search ulang | RRF < 0.025 → depth 2 |
-| 2 | **Concat** 2 query user sebelumnya + query saat ini → search ulang | RRF < 0.025 → **TOLAK** → 📩 QNA link |
+> 🔑 **Biaya:** E5 query_vec sudah di-compute untuk BM25 gate, prev query di LRU cache. Cek cosine similarity cuma ~0.001ms — praktis gratis.
 
-> 🔑 **Poin penting:** Cascade reject berarti **LLM tidak pernah dipanggil**. Biaya token = 0. Yang terbuang cuma komputasi E5 encode + BM25 scoring — itu pun < 100ms di CPU.
-
-**Contoh cascade:**
-```
-Query: "linknya udah dicoba"  → hybrid score 0.65 ❌
-  ↓ depth 1 (concat 1 prev)
-  "aktivasi FASIH gimana caranya? linknya udah dicoba"  → hybrid score 0.85 ✅
-```
-
-Cascade depth max 2 — cukup untuk handle follow-up natural tanpa bikin prompt terlalu panjang.
+| Skenario | BM25 original | BM25 cascade | E5 sim | Hasil |
+|----------|:---:|:---:|:---:|:--:|
+| Follow-up: "tetep gabisa" setelah "verifikasi NIK" | 0.0 | 9.2 | 0.89 ✅ | LLM jawab |
+| Topic drift: "BPS bukan satu-satunya" setelah "verifikasi NIK" | 2.1 | 5.2 | 0.55 ❌ | Cascade skip → tier gate |
+| Non-BPS: "siapa presiden" setelah "aktivasi FASIH" | 0.0 | 5.8 | 0.34 ❌ | Cascade skip → tier gate |
 
 ---
 
@@ -572,10 +563,10 @@ Cascade  = follow-up pintu belakang → "eh ini rombongan yang tadi udah masuk k
 | **OpenAI text-embedding-3-small** | API key tambahan, biaya per query, latency jaringan |
 | **BAAI/bge-base-en-v1.5** | Inggris doang, gak optimal untuk Indonesia |
 | **Qwen2.5-embedding** | Baru, belum mature, komunitas kecil |
-| **ChromaDB / LangChain** | Overkill untuk skala saat ini (113 FAQ) — setup overhead gak sebanding |
+| **ChromaDB / LangChain** | Overkill untuk skala saat ini — setup overhead gak sebanding |
 | **FastText (classifier)** | Butuh C++ compiler di Windows, numpy 2.x incompatible — diganti scikit-learn |
 
-E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D cukup untuk 113 FAQ, dan terbukti di berbagai benchmark retrieval.** Scikit-learn dipilih sebagai classifier karena: **pure Python, zero dependency, 97.4% accuracy, 185KB model.**
+E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D, dan terbukti di berbagai benchmark retrieval.** Scikit-learn dipilih sebagai classifier karena: **pure Python, zero dependency, 98.1% accuracy, 185KB model.**
 
 ---
 
@@ -1016,7 +1007,7 @@ Setiap request user dicatat otomatis ke **dual storage**:
 | **JSONL** | `query_log.jsonl` | Debug real-time — `tail -f` langsung keliatan |
 | **SQLite** | `query_log.db` | Analytics jangka panjang — SQL query instant |
 
-### Format Log (21 field per entry)
+### Format Log (24 field per entry)
 
 ```json
 {
