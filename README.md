@@ -405,8 +405,12 @@ Sebelum hybrid search dijalankan, **CLF (Classifier)** menyaring 5 jenis intent 
 Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
               ├─ greeting            → LLM menjawab dengan sapaan ramah
               ├─ capability          → Template statis: "Saya bisa membantu: ..."
-              ├─ positive_feedback   → Template: "Sama-sama! 😊 Ada yang bisa saya bantu lagi?"
+              ├─ positive_feedback   → Template: "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊"
+              │                        (hanya direspon jika session punya riwayat forward;
+              │                         tanpa konteks → treat sebagai greeting)
               ├─ negative_feedback   → Template + link QNA: "Maaf ya... silakan ajukan lewat form"
+              │                        (hanya direspon jika session punya riwayat forward;
+              │                         tanpa konteks → treat sebagai forward — domain check normal)
               └─ forward             → Lanjut ke hybrid search + domain filter (RRF gate)
 ```
 
@@ -414,7 +418,7 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 |--------|-----------|-------------|--------|---------|
 | **greeting** | User menyapa | "halo", "pagi nara", "assalamualaikum", "met malem", "hi bang" | LLM — sapaan ramah + tawarkan bantuan | `prompts/greeting.md` |
 | **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
-| **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Sama-sama! 😊 Ada yang bisa saya bantu lagi?" | `responses.json → positive_feedback` |
+| **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊" | `responses.json → positive_feedback` (hanya jika ada riwayat forward; tanpa konteks → greeting) |
 | **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | "Maaf ya..." + link QNA `s.bps.go.id/nara-qna` | `responses.json → negative_feedback` |
 | **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → RRF gate | BM25 + RRF 2-layer |
 
@@ -422,6 +426,12 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 - Tanpa `positive_feedback`: "makasih" masuk forward → hybrid search → RRF rendah → ditolak dengan *"Maaf, saya tidak bisa menjawab..."* — awkward.
 - Tanpa `negative_feedback`: "kamu ga membantu" masuk forward → hybrid search → LLM dengan system prompt ketat → malah kasih link QNA dengan nada formal — padahal harusnya empati dulu.
 - Tanpa `capability` terpisah: LLM suka ngarang definisi palsu ("GC PBI = Ground Check Penggunaan Bahan Bakar Industri"). Template statis mencegah hal ini.
+
+**Context-aware feedback (v2.5.1+):**
+- Feedback responses (`positive_feedback` / `negative_feedback`) **hanya muncul** jika session telah memiliki riwayat CLF `forward` (user pernah bertanya sebelumnya).
+- `positive_feedback` tanpa konteks → diarahkan ke **greeting** (user mungkin cuma ramah).
+- `negative_feedback` tanpa konteks → diarahkan ke **forward pipeline** (user mungkin typo atau iseng; fallback ke BM25 gate normal).
+- Tracking per-session via `session_has_forward` dict di `security/session.py`.
 
 **Model:**
 - **SGDClassifier + TF-IDF (185KB)** — pure Python, semua OS. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%, inferensi < 1ms
@@ -500,6 +510,58 @@ Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabis
 | Non-BPS: "siapa presiden" setelah "aktivasi FASIH" | 0.0 | 5.8 | 0.34 ❌ | Cascade skip → tier gate |
 
 **Biaya:** E5 query_vec sudah di-compute untuk BM25 gate, prev query di LRU cache. Cek cosine similarity cuma ~0.001ms — praktis gratis.
+
+---
+
+## Riwayat Versi
+
+### v2.5.1 — Context-Aware Feedback + Positive Response Update
+- **Positive feedback response** diperbarui: "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊"
+- **Context-aware feedback:** `positive_feedback` / `negative_feedback` hanya direspon jika session punya riwayat CLF `forward` (user pernah bertanya).
+  - `positive_feedback` tanpa konteks → treat sebagai greeting.
+  - `negative_feedback` tanpa konteks → treat sebagai forward (domain check normal).
+  - Tracking via `session_has_forward` dict di `security/session.py`.
+- File diubah: `prompts/responses.json`, `server.py`, `security/session.py`
+
+### v2.5.0 — scikit-learn Intent Classifier
+- Intent classifier migrasi dari keyword regex ke **SGDClassifier + TF-IDF** (pure Python, 185KB, 98.1% accuracy).
+- 5 kelas: `greeting`, `capability`, `positive_feedback`, `negative_feedback`, `forward`.
+- Keyword fallback auto aktif jika scikit-learn tidak terinstall.
+- Training data: `core/classifier_train.txt` (845 sampel).
+- File baru: `core/intent_classifier.py`, `core/classifier_train.txt`
+
+### v2.4.0 — Cascade BM25 + E5 Similarity Guard
+- Cascade BM25 depth 3 untuk follow-up pendek (concat prev query).
+- E5 cosine similarity guard (≥0.70) cegah topic drift.
+- Multi-part split dengan E5 Semantic Boundary (threshold 0.78).
+- Pipeline parsing pindah dari heuristic ke `_raw_query` (E5 split + merge).
+
+### v2.3.0 — Hybrid E5+BM25 via RRF Fusion
+- Hybrid search: E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60).
+- RRF untuk ranking saja (bukan gate).
+- BM25 3-tier threshold: <3 tolak, 3-4.9 QNA link, ≥5 hybrid.
+- Centroid E5 di-log untuk analytics dashboard.
+
+### v2.2.0 — Multi-LLM Failover Chain
+- Multi-provider LLM: OpenCode → DeepSeek → Ollama lokal — auto failover.
+- `call_llm` return (content, model, provider, elapsed_ms).
+
+### v2.1.0 — BM25 Domain Gate
+- Domain gate: BM25 3-tier threshold.
+- Cascade BM25 depth 3 untuk follow-up.
+- QNA form link untuk borderline queries.
+
+### v2.0.0 — Arsitektur Modular
+- Restrukturisasi lengkap: `core/`, `security/`, `prompts/`.
+- Session management + watchdog.
+- Anti-spam + daily limit.
+- Dashboard monitoring (port 8001).
+
+### v1.0.0 — MVP
+- E5-base semantic search via numpy cosine similarity.
+- Single-provider LLM (DeepSeek).
+- Google Sheets FAQ + SQLite chat history.
+- OCR via EasyOCR.
 
 ---
 
