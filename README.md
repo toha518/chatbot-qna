@@ -268,19 +268,14 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 7. RRF GATE (3 cabang) ────────────────────────┐
-│  (RRF digunakan untuk ranking, bukan gate)       │
-└───────────────────────────────────────────────────┘
-  │ (ANSWER)
-  ▼
-┌─ 8. LLM GENERATE ───────────────────────────────┐
+┌─ 7. LLM GENERATE ───────────────────────────────┐
 │  System prompt + 5 FAQ context + chat history     │
 │  Multi-provider failover (cloud → Ollama lokal)   │
 │  Timeout 30 detik per provider                    │
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 9. RESPONSE + LOGGING ─────────────────────────┐
+┌─ 8. RESPONSE + LOGGING ─────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
 │  DUAL-LOGGED: JSONL + SQLite (non-blocking thread)│
 │  Kolom: BM25 Gate, BM25 Raw, RRF, E5, centroid_sim, gate │
