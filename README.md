@@ -24,20 +24,24 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ## 📋 Daftar Isi
 
-- [✨ Fitur](#-fitur)
 - [📸 Tangkapan Layar](#tangkapan-layar)
 - [🛠️ Tech Stack](#tech-stack)
-- [🔒 Security & Proteksi](#-security--proteksi)
-- [🧠 Arsitektur Modular](#-arsitektur-modular)
-- [🔄 Replikasi / Custom Bot](#-replikasi--custom-bot)
-- [💻 Panduan Instalasi — Windows](#-panduan-instalasi--windows)
-- [🐧 Panduan Instalasi — Linux](#-panduan-instalasi--linux)
-- [🔗 API Endpoints](#-api-endpoints)
-- [📊 Logging & Evaluasi](#-logging--evaluasi)
-- [🖥️ Dashboard](#-dashboard)
-- [❓ FAQ](#-faq)
+- [✨ Fitur](#fitur)
+- [🔒 Security & Proteksi](#security-proteksi)
+- [🧠 Arsitektur Modular](#arsitektur-modular)
+- [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#detail-hybrid-search-e5-bm25-via-rrf)
+- [🆚 Perbandingan & Arsitektur Pipeline](#🆚-perbandingan-arsitektur-pipeline)
+- [🔄 Replikasi / Custom Bot](#replikasi-custom-bot)
+- [💻 Panduan Instalasi — Windows](#panduan-instalasi-windows)
+- [🐧 Panduan Instalasi — Linux](#panduan-instalasi-linux)
+- [✅ Verifikasi](#verifikasi)
+- [🔗 API Endpoints](#api-endpoints)
+- [📊 Logging & Evaluasi](#logging-evaluasi)
+- [🖥️ Dashboard](#dashboard)
+- [❓ FAQ](#faq)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
+- [📄 Lisensi](#lisensi)
 
 
 ---
