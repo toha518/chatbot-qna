@@ -4,7 +4,6 @@
   "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
   "capability": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa membantu pertanyaan seputar:\n{topics_list}\n\nAda yang bisa saya bantu? 😊",
   "positive_feedback": "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊",
-  "session_ended": "\n\n---\n💬 Sesi obrolan telah ditutup. Mulai sesi baru jika masih ada pertanyaan.",
   "negative_feedback": "Maaf kalau jawaban saya belum membantu. 🙏\n\nBiar saya bantu lebih lanjut, boleh info:\n• **Aplikasi** apa yang dimaksud?\n• **Kendala** yang muncul seperti apa?\n• Adakah **pesan error** yang terlihat?\n\nCoba ceritakan ulang ya, saya bantu cari solusinya. 😊\n\nAtau ajukan pertanyaan melalui link:\n📩 http://s.bps.go.id/nara-qna",
   "rejection": "Maaf, saya tidak dapat menjawab pertanyaan tersebut. Saya hanya dapat membantu pertanyaan seputar {topics_line}. Silakan hubungi pegawai BPS Provinsi Kepulauan Bangka Belitung untuk informasi lebih lanjut.",
   "rejection_short": "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya.",

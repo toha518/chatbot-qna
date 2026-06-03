@@ -272,7 +272,7 @@ async def chat(req: ChatRequest):
     if req.pertanyaan == "feedback_yes":
         if session_has_forward.get(cid, False):
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
-            jawaban += responses.get("session_ended", "")
+            jawaban += "\n\n" + format_end_msg(cid)
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
             session_has_forward.pop(cid, None)
@@ -342,7 +342,7 @@ async def chat(req: ChatRequest):
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback + stop session
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
-            jawaban += responses.get("session_ended", "")
+            jawaban += "\n\n" + format_end_msg(cid)
             # Stop session internal
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
