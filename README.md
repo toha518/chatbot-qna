@@ -221,6 +221,8 @@ USER CHAT
   ▼
 ┌─ 1. INPUT SANITASI ──────────────────────────────┐
 │  • Hapus karakter kontrol                         │
+│  • Simpan query asli + raw (untuk multi-part)     │
+│  • Normalisasi: koma/titik koma → spasi           │
 │  • Batasi emoji (maks 5)                          │
 │  • Tolak >500 karakter (kecuali OCR gambar)       │
 │  • OCR gambar via EasyOCR (lazy load ~500MB)      │
@@ -234,55 +236,85 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 3. INTENT CLASSIFIER (scikit-learn, 97.4%) ─────┐
-│  greeting        → LLM sapaan (tanpa retrieval)   │
-│  capability      → Template daftar topik          │
-│  positive_fb     → "Sama-sama 😊"                 │
-│  negative_fb     → "Maaf ya 🙏"                    │
-│  forward         → lanjut ke domain gate ↓        │
-└───────────────────────────────────────────────────┘
-  │ (kalau forward)
-  ▼
-┌─ 4. DOMAIN GATE: BM25 3-TIER ────────────────────┐
-│  BM25 = keyword overlap query vs semua FAQ        │
-│  • BM25 < 3.0    → ❌ OOC_BM25 (tolak, NO cascade) │
-│  • BM25 3.0-4.9  → ❌ BM25_BORDERLINE (QNA link)   │
-│  • BM25 3-4.9 + history → CASCADE depth 1-3       │
-│  • BM25 ≥ 5.0    → ✅ lanjut hybrid ↓              │
-│  Cascade: concat prev query, hitung BM25 ulang     │
-└───────────────────────────────────────────────────┘
-  │ (BM25 ≥ 3.0)
-  ▼
-┌─ 5. MULTI-PART SPLIT? ───────────────────────────┐
-│  Ada konjungsi ("dan", "serta", "juga")?          │
-│  YA → Split → tiap part hybrid search sendiri     │
-│        Merge kalo E5 similarity ≥ 0.78            │
-│  TIDAK → Single question ↓                        │
+┌─ 3. SESSION ─────────────────────────────────────┐
+│  • Init/resume session per chat_id                │
+│  • Load chat history (max 10 tanya-jawab)         │
+│  • Setup tracking: session_baru, session_has_forward │
 └───────────────────────────────────────────────────┘
   │
+  ▼
+┌─ 4. INTENT CLASSIFIER (scikit-learn, 98.1%) ──────┐
+│  Tentukan intent user:                             │
+│                                                     │
+│  greeting        → LLM sapaan (template fallback)  │
+│  capability      → Template statis (skip LLM)      │
+│  positive_fb:    ─→ Ada riwayat forward?            │
+│                     YA → "Senang bisa membantu 😊"  │
+│                     TIDAK → treat sebagai greeting  │
+│  negative_fb:    ─→ Ada riwayat forward?            │
+│                     YA → "Maaf ya, silakan ajukan   │
+│                           lewat form 🙏"            │
+│                     TIDAK → treat sebagai forward ↓ │
+│  forward         → Set session_has_forward = True   │
+│                    Lanjut ke BM25 gate ↓           │
+└───────────────────────────────────────────────────┘
+  │ (forward / negative_feedback tanpa konteks)
+  ▼
+┌─ 5. DOMAIN GATE: BM25 3-TIER ────────────────────┐
+│  BM25 = keyword overlap query vs semua FAQ        │
+│                                                     │
+│  ── CASCADE (BM25 < 5 + ada history) ──            │
+│  ├─ Concat prev query depth 1-3, hitung BM25 ulang │
+│  ├─ Cascade BM25 ≥ 5 + E5 sim ≥ 0.78 → sukses ↓   │
+│  └─ E5 sim < 0.78 → topic drift → skip cascade     │
+│                                                     │
+│  • BM25 < 3.0     → ❌ OOC_BM25 (tolak)             │
+│  • BM25 3.0-4.9   → ❌ BM25_BORDERLINE (QNA link)   │
+│  • BM25 ≥ 5.0     → ✅ lanjut hybrid search ↓       │
+└───────────────────────────────────────────────────┘
+  │ (BM25 ≥ 5.0 / cascade sukses)
   ▼
 ┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
+│  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
-│  Top-5 FAQ terpilih (RRF ranking)     │
+│  Top-5 FAQ (RRF ranking, untuk konteks LLM)       │
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 7. LLM GENERATE ───────────────────────────────┐
-│  System prompt + 5 FAQ context + chat history     │
+┌─ 7. MULTI-PART SPLIT? ───────────────────────────┐
+│  Split raw query: konjungsi (dan/serta/sedangkan/  │
+│  namun/tetapi/tapi), ? , . delimiter               │
+│  YA (2+ parts):                                    │
+│  ├─ Tiap pasangan dicek E5 merge (cosim ≥ 0.78)   │
+│  ├─ Tiap merged part → hybrid search → LLM sendiri │
+│  ├─ Gabung semua jawaban → kirim ke user           │
+│  TIDAK → single question ↓                        │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 8. LLM GENERATE ───────────────────────────────┐
+│  System prompt + FAQ context + chat history       │
 │  Multi-provider failover (cloud → Ollama lokal)   │
 │  Timeout 30 detik per provider                    │
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 8. RESPONSE + LOGGING ─────────────────────────┐
+┌─ 9. SAVE + LOGGING ─────────────────────────────┐
+│  • Simpan ke session history                      │
+│  • DUAL-LOGGED: JSONL + SQLite (24 kolom)         │
+│  • Kolom: CLF, RRF, E5, BM25 Gate, BM25 Raw,     │
+│    centroid_sim, gate, LLM model/provider/time    │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 10. RESPONSE ──────────────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
-│  DUAL-LOGGED: JSONL + SQLite (non-blocking thread)│
-│  Kolom: BM25 Gate, BM25 Raw, RRF, E5, centroid_sim, gate │
+│  Tambah footer kalo session baru                  │
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → intent classifier → **BM25 3-tier gate (OOC/BORDERLINE/ANSWER)** → cascade depth 1-3 → hybrid search (E5+BM25 RRF) → LLM → jawab + log
+> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **BM25 3-tier gate** (dengan cascade BM25 + E5 guard depth 1-3) → hybrid search (E5+BM25 RRF) → multi-part split (E5 merge) → LLM → save + log
 
 ---
 
