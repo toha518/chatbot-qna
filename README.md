@@ -76,7 +76,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | **WhatsApp** | whatsapp-web.js (Node.js bridge via Flask) |
 | **OCR** | EasyOCR (Indonesia + Inggris, lazy load ~500MB) |
 | **Dashboard** | FastAPI + vanilla HTML/CSS/JS (port 8001) — Live Terminal, RRF chart, Query Monitor |
-| **Bahasa** | Python 3.11+ / Node.js v20 LTS
+| **Bahasa** | Python 3.11+ / Node.js v22 LTS
 
 ---
 
@@ -622,7 +622,7 @@ E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D, dan ter
 |----------|-------------|
 | **OS** | Windows 10/11 (64-bit) |
 | **Python** | 3.11 atau 3.12 |
-| **Node.js** | v20 LTS (v24 mungkin bermasalah dengan puppeteer) |
+| **Node.js** | v22 LTS |
 | **RAM** | **Minimal 8GB** (disarankan 16GB kalau mau + Ollama lokal) |
 
 ### 1. Install Python
@@ -634,9 +634,9 @@ E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D, dan ter
 
 ### 2. Install Node.js
 
-Download dari [nodejs.org](https://nodejs.org/) — pilih **v20 LTS**.
+Download dari [nodejs.org](https://nodejs.org/) — pilih **v22 LTS**.
 
-Verifikasi: `node --version` (harus v20.x.x)
+Verifikasi: `node --version` (harus v22.x.x)
 
 ### 3. Install Git & Clone
 
@@ -767,7 +767,7 @@ Buat file `.env` (isi token), terus double-click `start-all.bat`. Selesai.
 |----------|-------------|
 | **OS** | Ubuntu 22.04+ / Debian 12+ (64-bit) |
 | **Python** | 3.11 atau 3.12 |
-| **Node.js** | v20 LTS |
+| **Node.js** | v22 LTS |
 | **RAM** | **Minimal 8GB** (disarankan 16GB kalau mau + Ollama lokal) |
 
 > **Catatan WhatsApp Bridge:** `whatsapp-web.js` butuh Chrome/Chromium. Di Linux server tanpa GUI, jalanin `npx puppeteer browsers install chrome` setelah npm install.
@@ -787,17 +787,17 @@ Verifikasi:
 python3.11 --version   # harus Python 3.11.x
 ```
 
-### 2. Install Node.js v20
+### 2. Install Node.js v22
 
 ```bash
 # Pake NodeSource
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
 Verifikasi:
 ```bash
-node --version   # harus v20.x.x
+node --version   # harus v22.x.x
 npm --version
 ```
 
