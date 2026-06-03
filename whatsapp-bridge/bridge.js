@@ -5,7 +5,7 @@
 // Cara jalanin: node bridge.js
 // QR code muncul di terminal → scan pake WhatsApp
 
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const { Client, LocalAuth, MessageMedia, Poll } = require('whatsapp-web.js');
 const express = require('express');
 const axios = require('axios');
 const qrcode = require('qrcode-terminal');
@@ -143,15 +143,22 @@ client.on('message', async (msg) => {
             // Pisahkan jawaban dari footer
             const parts = reply.split(_fb_sep);
             const answerText = parts[0].trim();
-            const footerText = parts.slice(1).join(_fb_sep).trim();
 
             // Kirim jawaban dulu
             await client.sendMessage(sender, answerText);
 
-            // WA buttons udah deprecated & gak work — kirim teks footer aja
-            // User bisa reply pake emoji 👍 / 👎 atau teks "sudah" / "belum"
-            // wa_handler.py udah handle deteksinya
-            await client.sendMessage(sender, footerText);
+            // Kirim native WA Poll — user tinggal tap ✅ atau ❌
+            // otomatis dihapus pas user vote
+            const pollBody = new Poll('💡 Apakah jawaban ini membantu?', [
+                '✅ Sudah',
+                '❌ Belum'
+            ], { allowMultipleAnswers: false });
+            const pollMsg = await chat.sendMessage(pollBody);
+
+            // Simpan polling message reference biar bisa dihapus nanti
+            if (!global._pollMap) global._pollMap = new Map();
+            const _key = sender.split('@')[0];
+            global._pollMap.set(_key, pollMsg.id._serialized);
         } else {
             await client.sendMessage(sender, reply);
         }
@@ -163,6 +170,52 @@ client.on('message', async (msg) => {
             console.error(`[ERROR] HTTP ${err.response.status}: ${JSON.stringify(err.response.data).substring(0, 200)}`);
         } else {
             console.error(`[ERROR] ${err.message}`);
+        }
+    }
+});
+
+// ===================== HANDLE POLL VOTE =====================
+client.on('vote_update', async (vote) => {
+    try {
+        // Ambil voter dan opsi yang dipilih
+        const voter = vote.voter;
+        if (!voter) return;
+
+        const selected = vote.selectedOptions;
+        if (!selected || selected.length === 0) return;
+
+        const optionName = selected[0].name;
+        const pollMsg = vote.parentMessage;
+
+        // Cek apakah ini poll feedback punya kita (dari _pollMap)
+        const _key = voter.split('@')[0];
+        if (global._pollMap && global._pollMap.get(_key)) {
+            // Hapus poll dari chat
+            try {
+                await pollMsg.delete(true);
+            } catch (delErr) {
+                console.log(`[POLL] Gagal hapus: ${delErr.message}`);
+            }
+            global._pollMap.delete(_key);
+
+            // Kirim feedback ke server
+            const isPositive = optionName.includes('✅');
+            const feedbackQuery = isPositive ? 'feedback_yes' : 'feedback_no';
+
+            const resp = await axios.post(`${FLASK_URL}/wa-message`, {
+                sender: voter,
+                message: feedbackQuery,
+                is_image: false
+            }, { timeout: 30000 });
+
+            const reply = resp.data?.jawaban || '';
+            if (reply) {
+                await client.sendMessage(voter, reply);
+            }
+        }
+    } catch (err) {
+        if (err.code !== 'ECONNREFUSED') {
+            console.error(`[POLL ERROR] ${err.message}`);
         }
     }
 });
