@@ -185,6 +185,19 @@ def get_one_history(chat_id: str):
         return {"chat_id": chat_id, "total": len(formatted), "messages": formatted}
     except Exception as e:
         return {"error": str(e)}
+
+def _format_end_footer(cid: str) -> str:
+    """Format baris penutup session (hanya bagian bawah — jam + durasi)"""
+    wib = timezone(timedelta(hours=7))
+    now_str = datetime.now(wib).strftime("%H:%M")
+    start = session_start_times.get(cid)
+    durasi_str = format_durasi(time.time() - start) if start else "-"
+    return (
+        f"---\n"
+        f"Sesi obrolan telah ditutup, pukul {now_str} WIB, "
+        f"obrolan berlangsung selama {durasi_str}."
+    )
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     """
@@ -272,7 +285,7 @@ async def chat(req: ChatRequest):
     if req.pertanyaan == "feedback_yes":
         if session_has_forward.get(cid, False):
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
-            jawaban += "\n\n" + format_end_msg(cid)
+            jawaban += "\n\n" + _format_end_footer(cid)
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
             session_has_forward.pop(cid, None)
@@ -342,7 +355,7 @@ async def chat(req: ChatRequest):
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback + stop session
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
-            jawaban += "\n\n" + format_end_msg(cid)
+            jawaban += "\n\n" + _format_end_footer(cid)
             # Stop session internal
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
