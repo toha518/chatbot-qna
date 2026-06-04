@@ -46,7 +46,7 @@ init_classifier()
 load_llm_config()
 identity, system_template, greeting_template, acronyms = load_prompts()
 responses = load_responses()
-REJECTION_MSG = responses.get("rejection").format(topics_line=", ".join(identity["topics"]))
+REJECTION_MSG = responses.get("rejection_out_of_context").format(topics_line=", ".join(identity["topics"]))
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
@@ -464,7 +464,7 @@ async def chat(req: ChatRequest):
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
-        jawaban = RESP_G("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
+        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -478,7 +478,7 @@ async def chat(req: ChatRequest):
 
     if 3.0 <= bm25_top < 5.0:
         # Tier 2: borderline — domain BPS possible tapi gak match FAQ → QNA link
-        jawaban = RESP_G("rejection_no_answer", REJECTION_MSG)
+        jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
