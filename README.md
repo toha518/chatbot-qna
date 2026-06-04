@@ -128,37 +128,153 @@ chatbot-qna/
 
 ### Alur Proses Chat (End-to-End)
 
-```text
-  1. INPUT: Sanitasi -> Anti-Spam -> Session
-  
-  2. INTENT CLASSIFIER: greeting/capability -> cek BM25
-     - BM25 >= 3.0 -> forward (lanjut ke step 3)
-     - BM25 < 3.0  -> respon langsung (sapa/template)
-     positive_feedback / negative_feedback -> cek riwayat forward
-     - ada riwayat -> balas feedback + stop session
-     - tanpa riwayat -> treat greeting / forward
-  
-  3. MULTI-PART SPLIT: Split query (dan, ?, ., ,)
-     -> E5 cosim merge (threshold 0.78)
-     -> tiap part diproses sendiri
-  
-  4. DOMAIN GATE: CASCADE + BM25 3-TIER
-     CASCADE: BM25 < 5 + ada history -> concat depth 1-3
-              -> >= 5 + E5 >= 0.78 = sukses
-              -> E5 < 0.78 = topic drift, skip
-     3-TIER: < 3.0 = OOC / 3-4.9 = QNA / >= 5.0 = hybrid
-  
-  5. HYBRID SEARCH: E5 encode + BM25 scoring -> RRF (K=60) -> Top-5 FAQ
-  
-  6. LLM: System prompt + context + failover chain
-  
-  7. OUTPUT: Save/Log -> Response -> Feedback
-     (Telegram: InlineKeyboard / WhatsApp: native Poll)
+```
+USER CHAT
+  │
+  ▼
+┌─ 1. INPUT SANITASI ──────────────────────────────┐
+│  • Hapus karakter kontrol                         │
+│  • Simpan query asli + raw (untuk multi-part)     │
+│  • Normalisasi: koma/titik koma → spasi           │
+│  • Batasi emoji (maks 5)                          │
+│  • Tolak >500 karakter (kecuali OCR gambar)       │
+│  • OCR gambar via EasyOCR (lazy load ~500MB)      │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 2. ANTI-SPAM & DAILY LIMIT ──────────────────────┐
+│  • Rate limit: 5 req/menit, block 5 menit         │
+│  • Daily limit: 25 chat/hari per user             │
+│  • Trusted IDs (dari .env) skip semua             │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 3. SESSION ─────────────────────────────────────┐
+│  • Init/resume session per chat_id                │
+│  • Load chat history (max 10 tanya-jawab)         │
+│  • Setup tracking: session_baru, session_has_forward │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 4. INTENT CLASSIFIER (scikit-learn, 98.1%) ──────┐
+│  Tentukan intent user:                             │
+│                                                     │
+│  greeting → BM25 guard                              │
+│  capability → BM25 guard                            │
+│  ├─ BM25 ≥ 3.0 → ada keyword BPS → treat sbg        │
+│  │                forward ↓                         │
+│  └─ BM25 < 3.0 → murni sapaan/tanya kemampuan        │
+│        greeting → LLM sapaan (template fallback)     │
+│        capability → Template statis (skip LLM)       │
+│                                                     │
+│  positive_fb:    ─→ Ada riwayat forward?            │
+│                     YA → "Senang bisa membantu 😊"  │
+│                     TIDAK → treat sebagai greeting  │
+│  negative_fb:    ─→ Ada riwayat forward?            │
+│                     YA → "Maaf ya, silakan ajukan   │
+│                           lewat form 🙏"            │
+│                     TIDAK → treat sebagai forward ↓ │
+│  forward         → Set session_has_forward = True   │
+│                    Lanjut ke step 5 ↓              │
+└───────────────────────────────────────────────────┘
+  │ (forward / negative_feedback tanpa konteks)
+  ▼
+┌─ 5. MULTI-PART SPLIT (E5 Semantic Boundary) ─────┐
+│  Split raw query: konjungsi (dan/serta/sedangkan/  │
+│  namun/tetapi/tapi), ? , . delimiter               │
+│  Tiap pasangan dicek E5 merge (cosim ≥ 0.78)       │
+│  Tiap merged part → cascade → hybrid → LLM sendiri │
+│  Gabung semua jawaban → kirim ke user              │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 6. DOMAIN GATE: CASCADE + BM25 3-TIER ──────────┐
+│  BM25 = keyword overlap query vs semua FAQ        │
+│                                                     │
+│  ── CASCADE (BM25 < 5 + ada history) ──            │
+│  ├─ Concat prev query depth 1-3, hitung BM25 ulang │
+│  ├─ Cascade BM25 ≥ 5 + E5 sim ≥ 0.78 → sukses ↓   │
+│  └─ E5 sim < 0.78 → topic drift → skip cascade     │
+│                                                     │
+│  • BM25 < 3.0     → ❌ OOC_BM25 (tolak)             │
+│  • BM25 3.0-4.9   → ❌ BM25_BORDERLINE (QNA link)   │
+│  • BM25 ≥ 5.0     → ✅ lanjut hybrid search ↓       │
+└───────────────────────────────────────────────────┘
+  │ (BM25 ≥ 5.0 / cascade sukses)
+  ▼
+┌─ 7. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
+│  Pakai _cascade_query kalo cascade sukses         │
+│  E5 semantic similarity  +  BM25 keyword scoring  │
+│  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
+│  Top-5 FAQ (RRF ranking, untuk konteks LLM)       │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 8. LLM GENERATE ───────────────────────────────┐
+│  System prompt + FAQ context + chat history       │
+│  Multi-provider failover (cloud → Ollama lokal)   │
+│  Timeout 30 detik per provider                    │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 9. SAVE + LOGGING ─────────────────────────────┐
+│  • Simpan ke session history                      │
+│  • DUAL-LOGGED: JSONL + SQLite (24 kolom)         │
+│  • Kolom: CLF, RRF, E5, BM25 Gate, BM25 Raw,     │
+│    centroid_sim, gate, LLM model/provider/time    │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 10. RESPONSE ──────────────────────────────────┐
+│  Kirim jawaban ke user (Telegram / WA / API)      │
+│  + Feedback footer: "💡 Apakah jawaban ini sudah   │
+│    membantu?" (hanya untuk CLF forward)           │
+│  + Tambah footer session baru kalo baru mulai     │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 11. FEEDBACK PLATFORM ─────────────────────────┐
+│  Cek source user:                                │
+│                                                   │
+│  TELEGRAM:                                        │
+│  ├─ Parse footer "💡 Apakah jawaban ini sudah      │
+│  │   membantu?" dari jawaban                      │
+│  ├─ Kirim teks + InlineKeyboardButton             │
+│  │   [✅ Sudah] [❌ Belum]                        │
+│  ├─ User tap → callback_data "fb_yes"/"fb_no"     │
+│  ├─ Langsung hapus keyboard (reply_markup=None)   │
+│  └─ Kirim feedback ke server → balas respon       │
+│                                                   │
+│  WHATSAPP:                                         │
+│  ├─ Kirim jawaban (teks) dulu                     │
+│  ├─ Kirim native Poll: new Poll(                  │
+│  │    '💡 Apakah jawaban ini sudah membantu?',     │
+│  │    ['✅ Sudah', '❌ Belum'],                    │
+│  │    { allowMultipleAnswers: false }              │
+│  │  )                                              │
+│  ├─ User vote → event 'vote_update'               │
+│  ├─ Poll otomatis dihapus (delete for everyone)   │
+│  ├─ Kirim feedback_yes/no ke server               │
+│  └─ Fallback: user reply 👍/👎/"sudah"/"belum"    │
+│                                                   │
+│  SERVER RECEIVE feedback (positive_feedback):      │
+│  ├─ Ada riwayat forward?                           │
+│  │  YA → "Senang bisa membantu, terima kasih       │
+│  │  │     telah menggunakan layanan Nara 😊"        │
+│  │  │   + Stop session + footer jam/durasi         │
+│  │  TIDAK → treat sebagai greeting                 │
+│  │                                                 │
+│  SERVER RECEIVE feedback (negative_feedback):      │
+│  ├─ Ada riwayat forward?                           │
+│  │  YA → "Maaf kalau jawaban saya belum            │
+│  │  │     membantu. 🙏\nBiar saya bantu lebih      │
+│  │  │     lanjut, boleh info:..."                  │
+│  │  │   + Link QNA http://s.bps.go.id/nara-qna     │
+│  │  TIDAK → treat sebagai forward → BM25 gate      │
+└───────────────────────────────────────────────────┘
 ```
 
 > **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **multi-part split** (E5 merge) → **BM25 3-tier gate + cascade** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
-
----
 
 ---
 
