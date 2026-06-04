@@ -376,7 +376,7 @@ def api_logs_tail(days: int = 7, after: int = 0, limit: int = 50):
 @app.get("/api/analytics")
 def api_analytics(days: int = 7):
     if not _table_exists():
-        return {"trend": [], "hourly": [], "llm_usage": {}}
+        return {"trend": [], "hourly": [], "llm_usage": {}, "feedback": {}}
     clause = _period_clause(days)
 
     trend = _rows(f"""
@@ -395,7 +395,9 @@ def api_analytics(days: int = 7):
 
     llm_usage = {r["llm_model"] or "unknown": r["cnt"] for r in _rows(f"SELECT COALESCE(llm_model,'unknown') as llm_model, COUNT(*) as cnt FROM logs WHERE {clause} AND llm_model != '' GROUP BY llm_model")}
 
-    return {"trend": trend, "hourly": hourly, "llm_usage": llm_usage}
+    feedback = {r["feedback_status"]: r["cnt"] for r in _rows(f"SELECT feedback_status, COUNT(*) as cnt FROM logs WHERE {clause} AND feedback_status != '' GROUP BY feedback_status")}
+
+    return {"trend": trend, "hourly": hourly, "llm_usage": llm_usage, "feedback": feedback}
 
 
 # ── System Health ──

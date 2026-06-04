@@ -935,18 +935,54 @@
     <!-- ===== ANALYTICS PAGE ===== -->
     <div id="page-analytics" style="display:none">
       <h2 class="section-title">📈 Analytics</h2>
+
+      <!-- Feedback Analysis Cards (top section) -->
+      <div class="card mb-4">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge badge-success" style="font-size:13px;padding:4px 12px">💬 Feedback</span>
+          <span class="text-muted small">Analisis respon user terhadap jawaban NARA</span>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <div class="d-flex align-items-center gap-3 p-3" style="background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
+              <div style="width:48px;height:48px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-hand-thumbs-up-fill"></i></div>
+              <div style="min-width:0">
+                <div class="stat-value" id="statFBPositive" style="font-size:28px">-</div>
+                <div class="stat-label" style="font-weight:600">Terbantu</div>
+                <div class="text-muted" style="font-size:11px;line-height:1.3">Klik "Sudah" / bilang makasih</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="d-flex align-items-center gap-3 p-3" style="background:#fef2f2;border-radius:12px;border:1px solid #fecaca;">
+              <div style="width:48px;height:48px;background:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-hand-thumbs-down-fill"></i></div>
+              <div style="min-width:0">
+                <div class="stat-value" id="statFBNegative" style="font-size:28px">-</div>
+                <div class="stat-label" style="font-weight:600">Kurang Terbantu</div>
+                <div class="text-muted" style="font-size:11px;line-height:1.3">Klik "Belum" / komplain</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="d-flex align-items-center gap-3 p-3" style="background:#fefce8;border-radius:12px;border:1px solid #fde68a;">
+              <div style="width:48px;height:48px;background:#eab308;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-dash-circle-fill"></i></div>
+              <div style="min-width:0">
+                <div class="stat-value" id="statFBNone" style="font-size:28px">-</div>
+                <div class="stat-label" style="font-weight:600">Tanpa Feedback</div>
+                <div class="text-muted" style="font-size:11px;line-height:1.3">User diam / lanjut bertanya</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="130"></canvas></div></div>
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="130"></canvas></div></div>
+      </div>
       <div class="row">
-        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="140"></canvas></div></div>
-        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="140"></canvas></div></div>
-      </div>
-      <div class="row mt-0">
-        <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="120"></canvas></div></div>
-      </div>
-      <div class="row mt-4">
-        <div class="col-12"><h5 class="mb-3">💬 Feedback Analysis</h5></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-hand-thumbs-up-fill"></i></div><div><div class="stat-value" id="statFBPositive">-</div><div class="stat-label">User merasa terbantu ✅</div><div class="text-muted small">Klik "Sudah" atau bilang makasih</div></div></div></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-danger"><i class="bi bi-hand-thumbs-down-fill"></i></div><div><div class="stat-value" id="statFBNegative">-</div><div class="stat-label">User merasa kurang terbantu ❌</div><div class="text-muted small">Klik "Belum" atau komplain</div></div></div></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-dash-circle-fill"></i></div><div><div class="stat-value" id="statFBNone">-</div><div class="stat-label">Tidak ada feedback ⏺</div><div class="text-muted small">User lihat jawaban & diam / lanjut tanya</div></div></div></div>
+        <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="110"></canvas></div></div>
       </div>
     </div>
 
@@ -1499,8 +1535,7 @@
     // Analytics charts
     async function loadAnalytics() {
       const data = await fetchAPI('analytics');
-      const stats = await fetchAPI('stats');
-      const fb = stats.by_feedback || {};
+      const fb = data.feedback || {};
       document.getElementById('statFBPositive').textContent = fb.positive || 0;
       document.getElementById('statFBNegative').textContent = fb.negative || 0;
       document.getElementById('statFBNone').textContent = fb.none || 0;
