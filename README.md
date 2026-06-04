@@ -14,7 +14,7 @@
 [![Dashboard](https://img.shields.io/badge/Dashboard-Web%20UI-%230070d1)](http://localhost:8001)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
-Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, FASIH SE2026, GC PBI, GC PLN, FASIH-SM, dan GOJAGS** via Telegram & WhatsApp.
+Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap membantu pertanyaan seputar aplikasi dan layanan internal BPS via Telegram & WhatsApp.
 
 > **Stack:** FastAPI + Hybrid E5+BM25 (RRF fusion) + Multi-LLM failover + SQLite + EasyOCR + PlayStation Dashboard
 
