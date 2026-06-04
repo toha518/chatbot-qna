@@ -1597,19 +1597,20 @@
     function drawHourly(data) {
       if (charts.hourly) charts.hourly.destroy();
       const ctx = document.getElementById('chartHourly').getContext('2d');
+      const parent = document.getElementById('chartHourly').parentElement;
       charts.hourly = new Chart(ctx, {
         type: 'bar',
         data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), backgroundColor: '#22c55e', borderRadius: 4 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.5, plugins: { legend: { display: false } } }
       });
     }
     function drawLLM(data) {
       if (charts.llm) charts.llm.destroy();
       const ctx = document.getElementById('chartLLM').getContext('2d');
       charts.llm = new Chart(ctx, {
-        type: 'pie',
+        type: 'doughnut',
         data: { labels: Object.keys(data), datasets: [{ data: Object.values(data) }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.5, cutout: '40%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 11 } } } } }
       });
     }
 
