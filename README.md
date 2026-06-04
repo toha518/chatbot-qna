@@ -94,12 +94,12 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
-| 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
+| 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
 | 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
-| 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error |
+| 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error. **Tracking otomatis** — semua feedback (tombol & chat) tercatat di `feedback_status` query log |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
-| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 24 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
+| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking, **feedback_status**. `top5_faq` diberi label ranking (#1-#5) |
 
 ---
 
@@ -1083,7 +1083,7 @@ Setiap request user dicatat otomatis ke **dual storage**:
 | **JSONL** | `query_log.jsonl` | Debug real-time — `tail -f` langsung keliatan |
 | **SQLite** | `query_log.db` | Analytics jangka panjang — SQL query instant |
 
-### Format Log (24 field per entry)
+### Format Log (25 field per entry)
 
 ```json
 {
@@ -1098,6 +1098,7 @@ Setiap request user dicatat otomatis ke **dual storage**:
   "bm25_raw": 10.7,
   "top5_faq": ["Verifikasi NIK Gagal", "Email aktivasi"],
   "gate": "ANSWER",
+  "feedback_status": "none",
   "gate_detail": "",
   "dijawab": true,
   "jawaban": "Coba cek dulu...",
@@ -1245,7 +1246,7 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 | Tab | Fungsi |
 |-----|--------|
 | 📊 **Overview** | Statistik query, distribusi Gate & CLF, answered rate |
-| 📝 **Query Log** | 22 kolom dari `query_log.db`, search + filter (gate, CLF, source, status), column visibility toggles, pagination 50/page |
+| 📝 **Query Log** | 25 kolom dari `query_log.db`, search + filter (gate, CLF, source, status, **feedback**), column visibility toggles, pagination 50/page. Kolom **Feedback** menampilkan ✅ Sudah / ❌ Belum / — (tidak klik) |
 | 💻 **Live Terminal** | Streaming query real-time (`tail -f`), polling 3 detik |
 | 📈 **Analytics** | RRF trend per jam, Queries per Hour, LLM Model Usage (charts) |
 | 🖥️ **System Health** | Status 4 service (Server API, WA Handler, Bridge, Telegram Bot) + tombol Start All / Stop All |
@@ -1257,6 +1258,7 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 - 📱 **Responsive** — sidebar overlay di mobile, tabel scrollable
 - 🏷️ **Source tracking** — setiap query di-tag `wa` / `telegram` / `api`
 - 📂 **Column toggles** — pilih kolom mana yang ditampilkan, state disimpan di localStorage
+- 💬 **Feedback tracking** — kolom `feedback_status` di setiap log, filter feedback di Query Log, 3 stat card (✅ Sudah / ❌ Belum / ⏺ Tidak Klik)
 
 ### Tech Stack Dashboard
 - **Backend:** FastAPI + SQLite (`query_log.db`) + httpx (health check)
@@ -1319,7 +1321,22 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 - ✅ Feedback Poll WhatsApp work — native Poll muncul, otomatis hapus setelah vote, respon feedback tayang
 - ✅ Fallback WA via teks/emoji tetap berfungsi
 
-**Files changed:** `prompts/responses.json`, `server.py`, `security/session.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `requirements.txt`, `README.md`, `VERSION`
+**Feedback Tracking (query_log)**
+- **`feedback_status` column** baru di SQLite & JSONL — nilai: `"none"` (default, belum ada feedback), `"positive"` (✅), `"negative"` (❌)
+- **`update_feedback_status(chat_id, status)`** — cari forward query terakhir user yang masih `feedback_status='none'`, update jadi `positive`/`negative`
+- Otomatis kepanggil di 4 entry point:
+  - Tombol feedback ✅/❌ (synthetic callback dari Telegram inline keyboard / WA Poll)
+  - CLF `positive_feedback` / `negative_feedback` dari chat natural user ("makasih", "ga membantu", dll)
+- **Tanpa konteks** (session tanpa riwayat forward) → treat greeting/forward, **tidak update** feedback_status — aman dari false positive
+
+**Dashboard — Feedback Analytics**
+- **3 stat cards baru** di halaman Overview: ✅ Sudah, ❌ Belum, ⏺ Tidak Klik
+- **Kolom Feedback** di tabel Query Log — badge hijau ✅ / merah ❌ / abu-abu —
+- **Filter dropdown Feedback**: All / ✅ Sudah / ❌ Belum / ⏺ Tidak Klik
+- **Export CSV/Excel/PDF** — semua format include `feedback_status`
+- Backend API: `/api/stats` tambah `by_feedback` breakdown, `/api/logs` & `/api/logs-dt` & `/api/logs-export` support `&feedback=` filter
+
+**Files changed:** `core/query_logger.py`, `server.py`, `dashboard.py`, `templates/dashboard.html`, `prompts/responses.json`, `security/session.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `requirements.txt`, `README.md`, `VERSION`
 
 ---
 
