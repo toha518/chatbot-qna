@@ -390,11 +390,11 @@ def main():
             print(f"[IMAGE ERROR] {e}")
 
     # Handler untuk foto, gambar, dokumen gambar
-    app.add_handler(MessageHandler(filters.PHOTO | (filters.Document.IMAGE), handle_image))
+    app.add_handler(MessageHandler((filters.PHOTO | filters.Document.IMAGE) & filters.ChatType.PRIVATE, handle_image))
     # Handler untuk media lain (sticker, voice, video) — tetap ditolak
     async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_RESPONSES.get("text_only", "⚠️ Hanya menerima teks dan gambar."))
-    app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE, handle_media))
+    app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE & filters.ChatType.PRIVATE, handle_media))
 
     # Daftarin command menu ke Telegram (biar muncul pas ketik /)
     try:
