@@ -113,12 +113,13 @@ def api_stats(days: int = 7):
     row = _rows(sql)[0]
     by_gate = {r["gate"]: r["cnt"] for r in _rows(f"SELECT gate, COUNT(*) as cnt FROM logs WHERE {clause} GROUP BY gate ORDER BY cnt DESC")}
     by_clf = {r["clf_domain"]: r["cnt"] for r in _rows(f"SELECT clf_domain, COUNT(*) as cnt FROM logs WHERE {clause} AND clf_domain != '' GROUP BY clf_domain ORDER BY cnt DESC")}
-    return {**row, "by_gate": by_gate, "by_clf": by_clf}
+    by_feedback = {r["feedback_status"]: r["cnt"] for r in _rows(f"SELECT feedback_status, COUNT(*) as cnt FROM logs WHERE {clause} AND feedback_status != '' GROUP BY feedback_status ORDER BY cnt DESC")}
+    return {**row, "by_gate": by_gate, "by_clf": by_clf, "by_feedback": by_feedback}
 
 
 @app.get("/api/logs")
 def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
-             search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
+             search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = "", feedback: str = ""):
     if not _table_exists():
         return {"logs": [], "total": 0}
     clause = _period_clause(days)
@@ -141,6 +142,9 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
         clause += " AND dijawab = 1"
     elif dijawab == "0":
         clause += " AND dijawab = 0"
+    if feedback:
+        clause += " AND feedback_status = ?"
+        params.append(feedback)
 
     try:
         logs = _rows(f"""
@@ -181,7 +185,7 @@ def api_logs(days: int = 7, limit: int = 100, offset: int = 0,
 
 @app.get("/api/logs-dt")
 def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int = 50,
-                       search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
+                       search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = "", feedback: str = ""):
     """Server-side DataTables endpoint. Returns {draw, recordsTotal, recordsFiltered, data}."""
     if not _table_exists():
         return {"draw": draw, "recordsTotal": 0, "recordsFiltered": 0, "data": []}
@@ -206,6 +210,9 @@ def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int
         where += " AND dijawab = 1"
     elif dijawab == "0":
         where += " AND dijawab = 0"
+    if feedback:
+        where += " AND feedback_status = ?"
+        params.append(feedback)
 
     # Records total & filtered
     total_all = _rows("SELECT COALESCE(COUNT(*),0) as cnt FROM logs", [])[0]["cnt"]
@@ -238,7 +245,7 @@ def api_logs_datatable(days: int = 7, draw: int = 1, start: int = 0, length: int
 
 @app.get("/api/logs-export")
 def api_logs_export(days: int = 7, format: str = "csv",
-                    search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = ""):
+                    search: str = "", gate: str = "", clf: str = "", source: str = "", dijawab: str = "", feedback: str = ""):
     """Export filtered logs as CSV/Excel/PDF. Returns all matching rows (no pagination)."""
     if not _table_exists():
         return HTMLResponse("No data", status_code=404)
@@ -263,6 +270,9 @@ def api_logs_export(days: int = 7, format: str = "csv",
         where += " AND dijawab = 1"
     elif dijawab == "0":
         where += " AND dijawab = 0"
+    if feedback:
+        where += " AND feedback_status = ?"
+        params.append(feedback)
 
     rows = _rows(f"SELECT * FROM logs WHERE {where} ORDER BY id DESC LIMIT 10000", params)
 

@@ -370,6 +370,7 @@
     .stat-icon-green { background: var(--stat-green-bg); color: #16a34a; }
     .stat-icon-amber { background: var(--stat-amber-bg); color: #d97706; }
     .stat-icon-purple { background: var(--stat-purple-bg); color: #7c3aed; }
+    .stat-icon-danger { background: #fef2f2; color: #dc2626; }
     .stat-value {
       font: 300 30px/1.25 'Inter', system-ui, sans-serif;
       color: var(--ps-ink);
@@ -777,6 +778,11 @@
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
       </div>
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-hand-thumbs-up"></i></div><div><div class="stat-value" id="statFBPositive">-</div><div class="stat-label">✅ Sudah</div></div></div></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-danger"><i class="bi bi-hand-thumbs-down"></i></div><div><div class="stat-value" id="statFBNegative">-</div><div class="stat-label">❌ Belum</div></div></div></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-dash-circle"></i></div><div><div class="stat-value" id="statFBNone">-</div><div class="stat-label">⏺ Tidak Klik</div></div></div></div>
+      </div>
       <div class="row">
         <div class="col-md-6"><div class="card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
         <div class="col-md-6"><div class="card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
@@ -838,6 +844,15 @@
               <option value="0">Unanswered</option>
             </select>
           </div>
+          <div class="filter-group">
+            <label>💬 Feedback</label>
+            <select class="filter-select" id="dtFeedback" style="width:120px">
+              <option value="">All</option>
+              <option value="positive">✅ Sudah</option>
+              <option value="negative">❌ Belum</option>
+              <option value="none">⏺ Tidak Klik</option>
+            </select>
+          </div>
           <div class="filter-group" style="align-self:flex-end">
             <label>&nbsp;</label>
             <button class="btn-pill btn-pill-outline" onclick="resetDTFilters()"><i class="bi bi-x-circle"></i> Reset</button>
@@ -885,6 +900,7 @@
           <label class="col-toggle-pill" title="Multi Part"><input type="checkbox" data-col="22" onchange="toggleDTColumn(this)"><span>Multi</span></label>
           <label class="col-toggle-pill" title="Session Baru"><input type="checkbox" data-col="23" onchange="toggleDTColumn(this)"><span>Sesi</span></label>
           <label class="col-toggle-pill" title="Error"><input type="checkbox" data-col="24" onchange="toggleDTColumn(this)"><span>Error</span></label>
+          <label class="col-toggle-pill" title="Feedback Status"><input type="checkbox" data-col="25" checked onchange="toggleDTColumn(this)"><span>Feedback</span></label>
         </div>
       </div>
 
@@ -1039,6 +1055,10 @@
       const total = data.total || 1;
       const answered = data.answered || 0;
       document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
+      const fb = data.by_feedback || {};
+      document.getElementById('statFBPositive').textContent = fb.positive || 0;
+      document.getElementById('statFBNegative').textContent = fb.negative || 0;
+      document.getElementById('statFBNone').textContent = fb.none || 0;
       document.getElementById('logCount').textContent = total;
       drawGateChart(data.by_gate || {});
       drawCLFChart(data.by_clf || {});
@@ -1104,6 +1124,11 @@
       { label: 'Multi', render: l => l.multi_part ? '✅' : '' },
       { label: 'Sesi', render: l => l.session_baru ? '🆕' : '' },
       { label: 'Error', render: l => l.error ? `<span class="text-danger small">${l.error.slice(0,60)}</span>` : '' },
+      { label: 'Feedback', render: l => {
+        if (l.feedback_status === 'positive') return '<span class="badge badge-success">✅ Sudah</span>';
+        if (l.feedback_status === 'negative') return '<span class="badge badge-danger">❌ Belum</span>';
+        return '<span class="badge badge-secondary">—</span>';
+      } },
     ];
 
     function buildDTUrl() {
@@ -1113,7 +1138,8 @@
       const clf = document.getElementById('dtClf')?.value || '';
       const source = document.getElementById('dtSource')?.value || '';
       const status = document.getElementById('dtStatus')?.value || '';
-      return `/api/logs-dt?days=${days}&search=${encodeURIComponent(search)}&gate=${encodeURIComponent(gate)}&clf=${encodeURIComponent(clf)}&source=${encodeURIComponent(source)}&dijawab=${status}`;
+      const fb = document.getElementById('dtFeedback')?.value || '';
+      return `/api/logs-dt?days=${days}&search=${encodeURIComponent(search)}&gate=${encodeURIComponent(gate)}&clf=${encodeURIComponent(clf)}&source=${encodeURIComponent(source)}&dijawab=${status}&feedback=${encodeURIComponent(fb)}`;
     }
 
     function renderDTHeaders() {
@@ -1141,6 +1167,7 @@
       document.getElementById('dtClf').value = '';
       document.getElementById('dtSource').value = '';
       document.getElementById('dtStatus').value = '';
+      document.getElementById('dtFeedback').value = '';
       if (logDT) logDT.ajax.reload();
     }
 
