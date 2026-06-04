@@ -22,7 +22,7 @@ const AUTH_FOLDER = process.env.AUTH_FOLDER || './auth';
 const client = new Client({
     authStrategy: new LocalAuth({ dataPath: AUTH_FOLDER }),
     puppeteer: {
-        headless: true,
+        headless: false,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
