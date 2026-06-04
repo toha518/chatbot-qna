@@ -1329,6 +1329,9 @@ sudo lsof -i :8000              # Linux
 - **Greeting fallback** — kalo LLM gagal pake `error_llm`, bukan template static
 
 **Fixed**
+- **Session idle message** — ganti "hubungi pegawai BPS" jadi link QNA. Template `session_ending_idle` di `responses.json`, termasuk footer jam+durasi via `{ended}` placeholder
+- **Feedback footer** — sekarang cuma muncul di forward pipeline yang beneran dijawab LLM (`_feedback_eligible = True`). Skip kalo LLM gagal (`error_llm`), OOC, greeting, capability
+- **Identity.json** — hapus "laki-laki" dari role : "asisten permasalahan IT" → generic. Tambah topik "GOJAGS"
 - **Multi-Part Split BM25 filter** — tiap part sekarang dicek BM25 individual:
   - `BM25 < 3.0` → skip, catat sebagai OOC → `rejection_out_of_context`
   - `BM25 3.0–4.9` → skip, catat sebagai borderline → `rejection_no_answer`
@@ -1365,7 +1368,7 @@ sudo lsof -i :8000              # Linux
 - Rate limiter dead code (`spam_blocked` path) — diganti `spam_warning`
 - `multi_part_note` bukan dead code — di-restore karena dipake untuk skipped parts
 
-**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `security/rate_limiter.py`, `prompts/responses.json`, `templates/dashboard.html`, `dashboard.py`, `README.md`, `VERSION`
+**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `security/rate_limiter.py`, `security/session.py`, `prompts/responses.json`, `prompts/identity.json`, `templates/dashboard.html`, `dashboard.py`, `README.md`, `VERSION`
 
 ---
 
