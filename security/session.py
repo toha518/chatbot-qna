@@ -64,9 +64,8 @@ def format_end_msg(cid: str, now_ts: float = None) -> str:
     now_str = datetime.fromtimestamp(now_ts, wib).strftime("%H:%M")
     start = session_start_times.get(cid)
     durasi_str = format_durasi(now_ts - start) if start else "-"
-    idle_msg = _RESPONSES.get("session_ending_idle", "")
-    ended_msg = _RESPONSES.get("session_ended", "").format(time=now_str, duration=durasi_str)
-    return f"{idle_msg}\n\n---\n{ended_msg}"
+    ended_part = _RESPONSES.get("session_ended", "").format(time=now_str, duration=durasi_str)
+    return _RESPONSES.get("session_ending_idle", "").format(ended=ended_part)
 
 
 def cleanup_sessions():
