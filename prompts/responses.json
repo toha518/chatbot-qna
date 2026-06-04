@@ -10,7 +10,6 @@
   "question_empty": "⚠️ Pesan kosong setelah penyaringan.",
   "daily_limit_reached": "⚠️ Anda sudah mencapai batas chat harian ({limit} chat). Silakan coba lagi besok! 🙏",
   "spam_warning": "⚠️ Kamu terdeteksi melakukan spam. Harap tunggu {minutes} menit sebelum bertanya lagi.",
-  "spam_blocked": "⚠️ Kamu terdeteksi melakukan spam. Kamu diblokir sementara selama {minutes} menit.",
   "image_no_text": "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.",
   "image_format": "⚠️ Format tidak didukung. Kirim screenshot atau foto.",
   "image_failed": "⚠️ Gagal memproses gambar: {error}",
