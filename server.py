@@ -430,7 +430,6 @@ async def chat(req: ChatRequest):
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics
-    from core.bm25 import get_bm25_score
     bm25_top = get_bm25_score(req.pertanyaan)
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[cid]["last_active"] = time.time()
