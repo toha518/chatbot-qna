@@ -522,12 +522,16 @@ async def chat(req: ChatRequest):
 
     if len(parts) > 1:
         relevant_answers = []
-        skipped_parts = []
+        ooc_parts = []  # BM25 < 3.0 → out of context
+        borderline_parts = []  # BM25 3.0-4.9 → no answer in DB
         for part in parts:
             p_bm25 = get_bm25_score(part)
             if p_bm25 < 5.0:
-                skipped_parts.append(part)
-                print(f"[SPLIT] Skip part (BM25={p_bm25:.1f} < 5.0): '{part[:60]}'")
+                if p_bm25 < 3.0:
+                    ooc_parts.append(part)
+                else:
+                    borderline_parts.append(part)
+                print(f"[SPLIT] Skip part (BM25={p_bm25:.1f}): '{part[:60]}'")
                 continue
             p_ctx, p_scores, _, p_top5 = hybrid_search(part, top_k=5)
             _system = build_system_prompt(system_template, identity, acronyms)
@@ -540,21 +544,34 @@ async def chat(req: ChatRequest):
                 _llm_model = _llm_provider = ""; _llm_time = 0
             relevant_answers.append(_jawaban)
 
-        # All parts skipped → langsung rejection_no_answer
+        # All parts skipped — pilih rejection sesuai jenis part
         if not relevant_answers:
-            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
-            gate_label = "OOC_MULTI_PART"
+            if borderline_parts and not ooc_parts:
+                # Semua borderline (3.0-4.9) → no answer
+                jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
+                gate_label = "NOANSWER_MULTI_PART"
+                print(f"[SPLIT] Semua bagian borderline ({len(borderline_parts)}) — rejection_no_answer")
+            else:
+                # Ada OOC (< 3.0) — out of context
+                jawaban = responses.get("rejection_out_of_context").format(topics_line=", ".join(identity["topics"]))
+                gate_label = "OOC_MULTI_PART"
+                print(f"[SPLIT] Ada OOC ({len(ooc_parts)} part) — rejection_out_of_context")
             _dijawab = False
-            print(f"[SPLIT] Semua bagian di-skip — rejection_no_answer")
         else:
             jawaban = '\n\n---\n\n'.join(relevant_answers)
-            # Some parts skipped → multi_part_note + rejection_no_answer
+            skipped_parts = ooc_parts + borderline_parts
             if skipped_parts:
                 jawaban += '\n\n' + responses.get("multi_part_note").format(skipped_parts="; ".join(skipped_parts))
-                jawaban += '\n\n' + responses.get("rejection_no_answer")
+                # Ada borderline → no answer (user bisa ajukan via form)
+                # Murni OOC → out of context
+                if borderline_parts:
+                    jawaban += '\n\n' + responses.get("rejection_no_answer")
+                else:
+                    jawaban += '\n\n' + responses.get("rejection_out_of_context").format(topics_line=", ".join(identity["topics"]))
             gate_label = "MULTI_PART"
             _dijawab = True
-        print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab, {len(skipped_parts)} di-skip")
+        total_skipped = len(ooc_parts) + len(borderline_parts)
+        print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab, {total_skipped} di-skip")
     else:
         # Single question — langsung LLM dengan context
         system_prompt = build_system_prompt(system_template, identity, acronyms)
