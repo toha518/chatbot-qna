@@ -778,11 +778,6 @@
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
         <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
       </div>
-      <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-hand-thumbs-up"></i></div><div><div class="stat-value" id="statFBPositive">-</div><div class="stat-label">✅ Sudah</div></div></div></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-danger"><i class="bi bi-hand-thumbs-down"></i></div><div><div class="stat-value" id="statFBNegative">-</div><div class="stat-label">❌ Belum</div></div></div></div>
-        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-dash-circle"></i></div><div><div class="stat-value" id="statFBNone">-</div><div class="stat-label">⏺ Tidak Klik</div></div></div></div>
-      </div>
       <div class="row">
         <div class="col-md-6"><div class="card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
         <div class="col-md-6"><div class="card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
@@ -947,6 +942,12 @@
       <div class="row mt-0">
         <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="120"></canvas></div></div>
       </div>
+      <div class="row mt-4">
+        <div class="col-12"><h5 class="mb-3">💬 Feedback Analysis</h5></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-hand-thumbs-up-fill"></i></div><div><div class="stat-value" id="statFBPositive">-</div><div class="stat-label">User merasa terbantu ✅</div><div class="text-muted small">Klik "Sudah" atau bilang makasih</div></div></div></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-danger"><i class="bi bi-hand-thumbs-down-fill"></i></div><div><div class="stat-value" id="statFBNegative">-</div><div class="stat-label">User merasa kurang terbantu ❌</div><div class="text-muted small">Klik "Belum" atau komplain</div></div></div></div>
+        <div class="col-6 col-lg-4"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-dash-circle-fill"></i></div><div><div class="stat-value" id="statFBNone">-</div><div class="stat-label">Tidak ada feedback ⏺</div><div class="text-muted small">User lihat jawaban & diam / lanjut tanya</div></div></div></div>
+      </div>
     </div>
 
     <!-- ===== SYSTEM HEALTH PAGE ===== -->
@@ -1055,10 +1056,6 @@
       const total = data.total || 1;
       const answered = data.answered || 0;
       document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
-      const fb = data.by_feedback || {};
-      document.getElementById('statFBPositive').textContent = fb.positive || 0;
-      document.getElementById('statFBNegative').textContent = fb.negative || 0;
-      document.getElementById('statFBNone').textContent = fb.none || 0;
       document.getElementById('logCount').textContent = total;
       drawGateChart(data.by_gate || {});
       drawCLFChart(data.by_clf || {});
@@ -1502,6 +1499,11 @@
     // Analytics charts
     async function loadAnalytics() {
       const data = await fetchAPI('analytics');
+      const stats = await fetchAPI('stats');
+      const fb = stats.by_feedback || {};
+      document.getElementById('statFBPositive').textContent = fb.positive || 0;
+      document.getElementById('statFBNegative').textContent = fb.negative || 0;
+      document.getElementById('statFBNone').textContent = fb.none || 0;
       drawTrend(data.trend || []);
       drawHourly(data.hourly || []);
       drawLLM(data.llm_usage || {});
