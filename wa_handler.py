@@ -70,6 +70,9 @@ def wa_message():
         return jsonify({"error": "no data"}), 400
 
     sender = data.get("sender", "default")
+    # Normalisasi format WA sender: @lid@c.us → @lid (biar trusted ID match)
+    if sender.endswith('@lid@c.us'):
+        sender = sender.replace('@lid@c.us', '@lid')
     message = data.get("message", "")
     is_image = data.get("is_image", False)
 
