@@ -1,6 +1,5 @@
 {
   "_note": "Static response templates — ganti di sini, semua file .py baca dari sini",
-
   "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
   "capability": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa membantu pertanyaan seputar:\n{topics_list}\n\nAda yang bisa saya bantu? 😊",
   "positive_feedback": "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊",
@@ -21,5 +20,8 @@
   "text_only": "⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.",
   "server_down": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan.",
   "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}",
-  "feedback_footer": "\n\n━━━━━━━━━━━━━━━━━━━━\n💡 Apakah jawaban ini sudah membantu?\n\n✅ Balas 👍 jika sudah selesai\n❌ Balas 👎 jika belum\n\n📩 Ajukan pertanyaan baru:\nhttp://s.bps.go.id/nara-qna"
+  "feedback_footer": "\n\n━━━━━━━━━━━━━━━━━━━━\n💡 Apakah jawaban ini sudah membantu?\n\n✅ Balas 👍 jika sudah selesai\n❌ Balas 👎 jika belum\n\n📩 Ajukan pertanyaan baru:\nhttp://s.bps.go.id/nara-qna",
+  "session_ended": "Sesi obrolan telah ditutup, pukul {time} WIB, obrolan berlangsung selama {duration}.",
+  "session_new": "🆕 Sesi obrolan baru telah dibuka — pukul {time} WIB",
+  "session_start": "Sesi obrolan baru telah dibuka — pukul {time} WIB"
 }

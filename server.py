@@ -132,7 +132,7 @@ async def start_session(req: StopRequest):
         now_str = datetime.now(wib).strftime("%H:%M")
         return {
             "status": "session_baru",
-            "footer": f"Sesi obrolan baru telah dibuka — pukul {now_str} WIB"
+            "footer": responses.get("session_start").format(time=now_str)
         }
     return {"status": "session_ada"}
 @app.post("/stop")
@@ -149,8 +149,7 @@ async def stop_session(req: StopRequest):
     return {
         "status": "ok",
         "message": (
-            f"Sesi obrolan telah ditutup, pukul {now_str} WIB, "
-            f"obrolan berlangsung selama {durasi_str}."
+            responses.get("session_ended").format(time=now_str, duration=durasi_str)
         )
     }
 @app.get("/history")
@@ -193,9 +192,8 @@ def _format_end_footer(cid: str) -> str:
     start = session_start_times.get(cid)
     durasi_str = format_durasi(time.time() - start) if start else "-"
     return (
-        f"---\n"
-        f"Sesi obrolan telah ditutup, pukul {now_str} WIB, "
-        f"obrolan berlangsung selama {durasi_str}."
+        f"---\n" +
+        responses.get("session_ended").format(time=now_str, duration=durasi_str)
     )
 
 @app.post("/chat")
