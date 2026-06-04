@@ -1293,6 +1293,61 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.5.2 — 2026-06-04
+
+**Template Centralization + Multi-Part BM25 Filter + Rejection Refactor**
+
+**Changed**
+- **Semua user-facing string dari `responses.json`** — zero hardcoded fallback di `server.py`, `telegram_bot.py`, `wa_handler.py`
+- **`greeting` di JSON cuma untuk `/start`** — LLM adalah primary greeting source (via `greeting.md`). Kalo LLM gagal → `error_llm`
+- **Rejection cleanup** — `rejection`, `rejection_short`, `spam_blocked` dihapus. Hanya `rejection_out_of_context` (OOC) dan `rejection_no_answer` (borderline) yang tersisa
+- **`rejection_no_answer` template** — sekarang mirip `negative_feedback`: minta user jelasin aplikasi, kendala, pesan error, baru link QNA sebagai opsi
+- **`negative_feedback` / `rejection_no_answer`** — tidak langsung menyuruh ke form, tapi minta detail dulu
+- **Session templates** — `session_ended`, `session_start`, `session_new` semuanya dari `responses.json`
+- **Feedback footer** — dipotong, cuma separator + "💡 Apakah jawaban ini sudah membantu?"
+- **Greeting fallback** — kalo LLM gagal pake `error_llm`, bukan template static
+
+**Fixed**
+- **Multi-Part Split BM25 filter** — tiap part sekarang dicek BM25 individual:
+  - `BM25 < 3.0` → skip, catat sebagai OOC → `rejection_out_of_context`
+  - `BM25 3.0–4.9` → skip, catat sebagai borderline → `rejection_no_answer`
+  - `BM25 ≥ 5.0` → hybrid search → LLM ✅
+  - Kalau semua part skip → `_dijawab=False`, tanpa `feedback_footer`, tanpa `session_new`
+  - Kalau sebagian skip → jawab yang bisa + `multi_part_note` + rejection sesuai jenis
+- **`multi_part_note`** — di-restore ke `responses.json`, nampilin bagian yang gak bisa dijawab sebelum rejection
+- **`UnboundLocalError`** — import lokal `get_bm25_score()` diganti ke module-level
+- **`RESP_G` leftover** — diganti `responses.get()`
+- **Telegram DM-only** — semua handler pake `filters.ChatType.PRIVATE`
+- **Hardcoded `🆕 Sesi obrolan baru...` (6 tempat)** — diganti panggil `responses.get("session_new")`
+- **Hardcoded help/topics/stop di Telegram & WA** — semua dari `responses.json`
+- **`spam_blocked` di `rate_limiter.py`** — key udah dihapus dari JSON, ref diganti `spam_warning`
+
+**Added**
+- **`multi_part_note`** — key baru di `responses.json`: "ℹ️ Bagian yang tidak dapat saya jawab: {skipped_parts}"
+- **`session_ended_fallback`, `stop_command`, `help_text_wa`** — keys baru di `responses.json` untuk WhatsApp
+
+**Dashboard**
+- **Feedback cards dipindah** dari Overview ke Analytics dengan label deskriptif
+- **PlayStation design system** — feedback cards pake `var(--ps-*)`, border-left accent, dark mode
+- **Chart sizing fix** — `chart-wrap` fixed height 180px, `maintainAspectRatio: false`
+- **DB auto-migration** — `feedback_status` kolom ditambah kalo belum ada, di module level
+- **`_dijawab` tracking** — di log ganti dari `True` tetap jadi `_dijawab` variable
+
+**README**
+- Restruktur total — 18 section dalam urutan logis (luar → dalam)
+- Hybrid Search dipisah jadi 4 section (Hybrid, CLF, Multi-Part, Cascade)
+- Alur Chat reorder: CLF → Multi-Part Split → Cascade + BM25 → Hybrid Search → LLM
+- Flowchart pake Unicode box-drawing
+
+**Cleanup**
+- Dead keys dihapus dari `responses.json`: `spam_blocked`, `rejection`, `rejection_short`, `image_ocr_prefix`, `image_ocr_only`
+- Rate limiter dead code (`spam_blocked` path) — diganti `spam_warning`
+- `multi_part_note` bukan dead code — di-restore karena dipake untuk skipped parts
+
+**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `security/rate_limiter.py`, `prompts/responses.json`, `templates/dashboard.html`, `dashboard.py`, `README.md`, `VERSION`
+
+---
+
 #### v2.5.1 — 2026-06-04
 
 **Context-Aware Feedback + WA Polls + Session Closure**
