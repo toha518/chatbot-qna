@@ -119,13 +119,16 @@ Bot ini punya **6 lapis proteksi**:
 ### Detail Pipeline Domain Filter (BM25 Threshold)
 
 ```
-Input → scikit-learn → greeting / capability → respon langsung (skip LLM)
-                 → lainnya → BM25 keyword check
-                              ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
-                              ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
-                              ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-3
-                              │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
-                              └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
+Input → scikit-learn → greeting / capability → BM25 guard
+│                                               ├─ BM25 ≥ 3.0 → ada konten BPS → treat sbg forward ↓
+│                                               └─ BM25 < 3.0 → murni sapaan/tanya kemampuan → respon langsung
+│
+└── lainnya → BM25 keyword check
+               ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
+               ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
+               ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-3
+               │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
+               └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
 ```
 
 **Kenapa BM25?** Keyword overlap langsung mengukur "ada gak sih istilah BPS di pertanyaan ini?". Query tanpa satupun istilah FAQ (nasi goreng, presiden AS) langsung ketahuan dari BM25 rendah.
@@ -247,8 +250,14 @@ USER CHAT
 ┌─ 4. INTENT CLASSIFIER (scikit-learn, 98.1%) ──────┐
 │  Tentukan intent user:                             │
 │                                                     │
-│  greeting        → LLM sapaan (template fallback)  │
-│  capability      → Template statis (skip LLM)      │
+│  greeting → BM25 guard                              │
+│  capability → BM25 guard                            │
+│  ├─ BM25 ≥ 3.0 → ada keyword BPS → treat sbg        │
+│  │                forward ↓                         │
+│  └─ BM25 < 3.0 → murni sapaan/tanya kemampuan        │
+│        greeting → LLM sapaan (template fallback)     │
+│        capability → Template statis (skip LLM)       │
+│                                                     │
 │  positive_fb:    ─→ Ada riwayat forward?            │
 │                     YA → "Senang bisa membantu 😊"  │
 │                     TIDAK → treat sebagai greeting  │
@@ -481,8 +490,8 @@ Sebelum hybrid search dijalankan, **CLF (Classifier)** menyaring 5 jenis intent 
 **Arsitektur:**
 ```
 Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
-              ├─ greeting            → LLM menjawab dengan sapaan ramah
-              ├─ capability          → Template statis: "Saya bisa membantu: ..."
+              ├─ greeting            → Cek BM25: ≥ 3.0 → forward pipeline; < 3.0 → sapaan ramah
+              ├─ capability          → Cek BM25: ≥ 3.0 → forward pipeline; < 3.0 → template statis
               ├─ positive_feedback   → Template: "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊"
               │                        (hanya direspon jika session punya riwayat forward;
               │                         tanpa konteks → treat sebagai greeting)
@@ -504,8 +513,8 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 
 | Domain | Deskripsi | Contoh Input | Respon | Handler |
 |--------|-----------|-------------|--------|---------|
-| **greeting** | User menyapa | "halo", "pagi nara", "assalamualaikum", "met malem", "hi bang" | LLM — sapaan ramah + tawarkan bantuan | `prompts/greeting.md` |
-| **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Template statis — daftar topik dari identity.json | `responses.json → capability` |
+| **greeting** | User menyapa | "halo", "pagi nara", "assalamualaikum", "met malem", "hi bang" | Cek BM25: ≥ 3.0 → forward pipeline; < 3.0 → sapaan ramah | `prompts/greeting.md` + `get_bm25_score()` |
+| **capability** | User tanya kemampuan bot | "kamu bisa apa?", "nara bisa ngapain?", "fitur apa aja?", "siapa kamu?" | Cek BM25: ≥ 3.0 → forward pipeline; < 3.0 → template statis | `responses.json → capability` + `get_bm25_score()` |
 | **positive_feedback** | User berterima kasih / acknowledge | "makasih", "terima kasih banyak", "ok", "sip", "mantap", "noted" | "Senang bisa membantu, terima kasih telah menggunakan layanan Nara 😊" | `responses.json → positive_feedback` (hanya jika ada riwayat forward; tanpa konteks → greeting) |
 | **negative_feedback** | User komplain / kecewa | "kamu tidak membantu", "ga guna", "jawabanmu salah", "jelek", "payah" | Template minta detail (aplikasi + kendala + error) + link QNA | `responses.json → negative_feedback` (hanya jika ada riwayat forward; tanpa konteks → forward pipeline) |
 | **forward** | Bukan 4 intent di atas | "siapa presiden", "kenapa mitra ga bisa verifikasi NIK" | Lanjut ke BM25 gate (≥3.0) → hybrid search → LLM | BM25 3-tier + RRF ranking |
