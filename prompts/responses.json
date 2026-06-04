@@ -18,6 +18,7 @@
   "multi_part_note": "ℹ️ Bagian yang tidak dapat saya jawab: {skipped_parts}",
   "feedback_footer": "\n\n━━━━━━━━━━━━━━━━━━━━\n💡 Apakah jawaban ini sudah membantu?\n",
   "session_ended": "Sesi obrolan telah ditutup, pukul {time} WIB, obrolan berlangsung selama {duration}.",
+  "session_ending_idle": "💬 Sesi diskusi Anda telah berakhir. Mulai diskusi lagi jika masih ada pertanyaan.\n\nJika pertanyaan Anda belum terjawab dengan benar, silakan ajukan pertanyaan melalui link berikut:\n📩 http://s.bps.go.id/nara-qna",
   "session_new": "🆕 Sesi obrolan baru telah dibuka — pukul {time} WIB",
   "session_start": "Sesi obrolan baru telah dibuka — pukul {time} WIB",
   "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",

@@ -4,11 +4,23 @@ import time
 import asyncio
 import httpx
 import os
+import json
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 # ===================== KONFIGURASI =====================
 SESSION_TIMEOUT = 1800      # 30 menit idle → session expired
 MAX_HISTORY = 10            # Maks 10 tanya-jawab per session
+
+# Load responses.json untuk template
+_RESPONSES_DIR = Path(__file__).parent.parent / "prompts" / "responses.json"
+_RESPONSES = {}
+if _RESPONSES_DIR.exists():
+    try:
+        with open(_RESPONSES_DIR) as f:
+            _RESPONSES = json.load(f)
+    except Exception:
+        pass
 
 # Telegram API untuk notifikasi watchdog
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -52,15 +64,9 @@ def format_end_msg(cid: str, now_ts: float = None) -> str:
     now_str = datetime.fromtimestamp(now_ts, wib).strftime("%H:%M")
     start = session_start_times.get(cid)
     durasi_str = format_durasi(now_ts - start) if start else "-"
-    return (
-        f"💬 Sesi diskusi Anda telah berakhir. "
-        f"Mulai diskusi lagi jika masih ada pertanyaan. "
-        f"Jika jawaban kurang memuaskan, "
-        f"dapat menghubungi pegawai BPS Provinsi Kepulauan Bangka Belitung.\n\n"
-        f"---\n"
-        f"Sesi obrolan telah ditutup, pukul {now_str} WIB, "
-        f"obrolan berlangsung selama {durasi_str}."
-    )
+    idle_msg = _RESPONSES.get("session_ending_idle", "")
+    ended_msg = _RESPONSES.get("session_ended", "").format(time=now_str, duration=durasi_str)
+    return f"{idle_msg}\n\n---\n{ended_msg}"
 
 
 def cleanup_sessions():
