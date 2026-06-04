@@ -522,7 +522,13 @@ async def chat(req: ChatRequest):
 
     if len(parts) > 1:
         relevant_answers = []
+        skipped_parts = []
         for part in parts:
+            p_bm25 = get_bm25_score(part)
+            if p_bm25 < 3.0:
+                skipped_parts.append(part)
+                print(f"[SPLIT] Skip part (BM25={p_bm25:.1f} < 3.0): '{part[:60]}'")
+                continue
             p_ctx, p_scores, _, p_top5 = hybrid_search(part, top_k=5)
             _system = build_system_prompt(system_template, identity, acronyms)
             _msgs = [{"role": "system", "content": _system}]
@@ -533,9 +539,21 @@ async def chat(req: ChatRequest):
                 _jawaban = p_ctx
                 _llm_model = _llm_provider = ""; _llm_time = 0
             relevant_answers.append(_jawaban)
-        jawaban = '\n\n---\n\n'.join(relevant_answers)
-        print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab")
-        gate_label = "MULTI_PART"
+
+        # All parts skipped → OOC rejection
+        if not relevant_answers:
+            jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
+            gate_label = "OOC_MULTI_PART"
+            _dijawab = False
+            print(f"[SPLIT] Semua bagian di-skip — OOC")
+        else:
+            jawaban = '\n\n---\n\n'.join(relevant_answers)
+            # Some parts skipped → append note
+            if skipped_parts:
+                jawaban += '\n\n' + responses.get("multi_part_note").format(skipped_parts="; ".join(skipped_parts))
+            gate_label = "MULTI_PART"
+            _dijawab = True
+        print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab, {len(skipped_parts)} di-skip")
     else:
         # Single question — langsung LLM dengan context
         system_prompt = build_system_prompt(system_template, identity, acronyms)
@@ -549,26 +567,27 @@ async def chat(req: ChatRequest):
             llm_model = llm_provider = ""; llm_time = 0
             jawaban = responses.get("error_llm")
         gate_label = "ANSWER"
+        _dijawab = True
 
-    # Feedback footer untuk forward answer
-    jawaban += responses.get("feedback_footer")
-
-    history.append({"role": "user", "content": req.pertanyaan})
-    history.append({"role": "assistant", "content": jawaban})
+    # Feedback footer — skip kalo OOC (gak dijawab)
+    if _dijawab:
+        jawaban += responses.get("feedback_footer")
+        history.append({"role": "user", "content": req.pertanyaan})
+        history.append({"role": "assistant", "content": jawaban})
     log_query(_display_query, cid, source=req.source,
               centroid_sim=centroid_sim,
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
               rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores) > 0 else 0,
               bm25_raw=float(scores[1]) if len(scores) > 1 else 0,
               top5_faq=top5_all,
-              gate=gate_label, dijawab=True, jawaban=jawaban,
+              gate=gate_label, dijawab=_dijawab, jawaban=jawaban,
               bm25_gate=bm25_top,
               multi_part=bool(len(parts) > 1), session_baru=session_baru,
               llm_model=llm_model if 'llm_model' in dir() else "",
               llm_provider=llm_provider if 'llm_provider' in dir() else "",
               llm_time_ms=llm_time if 'llm_time' in dir() else 0)
-    if session_baru:
+    if session_baru and _dijawab:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")
         jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
-    return {"jawaban": jawaban, "skor": top_rrf}
+    return {"jawaban": jawaban, "skor": 1.0 if _dijawab else 0}
