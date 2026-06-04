@@ -147,16 +147,13 @@ def wa_message():
     if cmd == '/help':
         topics_line = ", ".join(_IDENTITY.get("topics", []))
         return jsonify({
-            "jawaban": (
-                "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya "
-                f"dari database mengenai {topics_line}."
-            )
+            "jawaban": _RESPONSES.get("help_text_wa").format(topics_line=topics_line)
         })
     if cmd == '/topics':
         topics = _IDENTITY.get("topics", [])
         topics_text = "\n".join(f"{i+1}. {t}" for i, t in enumerate(topics))
         return jsonify({
-            "jawaban": f"Topik permasalahan IT yang saya kuasai:\n{topics_text}"
+            "jawaban": _RESPONSES.get("topics_text").format(topics_text=topics_text)
         })
     if cmd == '/stop':
         # Ambil base URL (strip /chat kalau ada)
@@ -164,11 +161,11 @@ def wa_message():
         try:
             resp = requests.post(f"{base_url}/stop", json={"chat_id": sender}, timeout=10)
             data = resp.json()
-            end_msg = data.get("message", "Sesi diskusi telah diakhiri.")
+            end_msg = data.get("message", _RESPONSES.get("session_ended_fallback"))
         except Exception:
-            end_msg = "Sesi diskusi telah diakhiri."
+            end_msg = _RESPONSES.get("session_ended_fallback")
         return jsonify({
-            "jawaban": f"{end_msg}\n\nSilakan kirim /start untuk memulai lagi."
+            "jawaban": _RESPONSES.get("stop_confirm").format(end_msg=end_msg)
         })
 
     # ===================== INPUT SANITASI =====================

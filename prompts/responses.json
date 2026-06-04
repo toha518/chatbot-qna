@@ -20,5 +20,13 @@
   "session_ended": "Sesi obrolan telah ditutup, pukul {time} WIB, obrolan berlangsung selama {duration}.",
   "session_new": "🆕 Sesi obrolan baru telah dibuka — pukul {time} WIB",
   "session_start": "Sesi obrolan baru telah dibuka — pukul {time} WIB",
-  "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!"
+  "greeting": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n📩 Silakan ketik pertanyaan Anda!",
+  "help_text": "Cukup ketik pertanyaan Anda, saya akan cari jawabannya dari database mengenai {topics_line}.",
+  "topics_text": "Topik permasalahan IT yang saya kuasai:\n{topics_text}",
+  "stop_confirm": "{end_msg}\n\nSilakan kirim /start untuk memulai lagi.",
+  "image_ocr_prefix": "{caption}\n\n[Gambar: {ocr_text}]",
+  "image_ocr_only": "[Gambar: {ocr_text}]",
+  "session_ended_fallback": "Sesi diskusi telah diakhiri.",
+  "stop_command": "{end_msg}\n\nSilakan kirim pesan atau tap Mulai untuk memulai lagi.",
+  "help_text_wa": "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya dari database mengenai {topics_line}."
 }

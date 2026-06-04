@@ -109,8 +109,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     topics_line = ", ".join(_IDENTITY.get("topics", []))
     await update.message.reply_text(
-        f"Cukup ketik pertanyaan Anda, saya akan cari jawabannya "
-        f"dari database mengenai {topics_line}.",
+        _RESPONSES.get("help_text").format(topics_line=topics_line),
         reply_markup=MENU_MARKUP
     )
 
@@ -121,7 +120,7 @@ async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topics = _IDENTITY.get("topics", [])
     topics_text = "\n".join(f"{i+1}. {t}" for i, t in enumerate(topics))
     await update.message.reply_text(
-        f"Topik yang saya kuasai:\n{topics_text}",
+        _RESPONSES.get("topics_text").format(topics_text=topics_text),
         reply_markup=MENU_MARKUP
     )
 
@@ -130,7 +129,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /stop — akhiri sesi diskusi"""
     chat_id = str(update.effective_chat.id)
     # Panggil server buat reset session
-    end_msg = "Sesi diskusi telah diakhiri."
+    end_msg = _RESPONSES.get("session_ended_fallback")
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(
@@ -143,8 +142,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
     await update.message.reply_text(
-        f"{end_msg}\n\n"
-        "Silakan kirim pesan atau tap Mulai untuk memulai lagi.",
+        _RESPONSES.get("stop_command").format(end_msg=end_msg),
         reply_markup=MENU_MARKUP
     )
 

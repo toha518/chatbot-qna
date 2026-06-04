@@ -328,7 +328,7 @@ async def chat(req: ChatRequest):
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+                jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -358,7 +358,7 @@ async def chat(req: ChatRequest):
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+                jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -393,7 +393,7 @@ async def chat(req: ChatRequest):
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
-                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+                jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
                       clf_domain="greeting", clf_confidence=0.0, clf_mode=_clf_mode,
@@ -469,7 +469,7 @@ async def chat(req: ChatRequest):
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
         return {"jawaban": jawaban, "skor": 0}
 
     if 3.0 <= bm25_top < 5.0:
@@ -483,7 +483,7 @@ async def chat(req: ChatRequest):
         if session_baru:
             wib = timezone(timedelta(hours=7))
             now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
         return {"jawaban": jawaban, "skor": 0}
 
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
@@ -570,5 +570,5 @@ async def chat(req: ChatRequest):
     if session_baru:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")
-        jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+        jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
     return {"jawaban": jawaban, "skor": top_rrf}
