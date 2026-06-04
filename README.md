@@ -1430,7 +1430,7 @@ sudo lsof -i :8000              # Linux
 
 ---
 
-#### v2.5.3 — 2026-06-04
+#### v2.6.0 — 2026-06-04
 
 **Optimasi Performa — Concurrent Request + ONNX Runtime**
 
