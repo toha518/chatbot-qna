@@ -41,6 +41,17 @@ def _period_clause(days: int) -> str:
 
 
 def _table_exists() -> bool:
+    # Migrasi otomatis — tambah kolom yg belum ada di DB lama
+    try:
+        db = _cn()
+        existing = [row[1] for row in db.execute("PRAGMA table_info(logs)").fetchall()]
+        if "feedback_status" not in existing:
+            db.execute("ALTER TABLE logs ADD COLUMN feedback_status TEXT DEFAULT 'none'")
+            db.commit()
+            print("[DASHBOARD] Migrasi: feedback_status column added")
+        db.close()
+    except Exception:
+        pass
     try:
         _cn().execute("SELECT 1 FROM logs LIMIT 1")
         return True
