@@ -16,7 +16,7 @@ load_dotenv()
 EMOJI_RE = re.compile(r'[\U0001F300-\U0010FFFF]')
 # ===================== MODULES =====================
 from core.database import init_db, get_daily_count, increment_daily_count
-from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions, check_domain, _DOMAIN_THRESHOLD
+from core.embedder import init_data, load_from_gsheet, async_encode_query, search, hybrid_search, questions, check_domain, _DOMAIN_THRESHOLD
 from sklearn.metrics.pairwise import cosine_similarity
 from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all, get_bm25_score
@@ -422,7 +422,7 @@ async def chat(req: ChatRequest):
         session_has_forward[cid] = True
 
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
-    query_vec = encode_query(req.pertanyaan)
+    query_vec = await async_encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics
     bm25_top = get_bm25_score(req.pertanyaan)
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
@@ -440,7 +440,7 @@ async def chat(req: ChatRequest):
             print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
                 # E5 similarity guard: pattern sama kayak multi-part split
-                _prev_vec = encode_query(prev_queries[0])
+                _prev_vec = await async_encode_query(prev_queries[0])
                 _curr_vec = query_vec
                 if _prev_vec.ndim == 1: _prev_vec = _prev_vec.reshape(1, -1)
                 if _curr_vec.ndim == 1: _curr_vec = _curr_vec.reshape(1, -1)
@@ -489,7 +489,8 @@ async def chat(req: ChatRequest):
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
     # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
     _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
-    context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5)
+    context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5,
+        query_vec=query_vec if _cascade_query is None else None)
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
@@ -507,8 +508,8 @@ async def chat(req: ChatRequest):
         _SEMANTIC_MERGE_THRESHOLD = 0.78
         merged_parts = [parts[0]]
         for i in range(1, len(parts)):
-            prev_vec = encode_query(merged_parts[-1])
-            curr_vec = encode_query(parts[i])
+            prev_vec = await async_encode_query(merged_parts[-1])
+            curr_vec = await async_encode_query(parts[i])
             if prev_vec.ndim == 1: prev_vec = prev_vec.reshape(1, -1)
             if curr_vec.ndim == 1: curr_vec = curr_vec.reshape(1, -1)
             sim = float(cosine_similarity(prev_vec, curr_vec).flatten()[0])

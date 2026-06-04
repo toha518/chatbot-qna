@@ -5,6 +5,7 @@ import csv
 import urllib.request
 import os
 import time
+import asyncio
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
@@ -183,6 +184,58 @@ def encode_query(query: str) -> np.ndarray:
     if len(_query_cache) >= _MAX_CACHE:
         _query_cache.pop(next(iter(_query_cache)))
     _query_cache[query] = vec
+    return vec
+
+
+# ── Async wrapper + semaphore untuk non-blocking encode ──
+from concurrent.futures import ThreadPoolExecutor
+
+_encode_executor = None
+_encode_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_encode_executor():
+    global _encode_executor
+    if _encode_executor is None:
+        _encode_executor = ThreadPoolExecutor(max_workers=2)
+    return _encode_executor
+
+
+def _init_encode_semaphore():
+    global _encode_semaphore
+    if _encode_semaphore is None:
+        _encode_semaphore = asyncio.Semaphore(3)
+
+
+def _encode_query_sync(query: str) -> np.ndarray:
+    """Internal: encode query di thread (dipanggil dari async via executor)."""
+    global embedder, _query_cache
+    if embedder is None:
+        init_embedder()
+    vec = embedder.encode(["query: " + query])[0]
+    if len(_query_cache) >= _MAX_CACHE:
+        _query_cache.pop(next(iter(_query_cache)))
+    _query_cache[query] = vec
+    return vec
+
+
+async def async_encode_query(query: str) -> np.ndarray:
+    """
+    Async encode — jalan di thread pool supaya gak blocking event loop.
+    Pake Semaphore(3) biar maksimal 3 encode bareng.
+    """
+    global _query_cache
+    cached = _query_cache.get(query)
+    if cached is not None:
+        return cached
+    _init_encode_semaphore()
+    async with _encode_semaphore:
+        loop = asyncio.get_running_loop()
+        vec = await loop.run_in_executor(
+            _get_encode_executor(),
+            _encode_query_sync,
+            query
+        )
     return vec
 
 
