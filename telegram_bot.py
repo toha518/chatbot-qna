@@ -254,7 +254,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 data = resp.json()
                 jawaban = data.get("jawaban", "")
                 await query.edit_message_reply_markup(reply_markup=None)
-                await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+                await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
         except Exception as e:
             await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
@@ -269,7 +269,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 data = resp.json()
                 jawaban = data.get("jawaban", "")
                 await query.edit_message_reply_markup(reply_markup=None)
-                await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
+                await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
         except Exception as e:
             await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
