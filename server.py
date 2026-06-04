@@ -19,7 +19,7 @@ from core.database import init_db, get_daily_count, increment_daily_count
 from core.embedder import init_data, load_from_gsheet, encode_query, search, hybrid_search, questions, check_domain, _DOMAIN_THRESHOLD
 from sklearn.metrics.pairwise import cosine_similarity
 from core.intent_classifier import init_classifier, classify as ft_classify
-from core.bm25 import get_bm25_scores_all
+from core.bm25 import get_bm25_scores_all, get_bm25_score
 from core.query_logger import log_query, get_stats, update_feedback_status
 from core.llm import (
     load_llm_config, load_prompts, load_responses,
@@ -315,7 +315,6 @@ async def chat(req: ChatRequest):
     # Greeting — respon langsung, skip retrieval
     if ft_domain == "greeting":
         # Cek BM25: kalo ada keyword BPS di balik sapaan → treat sebagai forward
-        from core.bm25 import get_bm25_score
         _greeting_bm25 = get_bm25_score(req.pertanyaan)
         if _greeting_bm25 >= 3.0:
             print(f"[DOMAIN] greeting ({_greeting_bm25:.1f}) tapi ada isi BPS → forward")
@@ -343,24 +342,33 @@ async def chat(req: ChatRequest):
 
     # Capability — respon langsung, skip retrieval
     if ft_domain == "capability":
-        # Template statis — gak panggil LLM (cegah ngarang definisi)
-        topics_list = "\n".join(f"  {t}" for t in identity['topics'])
-        jawaban = responses.get("capability", "").format(
-            name=identity['name'],
-            role=identity['role'],
-            topics_list=topics_list
-        )
-        api_rate_limit[cid]["last_active"] = time.time()
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
-                  session_baru=session_baru)
-        return {"jawaban": jawaban, "skor": 1.0}
+        # Cek BM25: kalo ada keyword BPS di balik pertanyaan → treat sebagai forward
+        _cap_bm25 = get_bm25_score(req.pertanyaan)
+        if _cap_bm25 >= 3.0:
+            print(f"[DOMAIN] capability ({_cap_bm25:.1f}) tapi ada isi BPS → forward")
+            ft_domain = "forward"
+            ft_conf = 1.0
+            session_has_forward[cid] = True
+            # Skip ke BM25 gate
+        else:
+            # Template statis — gak panggil LLM (cegah ngarang definisi)
+            topics_list = "\n".join(f"  {t}" for t in identity['topics'])
+            jawaban = responses.get("capability", "").format(
+                name=identity['name'],
+                role=identity['role'],
+                topics_list=topics_list
+            )
+            api_rate_limit[cid]["last_active"] = time.time()
+            if session_baru:
+                wib = timezone(timedelta(hours=7))
+                now = datetime.now(wib).strftime("%H:%M")
+                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            log_query(_display_query, cid, source=req.source,
+                      centroid_sim=centroid_sim,
+                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                      gate="CLF_CAPABILITY", dijawab=True, jawaban=jawaban,
+                      session_baru=session_baru)
+            return {"jawaban": jawaban, "skor": 1.0}
 
     # Acknowledgment — respon langsung (makasih, ok, sip, dll)
     if ft_domain == "positive_feedback":
