@@ -525,9 +525,9 @@ async def chat(req: ChatRequest):
         skipped_parts = []
         for part in parts:
             p_bm25 = get_bm25_score(part)
-            if p_bm25 < 3.0:
+            if p_bm25 < 5.0:
                 skipped_parts.append(part)
-                print(f"[SPLIT] Skip part (BM25={p_bm25:.1f} < 3.0): '{part[:60]}'")
+                print(f"[SPLIT] Skip part (BM25={p_bm25:.1f} < 5.0): '{part[:60]}'")
                 continue
             p_ctx, p_scores, _, p_top5 = hybrid_search(part, top_k=5)
             _system = build_system_prompt(system_template, identity, acronyms)

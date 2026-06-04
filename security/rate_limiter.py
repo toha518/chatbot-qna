@@ -76,7 +76,7 @@ def check_api_rate_limit(chat_id: str):
     if entry["blocked_until"] > now:
         if not entry["block_notified"]:
             entry["block_notified"] = True
-            return False, _RESPONSES.get("spam_blocked", "").format(minutes=BLOCK_DURATION // 60)
+            return False, _RESPONSES.get("spam_warning").format(minutes=BLOCK_DURATION // 60)
         return False, "__SILENT_BLOCK__"
 
     # Hapus timestamp expired (> 1 menit)
