@@ -314,22 +314,32 @@ async def chat(req: ChatRequest):
 
     # Greeting — respon langsung, skip retrieval
     if ft_domain == "greeting":
-        messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-        jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-        if not jawaban:
-            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
-        api_rate_limit[cid]["last_active"] = time.time()
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=centroid_sim,
-                  clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
-                  gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
-                  session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
-        return {"jawaban": jawaban, "skor": 1.0}
+        # Cek BM25: kalo ada keyword BPS di balik sapaan → treat sebagai forward
+        from core.bm25 import get_bm25_score
+        _greeting_bm25 = get_bm25_score(req.pertanyaan)
+        if _greeting_bm25 >= 3.0:
+            print(f"[DOMAIN] greeting ({_greeting_bm25:.1f}) tapi ada isi BPS → forward")
+            ft_domain = "forward"
+            ft_conf = 1.0
+            session_has_forward[cid] = True
+            # Skip ke BM25 gate
+        else:
+            messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
+            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            if not jawaban:
+                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
+                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+            api_rate_limit[cid]["last_active"] = time.time()
+            if session_baru:
+                wib = timezone(timedelta(hours=7))
+                now = datetime.now(wib).strftime("%H:%M")
+                jawaban += f"\n\n---\n🆕 Sesi obrolan baru telah dibuka — pukul {now} WIB"
+            log_query(_display_query, cid, source=req.source,
+                      centroid_sim=centroid_sim,
+                      clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
+                      gate="CLF_GREETING", dijawab=True, jawaban=jawaban,
+                      session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
+            return {"jawaban": jawaban, "skor": 1.0}
 
     # Capability — respon langsung, skip retrieval
     if ft_domain == "capability":
