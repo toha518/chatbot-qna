@@ -115,13 +115,17 @@ async def session_watchdog():
     Kalau ada yang expired → hapus session + kirim notif Telegram.
     """
     await asyncio.sleep(10)
+    print("[WATCHDOG] 🟢 Started!")
     while True:
         try:
             now = time.time()
+            print(f"[WATCHDOG] Scan: {len(session_activity)} sessions active")
             expired = [
                 cid for cid, last in list(session_activity.items())
                 if now - last > SESSION_TIMEOUT
             ]
+            if expired:
+                print(f"[WATCHDOG] 🔴 {len(expired)} expired: {expired}")
             for cid in expired:
                 sessions.pop(cid, None)
                 session_activity.pop(cid, None)
