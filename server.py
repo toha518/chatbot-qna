@@ -290,8 +290,7 @@ async def chat(req: ChatRequest):
             session_has_forward.pop(cid, None)
             return {"jawaban": jawaban, "skor": 1.0}
         else:
-            topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-            jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+            jawaban = responses.get("error_llm")
             return {"jawaban": jawaban, "skor": 1.0}
 
     if req.pertanyaan == "feedback_no":
@@ -324,8 +323,7 @@ async def chat(req: ChatRequest):
             messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
             jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
             if not jawaban:
-                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+                jawaban = responses.get("error_llm")
             api_rate_limit[cid]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
@@ -391,9 +389,7 @@ async def chat(req: ChatRequest):
             messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
             jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
             if not jawaban:
-                topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
-            api_rate_limit[cid]["last_active"] = time.time()
+                jawaban = responses.get("error_llm")
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
