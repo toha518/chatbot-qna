@@ -171,11 +171,20 @@ USER CHAT
 │                           lewat form 🙏"            │
 │                     TIDAK → treat sebagai forward ↓ │
 │  forward         → Set session_has_forward = True   │
-│                    Lanjut ke BM25 gate ↓           │
+│                    Lanjut ke step 5 ↓              │
 └───────────────────────────────────────────────────┘
   │ (forward / negative_feedback tanpa konteks)
   ▼
-┌─ 5. DOMAIN GATE: BM25 3-TIER ────────────────────┐
+┌─ 5. MULTI-PART SPLIT (E5 Semantic Boundary) ─────┐
+│  Split raw query: konjungsi (dan/serta/sedangkan/  │
+│  namun/tetapi/tapi), ? , . delimiter               │
+│  Tiap pasangan dicek E5 merge (cosim ≥ 0.78)       │
+│  Tiap merged part → cascade → hybrid → LLM sendiri │
+│  Gabung semua jawaban → kirim ke user              │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 6. DOMAIN GATE: CASCADE + BM25 3-TIER ──────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
 │                                                     │
 │  ── CASCADE (BM25 < 5 + ada history) ──            │
@@ -189,22 +198,11 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │ (BM25 ≥ 5.0 / cascade sukses)
   ▼
-┌─ 6. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
+┌─ 7. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
 │  Top-5 FAQ (RRF ranking, untuk konteks LLM)       │
-└───────────────────────────────────────────────────┘
-  │
-  ▼
-┌─ 7. MULTI-PART SPLIT? ───────────────────────────┐
-│  Split raw query: konjungsi (dan/serta/sedangkan/  │
-│  namun/tetapi/tapi), ? , . delimiter               │
-│  YA (2+ parts):                                    │
-│  ├─ Tiap pasangan dicek E5 merge (cosim ≥ 0.78)   │
-│  ├─ Tiap merged part → hybrid search → LLM sendiri │
-│  ├─ Gabung semua jawaban → kirim ke user           │
-│  TIDAK → single question ↓                        │
 └───────────────────────────────────────────────────┘
   │
   ▼
@@ -272,7 +270,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **BM25 3-tier gate** (dengan cascade BM25 + E5 guard depth 1-3) → hybrid search (E5+BM25 RRF) → multi-part split (E5 merge) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
+> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **multi-part split** (E5 merge) → **BM25 3-tier gate + cascade** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
 
 ---
 
