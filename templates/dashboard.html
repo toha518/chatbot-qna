@@ -412,6 +412,17 @@
     .fb-card-accent-green { border-left: 4px solid #22c55e; }
     .fb-card-accent-red { border-left: 4px solid #dc2626; }
     .fb-card-accent-amber { border-left: 4px solid #eab308; }
+
+    /* ── Chart Sizing ── */
+    .chart-wrap {
+      position: relative;
+      height: 180px;
+      width: 100%;
+    }
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
     .stat-value {
       font: 300 30px/1.25 'Inter', system-ui, sans-serif;
       color: var(--ps-ink);
@@ -1019,11 +1030,11 @@
 
       <!-- Charts Section -->
       <div class="row g-3 mb-3">
-        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🔢 Queries per Hour</h6><canvas id="chartHourly" height="130"></canvas></div></div>
-        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🤖 LLM Model Usage</h6><canvas id="chartLLM" height="130"></canvas></div></div>
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🔢 Queries per Hour</h6><div class="chart-wrap"><canvas id="chartHourly"></canvas></div></div></div>
+        <div class="col-md-6 d-flex"><div class="card py-3 w-100"><h6>🤖 LLM Model Usage</h6><div class="chart-wrap"><canvas id="chartLLM"></canvas></div></div></div>
       </div>
       <div class="row">
-        <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><canvas id="chartTrend" height="110"></canvas></div></div>
+        <div class="col-12"><div class="card py-3"><h6>📈 RRF Score Trend (per jam)</h6><div class="chart-wrap" style="height:140px"><canvas id="chartTrend"></canvas></div></div></div>
       </div>
     </div>
 
@@ -1591,17 +1602,16 @@
       charts.trend = new Chart(ctx, {
         type: 'line',
         data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), borderColor: '#3b82f6', tension: .3, fill: false }] },
-        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
       });
     }
     function drawHourly(data) {
       if (charts.hourly) charts.hourly.destroy();
       const ctx = document.getElementById('chartHourly').getContext('2d');
-      const parent = document.getElementById('chartHourly').parentElement;
       charts.hourly = new Chart(ctx, {
         type: 'bar',
         data: { labels: data.map(d=>d.h), datasets: [{ data: data.map(d=>d.v), backgroundColor: '#22c55e', borderRadius: 4 }] },
-        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.5, plugins: { legend: { display: false } } }
+        options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } } }
       });
     }
     function drawLLM(data) {
@@ -1610,7 +1620,7 @@
       charts.llm = new Chart(ctx, {
         type: 'doughnut',
         data: { labels: Object.keys(data), datasets: [{ data: Object.values(data) }] },
-        options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2.5, cutout: '40%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 11 } } } } }
+        options: { responsive: true, maintainAspectRatio: false, animation: false, cutout: '50%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8, font: { size: 11 } } } } }
       });
     }
 
