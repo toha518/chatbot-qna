@@ -76,6 +76,11 @@ def _ensure_sqlite():
             db.execute("ALTER TABLE logs ADD COLUMN centroid_sim REAL DEFAULT 0")
         except Exception:
             pass
+        # Migrasi: tambah kolom feedback_status kalo belum ada
+        try:
+            db.execute("ALTER TABLE logs ADD COLUMN feedback_status TEXT DEFAULT 'none'")
+        except Exception:
+            pass
         db.execute("CREATE INDEX IF NOT EXISTS idx_waktu ON logs(waktu)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_gate ON logs(gate)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_clf ON logs(clf_domain)")
@@ -109,6 +114,7 @@ def log_query(
     llm_model: str = "",
     llm_provider: str = "",
     llm_time_ms: int = 0,
+    feedback_status: str = "none",
     error: str = "",
 ):
     """Catat satu request lengkap — non-blocking (ditulis di background thread)."""
@@ -138,6 +144,7 @@ def log_query(
         "multi_part": multi_part,
         "session_baru": session_baru,
         "centroid_sim": round(centroid_sim, 4),
+        "feedback_status": feedback_status,
         "error": error[:200],
     }
 
@@ -164,8 +171,8 @@ def log_query(
                         source, gate, gate_detail, dijawab,
                         jawaban, jawaban_length,
                         llm_model, llm_provider, llm_time_ms,
-                        multi_part, session_baru, centroid_sim, error
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        multi_part, session_baru, centroid_sim, feedback_status, error
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     entry["waktu"], entry["chat_id"], entry["pertanyaan"],
                     clf_domain, clf_confidence, clf_mode,
@@ -173,7 +180,7 @@ def log_query(
                     source, gate, gate_detail, int(dijawab),
                     jawaban, len(jawaban),
                     llm_model, llm_provider, llm_time_ms,
-                    int(multi_part), int(session_baru), round(centroid_sim, 4), error[:200],
+                    int(multi_part), int(session_baru), round(centroid_sim, 4), feedback_status, error[:200],
                 ))
                 db.commit()
                 db.close()
@@ -181,6 +188,56 @@ def log_query(
             print(f"[LOG] SQLite error: {e}")
 
     threading.Thread(target=_write, daemon=True).start()
+
+
+def update_feedback_status(chat_id: str, status: str):
+    """
+    Update feedback_status dari forward query terakhir milik chat_id.
+    status: "positive" | "negative"
+    """
+    if status not in ("positive", "negative"):
+        return
+    try:
+        with _sqlite_lock:
+            db = sqlite3.connect(str(SQLITE_FILE))
+            # Cari id log terakhir yang feedback_status='none' dan clf_domain='forward'
+            row = db.execute(
+                """SELECT id FROM logs
+                   WHERE chat_id=? AND feedback_status='none' AND clf_domain='forward'
+                   ORDER BY id DESC LIMIT 1""",
+                (str(chat_id),)
+            ).fetchone()
+            if row:
+                db.execute(
+                    "UPDATE logs SET feedback_status=? WHERE id=?",
+                    (status, row[0])
+                )
+                db.commit()
+                print(f"[LOG FB] feedback_status={status} → log_id={row[0]} (chat={chat_id})")
+            db.close()
+    except Exception as e:
+        print(f"[LOG FB] Error update: {e}")
+
+    # JSONL: update entry terakhir yang cocok
+    try:
+        if not JSONL_FILE.exists():
+            return
+        with open(JSONL_FILE, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        if not lines:
+            return
+        # Cari baris terakhir yang feedback_status='none' dan clf_domain='forward'
+        for i in range(len(lines) - 1, -1, -1):
+            entry = json.loads(lines[i])
+            if entry.get("chat_id") == str(chat_id) and entry.get("feedback_status") == "none" and entry.get("clf_domain") == "forward":
+                entry["feedback_status"] = status
+                lines[i] = json.dumps(entry, ensure_ascii=False) + "\n"
+                with open(JSONL_FILE, "w", encoding="utf-8") as f:
+                    f.writelines(lines)
+                print(f"[LOG FB] JSONL: update feedback_status={status} line {i}")
+                break
+    except Exception as e:
+        print(f"[LOG FB] JSONL update error: {e}")
 
 
 def _rotate_jsonl():

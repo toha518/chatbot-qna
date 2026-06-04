@@ -20,7 +20,7 @@ from core.embedder import init_data, load_from_gsheet, encode_query, search, hyb
 from sklearn.metrics.pairwise import cosine_similarity
 from core.intent_classifier import init_classifier, classify as ft_classify
 from core.bm25 import get_bm25_scores_all
-from core.query_logger import log_query, get_stats
+from core.query_logger import log_query, get_stats, update_feedback_status
 from core.llm import (
     load_llm_config, load_prompts, load_responses,
     build_greeting_prompt, build_system_prompt, call_llm
@@ -281,9 +281,10 @@ async def chat(req: ChatRequest):
     # ===================== SESSION =====================
     history, session_baru = init_session(cid)
 
-    # Synthetic feedback button callbacks (dari Telegram inline keyboard)
+    # Synthetic feedback button callbacks (dari Telegram inline keyboard / WA Poll)
     if req.pertanyaan == "feedback_yes":
         if session_has_forward.get(cid, False):
+            update_feedback_status(cid, "positive")
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
             jawaban += "\n\n" + _format_end_footer(cid)
             sessions.pop(cid, None)
@@ -297,6 +298,7 @@ async def chat(req: ChatRequest):
 
     if req.pertanyaan == "feedback_no":
         if session_has_forward.get(cid, False):
+            update_feedback_status(cid, "negative")
             jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
             return {"jawaban": jawaban, "skor": 1.0}
         else:
@@ -354,6 +356,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "positive_feedback":
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback + stop session
+            update_feedback_status(cid, "positive")
             jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
             jawaban += "\n\n" + _format_end_footer(cid)
             # Stop session internal
@@ -390,6 +393,7 @@ async def chat(req: ChatRequest):
     if ft_domain == "negative_feedback":
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback
+            update_feedback_status(cid, "negative")
             jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
             api_rate_limit[cid]["last_active"] = time.time()
             log_query(_display_query, cid, source=req.source,
