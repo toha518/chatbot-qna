@@ -207,36 +207,105 @@ def _init_encode_semaphore():
         _encode_semaphore = asyncio.Semaphore(3)
 
 
-def _encode_query_sync(query: str) -> np.ndarray:
-    """Internal: encode query di thread (dipanggil dari async via executor)."""
-    global embedder, _query_cache
+# ── Batch encoding accumulator ──
+_batch_lock = asyncio.Lock()
+_batch_queries: list[tuple[str, asyncio.Future]] = []
+_batch_task: asyncio.Task | None = None
+_BATCH_WINDOW = 0.04  # 40ms — tunggu dulu kumpulin query, baru batch encode
+_BATCH_MAX = 8        # maksimal 8 query sebelum trigger
+
+
+def _batch_encode_sync(queries: list[str]) -> list[np.ndarray]:
+    """Encode beberapa query sekaligus di thread pool — batch."""
+    global embedder
     if embedder is None:
         init_embedder()
-    vec = embedder.encode(["query: " + query])[0]
-    if len(_query_cache) >= _MAX_CACHE:
-        _query_cache.pop(next(iter(_query_cache)))
-    _query_cache[query] = vec
-    return vec
+    texts = ["query: " + q for q in queries]
+    # batch_size=0 artinya model pake default (optimal buat CPU ~8-16)
+    vecs = embedder.encode(texts, batch_size=0)
+    return [v for v in vecs]
+
+
+async def _process_batch():
+    """Background task: tunggu 40ms, kumpulin query, batch encode, return hasil."""
+    global _batch_queries, _batch_task
+    await asyncio.sleep(_BATCH_WINDOW)
+
+    async with _batch_lock:
+        batch = list(_batch_queries)  # copy
+        _batch_queries.clear()
+        _batch_task = None
+
+    if not batch:
+        return
+
+    queries = [q for q, _ in batch]
+    futures = [f for _, f in batch]
+
+    try:
+        # Cache check: ada yang udah di-cache dari batch sebelumnya?
+        uncached_indices = []
+        uncached_queries = []
+        for i, q in enumerate(queries):
+            cached = _query_cache.get(q)
+            if cached is not None:
+                futures[i].set_result(cached)
+            else:
+                uncached_indices.append(i)
+                uncached_queries.append(q)
+
+        if uncached_queries:
+            _init_encode_semaphore()
+            async with _encode_semaphore:
+                loop = asyncio.get_running_loop()
+                vecs = await loop.run_in_executor(
+                    _get_encode_executor(),
+                    _batch_encode_sync,
+                    uncached_queries
+                )
+
+            # Simpan cache + return hasil
+            for batch_idx, q in enumerate(uncached_queries):
+                v = vecs[batch_idx]
+                if len(_query_cache) >= _MAX_CACHE:
+                    _query_cache.pop(next(iter(_query_cache)))
+                _query_cache[q] = v
+                # Cari future yg sesuai
+                orig_idx = uncached_indices[batch_idx]
+                futures[orig_idx].set_result(v)
+    except Exception as e:
+        for f in futures:
+            if not f.done():
+                f.set_exception(e)
 
 
 async def async_encode_query(query: str) -> np.ndarray:
     """
-    Async encode — jalan di thread pool supaya gak blocking event loop.
-    Pake Semaphore(3) biar maksimal 3 encode bareng.
+    Async encode — kumpulin beberapa query, batch encode biar lebih cepet.
+    - Single query: delay 40ms (gak kerasa), encode sendiri
+    - >1 query bareng: di-batch jadi 1 panggilan encode, 2-5x cepet
+    - Pake Semaphore(3) biar maksimal 3 batch bareng
+    - Cache LRU 128 tetap berfungsi
     """
-    global _query_cache
+    global _query_cache, _batch_queries, _batch_task, _batch_lock
+
     cached = _query_cache.get(query)
     if cached is not None:
         return cached
-    _init_encode_semaphore()
-    async with _encode_semaphore:
-        loop = asyncio.get_running_loop()
-        vec = await loop.run_in_executor(
-            _get_encode_executor(),
-            _encode_query_sync,
-            query
-        )
-    return vec
+
+    loop = asyncio.get_running_loop()
+    future = loop.create_future()
+
+    async with _batch_lock:
+        _batch_queries.append((query, future))
+        if _batch_task is None:
+            _batch_task = asyncio.create_task(_process_batch())
+        # Kalo udah cukup banyak, trigger langsung (gak nunggu 40ms)
+        elif len(_batch_queries) >= _BATCH_MAX:
+            _batch_task.cancel()
+            _batch_task = asyncio.create_task(_process_batch())
+
+    return await future
 
 
 def search(query: str, top_k: int = 3):
