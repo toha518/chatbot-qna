@@ -1,53 +1,28 @@
-# NARA (NextGen AI Response Agent)
-
-Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**.
-
-> **N**extGen — Teknologi modern dan inovatif
-> **A**I — Kecerdasan buatan sebagai mesin utama
-> **R**esponse — Fokus menjawab dan merespons kebutuhan pengguna
-> **A**gent — Asisten digital yang bertindak atas nama layanan
-
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram)](https://core.telegram.org/bots)
-[![WhatsApp](https://img.shields.io/badge/WhatsApp-Bridge-25D366?logo=whatsapp)](https://whatsapp.com)
-[![Hybrid](https://img.shields.io/badge/Retrieval-Hybrid%20(E5%2BBM25)-purple)](https://huggingface.co/intfloat/multilingual-e5-base)
-[![Dashboard](https://img.shields.io/badge/Dashboard-Web%20UI-%230070d1)](http://localhost:8001)
-[![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
-
-Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayani pertanyaan seputar **SOBAT, GC PBI, GC PLN, FASIH,** dan **Pengolahan SE2026** via Telegram & WhatsApp.
-
-> **Stack:** FastAPI + Hybrid E5+BM25 (RRF fusion) + Multi-LLM failover + SQLite + EasyOCR
-> **Model:** Cloud (OpenAI-compatible) → Ollama lokal — auto failover
-
----
 
 ## 📋 Daftar Isi
 
 - [📸 Tangkapan Layar](#tangkapan-layar)
 - [🛠️ Tech Stack](#tech-stack)
-- [🧠 Arsitektur Modular](#arsitektur-modular)
 - [✨ Fitur](#fitur)
+- [🧠 Arsitektur Modular](#arsitektur-modular)
+- [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#detail-hybrid-search-e5--bm25-via-rrf)
+- [🆚 Perbandingan & Arsitektur Pipeline](#perbandingan-arsitektur-pipeline)
 - [🔒 Security & Proteksi](#security-proteksi)
-- [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#detail-hybrid-search-e5-bm25-via-rrf)
-- [🆚 Perbandingan & Arsitektur Pipeline](#🆚-perbandingan-arsitektur-pipeline)
-- [🔄 Replikasi / Custom Bot](#replikasi-custom-bot)
+- [📊 Logging & Evaluasi](#logging-evaluasi)
+- [🖥️ Dashboard](#dashboard)
+- [🔗 API Endpoints](#api-endpoints)
 - [💻 Panduan Instalasi — Windows](#panduan-instalasi-windows)
 - [🐧 Panduan Instalasi — Linux](#panduan-instalasi-linux)
 - [✅ Verifikasi](#verifikasi)
-- [🔗 API Endpoints](#api-endpoints)
-- [📊 Logging & Evaluasi](#logging-evaluasi)
-- [🖥️ Dashboard](#dashboard)
+- [🔄 Replikasi / Custom Bot](#replikasi-custom-bot)
 - [❓ FAQ](#faq)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
 - [📄 Lisensi](#lisensi)
 
-
 ---
 
 ## 📸 Tangkapan Layar
-
 <table>
   <tr>
     <td><img src="screenshots/wa-chat.jpg" alt="WhatsApp — Nara menjawab pertanyaan" width="300"></td>
@@ -61,8 +36,9 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ---
 
-## 🛠️ Tech Stack
+---
 
+## 🛠️ Tech Stack
 | Layer | Teknologi |
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
@@ -80,8 +56,33 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 
 ---
 
-## 🧠 Arsitektur Modular
+---
 
+## ✨ Fitur
+| Fitur | Detail |
+|-------|--------|
+| 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
+| 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
+| 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
+| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
+| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
+| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
+| 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
+| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
+| 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
+| 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
+| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
+| 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error. **Tracking otomatis** — semua feedback (tombol & chat) tercatat di `feedback_status` query log |
+| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
+| 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
+| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking, **feedback_status**. `top5_faq` diberi label ranking (#1-#5) |
+
+---
+
+---
+
+## 🧠 Arsitektur Modular
 ```
 chatbot-qna/
 │
@@ -274,104 +275,9 @@ USER CHAT
 
 ---
 
-## ✨ Fitur
-
-| Fitur | Detail |
-|-------|--------|
-| 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
-| 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
-| 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
-| 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
-| ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
-| 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
-| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
-| 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
-| 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
-| 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error. **Tracking otomatis** — semua feedback (tombol & chat) tercatat di `feedback_status` query log |
-| 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
-| 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
-| 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 25 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking, **feedback_status**. `top5_faq` diberi label ranking (#1-#5) |
-
 ---
-
-## 🔒 Security & Proteksi
-
-Bot ini punya **6 lapis proteksi**:
-
-| # | Lapisan | File | Cara Kerja |
-|---|---------|------|------------|
-| 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
-| 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
-| 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
-| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%. Keyword fallback sbg safety net |
-| 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
-| 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
-
-### Detail Pipeline Domain Filter (BM25 Threshold)
-
-```
-Input → scikit-learn → greeting / capability → BM25 guard
-│                                               ├─ BM25 ≥ 3.0 → ada konten BPS → treat sbg forward ↓
-│                                               └─ BM25 < 3.0 → murni sapaan/tanya kemampuan → respon langsung
-│
-└── lainnya → BM25 keyword check
-               ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
-               ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
-               ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-3
-               │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
-               └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
-```
-
-**Kenapa BM25?** Keyword overlap langsung mengukur "ada gak sih istilah BPS di pertanyaan ini?". Query tanpa satupun istilah FAQ (nasi goreng, presiden AS) langsung ketahuan dari BM25 rendah.
-
-**Threshold BM25 (dari analisis 100+ query production):**
-| BM25 Range | Arti | Contoh Query |
-|:---------:|------|--------------|
-| BM25 Range | Arti | Gate | Contoh Query |
-|:---------:|------|:----:|--------------|
-| **< 3.0** | Gak ada keyword BPS signifikan | ❌ OOC_BM25 (tolak) | "cara membuat nasi goreng" (0.0), "resep nasi goreng" (0.0) |
-| **3.0 - 4.9** | Keyword generic — samar | ❌ BM25_BORDERLINE (QNA link) | "di dtsen juga" (2.49), "maaf pak mau tanya" (3.2), "nasi goreng ala bps" (4.8) |
-| **5.0 - 10.0** | Sinyal BPS jelas | ✅ Lanjut hybrid | "NIK sesuai KTP" (5.07), "FASIH gagal login" (6.79) |
-| **10.0+** | FAQ match kuat | ✅ Lanjut hybrid | "verifikasi NIK gagal" (10.66), OCR screenshot (34-42) |
-
-**Tambahan:** Centroid E5 dihitung (rata-rata vektor FAQ) dan di-log ke `query_log.db` untuk analytics dashboard, tapi **tidak digunakan sebagai gate**.
-
-### 📩 QNA Form Link
-
-Ketika hybrid search mendeteksi pertanyaan **domain BPS tapi belum ada di FAQ**, NARA memberikan link:
-
-**http://s.bps.go.id/nara-qna**
-
-Link keluar di 2 situasi:
-1. **BM25 < 3.0** — OOC_BM25 (gak ada keyword BPS, tolak total)
-2. **BM25 3.0-4.9** — BM25_BORDERLINE (ada sinyal BPS, tapi gak cukup kuat untuk FAQ match)
-
-Response templates di `prompts/responses.json`:
-- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (BM25 < 3.0 — out of domain)
-- `rejection_no_answer` — "Silakan ajukan lewat form..." (BM25 3.0-4.9 — borderline, gak match FAQ)
-
-**Kenapa BM25 bisa jadi domain filter?**
-BM25 = keyword overlap antara query user dan seluruh FAQ. Query di luar domain → gak ada satupun istilah BPS → BM25 < 3.0 → **tolak tanpa retrieval maupun LLM**. Query BPS → BM25 ≥ 3.0 → lanjut hybrid search + LLM. **Zero LLM cost untuk out-of-context.**
-
-### Trusted User
-
-User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena** anti-spam & daily limit. Tapi tetap kena session timeout.
-
-### Input Sanitasi (Layer Awal)
-
-- Control characters (`\x00-\x1f`) — dibuang
-- Emoji > 5 — kelebihan dihapus
-- Karakter > 500 — ditolak (kecuali dari OCR gambar)
-- Input dari OCR (screenshot error, foto dokumentasi) **dibebaskan dari limit 500 karakter** via flag `is_ocr: True` di request. Server bedain berdasarkan field `is_ocr` di ChatRequest — kalo True, skip character limit
-
----
-
 
 ## 🧠 Detail Hybrid Search (E5 + BM25 via RRF)
-
 Hybrid search menggabungkan **2 pendekatan berbeda** — keyword exact match (BM25) dan semantic similarity (E5) — lalu menyatukan peringkatnya pakai **Reciprocal Rank Fusion (RRF)**.
 
 ---
@@ -603,8 +509,9 @@ Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabis
 
 ---
 
-## 🆚 Perbandingan & Arsitektur Pipeline
+---
 
+## 🆚 Perbandingan & Arsitektur Pipeline
 ### Saling Melengkapi: BM25 vs E5 vs Hybrid
 
 BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja berarti mewarisi semua blindspot-nya.
@@ -654,22 +561,239 @@ E5-base dipilih karena: **gratis, lokal, multilingual (Indonesia), 768D, dan ter
 
 ---
 
-## 🔄 Replikasi / Custom Bot
+---
 
-| File | Wajib? | Keterangan |
-|------|:------:|------------|
-| `.env` | ✅ **Wajib** | Sesuaikan token, API key, model |
-| `prompts/identity.json` | ✅ **Wajib** | Nama & role bot baru |
-| `prompts/system.md` | ⬜ Opsional | Aturan main LLM |
-| `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
-| `core/embedder.py` | ⬜ Opsional | Bisa ganti model hybrid search |
-| `core/bm25.py` | ⬜ Opsional | Stopwords disesuaikan domain |
-| `security/*.py` | ❌ **Jangan** | Proteksi built-in |
+## 🔒 Security & Proteksi
+Bot ini punya **6 lapis proteksi**:
+
+| # | Lapisan | File | Cara Kerja |
+|---|---------|------|------------|
+| 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
+| 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
+| 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
+| 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%. Keyword fallback sbg safety net |
+| 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
+| 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
+
+### Detail Pipeline Domain Filter (BM25 Threshold)
+
+```
+Input → scikit-learn → greeting / capability → BM25 guard
+│                                               ├─ BM25 ≥ 3.0 → ada konten BPS → treat sbg forward ↓
+│                                               └─ BM25 < 3.0 → murni sapaan/tanya kemampuan → respon langsung
+│
+└── lainnya → BM25 keyword check
+               ├─ BM25 < 3.0 → ❌ OOC_BM25 (tolak, tanpa retrieval)
+               ├─ 3.0 ≤ BM25 < 5.0 → ❌ BM25_BORDERLINE (QNA link)
+               ├─ BM25 < 5 + ada history → cascade concat prev query depth 1-3
+               │   └─ BM25 cascade ≥ 5.0? → hybrid → LLM
+               └─ BM25 ≥ 5.0 → hybrid_search (E5+BM25 RRF) → LLM
+```
+
+**Kenapa BM25?** Keyword overlap langsung mengukur "ada gak sih istilah BPS di pertanyaan ini?". Query tanpa satupun istilah FAQ (nasi goreng, presiden AS) langsung ketahuan dari BM25 rendah.
+
+**Threshold BM25 (dari analisis 100+ query production):**
+| BM25 Range | Arti | Contoh Query |
+|:---------:|------|--------------|
+| BM25 Range | Arti | Gate | Contoh Query |
+|:---------:|------|:----:|--------------|
+| **< 3.0** | Gak ada keyword BPS signifikan | ❌ OOC_BM25 (tolak) | "cara membuat nasi goreng" (0.0), "resep nasi goreng" (0.0) |
+| **3.0 - 4.9** | Keyword generic — samar | ❌ BM25_BORDERLINE (QNA link) | "di dtsen juga" (2.49), "maaf pak mau tanya" (3.2), "nasi goreng ala bps" (4.8) |
+| **5.0 - 10.0** | Sinyal BPS jelas | ✅ Lanjut hybrid | "NIK sesuai KTP" (5.07), "FASIH gagal login" (6.79) |
+| **10.0+** | FAQ match kuat | ✅ Lanjut hybrid | "verifikasi NIK gagal" (10.66), OCR screenshot (34-42) |
+
+**Tambahan:** Centroid E5 dihitung (rata-rata vektor FAQ) dan di-log ke `query_log.db` untuk analytics dashboard, tapi **tidak digunakan sebagai gate**.
+
+### 📩 QNA Form Link
+
+Ketika hybrid search mendeteksi pertanyaan **domain BPS tapi belum ada di FAQ**, NARA memberikan link:
+
+**http://s.bps.go.id/nara-qna**
+
+Link keluar di 2 situasi:
+1. **BM25 < 3.0** — OOC_BM25 (gak ada keyword BPS, tolak total)
+2. **BM25 3.0-4.9** — BM25_BORDERLINE (ada sinyal BPS, tapi gak cukup kuat untuk FAQ match)
+
+Response templates di `prompts/responses.json`:
+- `rejection_out_of_context` — "Maaf, saya tidak bisa menjawab..." (BM25 < 3.0 — out of domain)
+- `rejection_no_answer` — "Silakan ajukan lewat form..." (BM25 3.0-4.9 — borderline, gak match FAQ)
+
+**Kenapa BM25 bisa jadi domain filter?**
+BM25 = keyword overlap antara query user dan seluruh FAQ. Query di luar domain → gak ada satupun istilah BPS → BM25 < 3.0 → **tolak tanpa retrieval maupun LLM**. Query BPS → BM25 ≥ 3.0 → lanjut hybrid search + LLM. **Zero LLM cost untuk out-of-context.**
+
+### Trusted User
+
+User di `TRUSTED_CHAT_IDS` (dari `.env`) **tidak kena** anti-spam & daily limit. Tapi tetap kena session timeout.
+
+### Input Sanitasi (Layer Awal)
+
+- Control characters (`\x00-\x1f`) — dibuang
+- Emoji > 5 — kelebihan dihapus
+- Karakter > 500 — ditolak (kecuali dari OCR gambar)
+- Input dari OCR (screenshot error, foto dokumentasi) **dibebaskan dari limit 500 karakter** via flag `is_ocr: True` di request. Server bedain berdasarkan field `is_ocr` di ChatRequest — kalo True, skip character limit
+
+---
+
+---
+
+## 📊 Logging & Evaluasi
+Setiap request user dicatat otomatis ke **dual storage**:
+
+| Storage | File | Fungsi |
+|---------|------|--------|
+| **JSONL** | `query_log.jsonl` | Debug real-time — `tail -f` langsung keliatan |
+| **SQLite** | `query_log.db` | Analytics jangka panjang — SQL query instant |
+
+### Format Log (25 field per entry)
+
+```json
+{
+  "waktu": "2026-06-01 00:15:30",
+  "chat_id": "1267972859",
+  "pertanyaan": "Kenapa mitra ga bisa verifikasi NIK",
+  "clf_domain": "forward",
+  "clf_confidence": 0.876,
+  "clf_mode": "scikit-learn",
+  "rrf_score": 0.0331,
+  "e5_top": 0.86,
+  "bm25_raw": 10.7,
+  "top5_faq": ["Verifikasi NIK Gagal", "Email aktivasi"],
+  "gate": "ANSWER",
+  "feedback_status": "none",
+  "gate_detail": "",
+  "dijawab": true,
+  "jawaban": "Coba cek dulu...",
+  "jawaban_length": 342,
+  "llm_model": "llama-3.3-70b-versatile",
+  "llm_provider": "provider 1",
+  "llm_time_ms": 850,
+  "multi_part": false,
+  "session_baru": false,
+  "error": ""
+}
+```
+
+### Gate Labels
+
+| Gate | Arti |
+|------|------|
+| `CLF_GREETING` / `CLF_CAPABILITY` | CLF deteksi → respon langsung |
+| `CLF_POSITIVE_FEEDBACK` | "makasih" → "Sama-sama! 😊" |
+| `CLF_NEGATIVE_FEEDBACK` | "ga membantu" → link QNA |
+| `OUT_OF_CONTEXT` | RRF < 0.018 → tolak |
+| `CASCADE_QNA` / `MULTI_PART_QNA` | RRF 0.018-0.025 → link QNA |
+| `ANSWER` | RRF ≥ 0.025 → LLM jawab |
+
+### Built-in Analytics (`GET /log-stats`)
+
+```json
+{
+  "period": "7 hari",
+  "total_logs": 342,
+  "unique_users": 12,
+  "avg_rrf_score": 0.0241,
+  "by_gate": {"ANSWER": 200, "CLF_GREETING": 80, ...},
+  "by_clf": {"forward": 250, "greeting": 82, ...}
+}
+```
+
+### Rotasi
+- **JSONL**: dirotate saat ~500KB → file lama ditimestamp
+- **SQLite**: gaperlu rotasi — query data historis langsung
+
+### Chat History (Per-User)
+
+Tersimpan di SQLite (`chatbot.db`) — akses via:
+- `GET /history` — list semua sesi
+- `GET /history/{chat_id}` — detail per user
+
+---
+
+---
+
+## 🖥️ Dashboard
+Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: [http://localhost:8001](http://localhost:8001)
+
+> **Jalankan:** `python dashboard.py` (paralel dengan `server.py`)
+
+| Tab | Fungsi |
+|-----|--------|
+| 📊 **Overview** | Statistik query, distribusi Gate & CLF, answered rate |
+| 📝 **Query Log** | 25 kolom dari `query_log.db`, search + filter (gate, CLF, source, status, **feedback**), column visibility toggles, pagination 50/page. Kolom **Feedback** menampilkan ✅ Sudah / ❌ Belum / — (tidak klik) |
+| 💻 **Live Terminal** | Streaming query real-time (`tail -f`), polling 3 detik |
+| 📈 **Analytics** | RRF trend per jam, Queries per Hour, LLM Model Usage (charts) |
+| 🖥️ **System Health** | Status 4 service (Server API, WA Handler, Bridge, Telegram Bot) + tombol Start All / Stop All |
+| 🏆 **Top FAQ** | FAQ paling sering muncul + kategori dari spreadsheet (SOBAT, GC PBI, dll) |
+
+### Fitur Tambahan
+- 🔗 **Quick links** sidebar: Database FAQ, Nara QnA, Data QnA
+- 🌙 **Dark/Light mode** — toggle di top bar, auto-detect OS preference
+- 📱 **Responsive** — sidebar overlay di mobile, tabel scrollable
+- 🏷️ **Source tracking** — setiap query di-tag `wa` / `telegram` / `api`
+- 📂 **Column toggles** — pilih kolom mana yang ditampilkan, state disimpan di localStorage
+- 💬 **Feedback tracking** — kolom `feedback_status` di setiap log, filter feedback di Query Log, 3 stat card (✅ Sudah / ❌ Belum / ⏺ Tidak Klik)
+
+### Tech Stack Dashboard
+- **Backend:** FastAPI + SQLite (`query_log.db`) + httpx (health check)
+- **Frontend:** Vanilla HTML/CSS/JS + Chart.js 4.4 + Inter font (Google Fonts)
+- **Design system:** PlayStation-inspired — flat no-shadow, `#0070d1` primary, 8px cards, `9999px` pill buttons
+
+---
+
+---
+
+## 🔗 API Endpoints
+| Endpoint | Method | Fungsi |
+|----------|--------|--------|
+| `/health` | GET | Status server, total Q&A, active sessions, query stats |
+| `/log-stats` | GET | Statistik query log (total, accepted, rejected, errors) |
+| `/chat` | POST | Kirim pertanyaan → dapat jawaban dari AI |
+| `/start` | POST | Inisialisasi sesi baru untuk user |
+| `/stop` | POST | Akhiri sesi chat (dapat durasi) |
+| `/reload` | POST | Reload FAQ dari Google Sheets manual |
+| `/history` | GET | Daftar semua sesi chat |
+| `/history/{chat_id}` | GET | Detail chat per user |
+
+### Contoh `/chat`
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"pertanyaan": "Cara daftar SOBAT", "chat_id": "12345"}'
+```
+
+Response:
+```json
+{
+  "jawaban": "Untuk mendaftar SOBAT...",
+  "skor": 0.89
+}
+```
+
+### Contoh `/log-stats`
+
+```bash
+curl http://localhost:8000/log-stats
+```
+
+Response:
+```json
+{
+  "total": 120,
+  "accepted": 95,
+  "rejected": 22,
+  "greetings": 3,
+  "errors": 0,
+  "file": "C:\\Proyek\\chatbot-qna\\query_log.jsonl",
+  "size_kb": 4.2
+}
+```
+
+---
 
 ---
 
 ## 💻 Panduan Instalasi — Windows
-
 <details>
 <summary><b>Klik untuk lihat panduan Windows</b></summary>
 
@@ -813,8 +937,9 @@ Buat file `.env` (isi token), terus double-click `start-all.bat`. Selesai.
 
 ---
 
-## 🐧 Panduan Instalasi — Linux
+---
 
+## 🐧 Panduan Instalasi — Linux
 <details>
 <summary><b>Klik untuk lihat panduan Linux</b></summary>
 
@@ -999,8 +1124,9 @@ Buat `.env`, terus `./start.sh`. Selesai.
 
 ---
 
-## ✅ Verifikasi
+---
 
+## ✅ Verifikasi
 ### Cek server:
 ```bash
 curl http://localhost:8000/health
@@ -1032,132 +1158,24 @@ Chat nomor yang discan — bot harus merespon dengan typing indicator.
 
 ---
 
-## 🔗 API Endpoints
-
-| Endpoint | Method | Fungsi |
-|----------|--------|--------|
-| `/health` | GET | Status server, total Q&A, active sessions, query stats |
-| `/log-stats` | GET | Statistik query log (total, accepted, rejected, errors) |
-| `/chat` | POST | Kirim pertanyaan → dapat jawaban dari AI |
-| `/start` | POST | Inisialisasi sesi baru untuk user |
-| `/stop` | POST | Akhiri sesi chat (dapat durasi) |
-| `/reload` | POST | Reload FAQ dari Google Sheets manual |
-| `/history` | GET | Daftar semua sesi chat |
-| `/history/{chat_id}` | GET | Detail chat per user |
-
-### Contoh `/chat`
-
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"pertanyaan": "Cara daftar SOBAT", "chat_id": "12345"}'
-```
-
-Response:
-```json
-{
-  "jawaban": "Untuk mendaftar SOBAT...",
-  "skor": 0.89
-}
-```
-
-### Contoh `/log-stats`
-
-```bash
-curl http://localhost:8000/log-stats
-```
-
-Response:
-```json
-{
-  "total": 120,
-  "accepted": 95,
-  "rejected": 22,
-  "greetings": 3,
-  "errors": 0,
-  "file": "C:\\Proyek\\chatbot-qna\\query_log.jsonl",
-  "size_kb": 4.2
-}
-```
-
 ---
 
-## 📊 Logging & Evaluasi
+## 🔄 Replikasi / Custom Bot
+| File | Wajib? | Keterangan |
+|------|:------:|------------|
+| `.env` | ✅ **Wajib** | Sesuaikan token, API key, model |
+| `prompts/identity.json` | ✅ **Wajib** | Nama & role bot baru |
+| `prompts/system.md` | ⬜ Opsional | Aturan main LLM |
+| `prompts/greeting.md` | ⬜ Opsional | Template sambutan |
+| `core/embedder.py` | ⬜ Opsional | Bisa ganti model hybrid search |
+| `core/bm25.py` | ⬜ Opsional | Stopwords disesuaikan domain |
+| `security/*.py` | ❌ **Jangan** | Proteksi built-in |
 
-Setiap request user dicatat otomatis ke **dual storage**:
-
-| Storage | File | Fungsi |
-|---------|------|--------|
-| **JSONL** | `query_log.jsonl` | Debug real-time — `tail -f` langsung keliatan |
-| **SQLite** | `query_log.db` | Analytics jangka panjang — SQL query instant |
-
-### Format Log (25 field per entry)
-
-```json
-{
-  "waktu": "2026-06-01 00:15:30",
-  "chat_id": "1267972859",
-  "pertanyaan": "Kenapa mitra ga bisa verifikasi NIK",
-  "clf_domain": "forward",
-  "clf_confidence": 0.876,
-  "clf_mode": "scikit-learn",
-  "rrf_score": 0.0331,
-  "e5_top": 0.86,
-  "bm25_raw": 10.7,
-  "top5_faq": ["Verifikasi NIK Gagal", "Email aktivasi"],
-  "gate": "ANSWER",
-  "feedback_status": "none",
-  "gate_detail": "",
-  "dijawab": true,
-  "jawaban": "Coba cek dulu...",
-  "jawaban_length": 342,
-  "llm_model": "llama-3.3-70b-versatile",
-  "llm_provider": "provider 1",
-  "llm_time_ms": 850,
-  "multi_part": false,
-  "session_baru": false,
-  "error": ""
-}
-```
-
-### Gate Labels
-
-| Gate | Arti |
-|------|------|
-| `CLF_GREETING` / `CLF_CAPABILITY` | CLF deteksi → respon langsung |
-| `CLF_POSITIVE_FEEDBACK` | "makasih" → "Sama-sama! 😊" |
-| `CLF_NEGATIVE_FEEDBACK` | "ga membantu" → link QNA |
-| `OUT_OF_CONTEXT` | RRF < 0.018 → tolak |
-| `CASCADE_QNA` / `MULTI_PART_QNA` | RRF 0.018-0.025 → link QNA |
-| `ANSWER` | RRF ≥ 0.025 → LLM jawab |
-
-### Built-in Analytics (`GET /log-stats`)
-
-```json
-{
-  "period": "7 hari",
-  "total_logs": 342,
-  "unique_users": 12,
-  "avg_rrf_score": 0.0241,
-  "by_gate": {"ANSWER": 200, "CLF_GREETING": 80, ...},
-  "by_clf": {"forward": 250, "greeting": 82, ...}
-}
-```
-
-### Rotasi
-- **JSONL**: dirotate saat ~500KB → file lama ditimestamp
-- **SQLite**: gaperlu rotasi — query data historis langsung
-
-### Chat History (Per-User)
-
-Tersimpan di SQLite (`chatbot.db`) — akses via:
-- `GET /history` — list semua sesi
-- `GET /history/{chat_id}` — detail per user
+---
 
 ---
 
 ## ❓ FAQ
-
 <details>
 <summary><b>Klik untuk lihat FAQ</b></summary>
 
@@ -1245,38 +1263,9 @@ sudo lsof -i :8000              # Linux
 
 ---
 
-## 🖥️ Dashboard
-
-Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: [http://localhost:8001](http://localhost:8001)
-
-> **Jalankan:** `python dashboard.py` (paralel dengan `server.py`)
-
-| Tab | Fungsi |
-|-----|--------|
-| 📊 **Overview** | Statistik query, distribusi Gate & CLF, answered rate |
-| 📝 **Query Log** | 25 kolom dari `query_log.db`, search + filter (gate, CLF, source, status, **feedback**), column visibility toggles, pagination 50/page. Kolom **Feedback** menampilkan ✅ Sudah / ❌ Belum / — (tidak klik) |
-| 💻 **Live Terminal** | Streaming query real-time (`tail -f`), polling 3 detik |
-| 📈 **Analytics** | RRF trend per jam, Queries per Hour, LLM Model Usage (charts) |
-| 🖥️ **System Health** | Status 4 service (Server API, WA Handler, Bridge, Telegram Bot) + tombol Start All / Stop All |
-| 🏆 **Top FAQ** | FAQ paling sering muncul + kategori dari spreadsheet (SOBAT, GC PBI, dll) |
-
-### Fitur Tambahan
-- 🔗 **Quick links** sidebar: Database FAQ, Nara QnA, Data QnA
-- 🌙 **Dark/Light mode** — toggle di top bar, auto-detect OS preference
-- 📱 **Responsive** — sidebar overlay di mobile, tabel scrollable
-- 🏷️ **Source tracking** — setiap query di-tag `wa` / `telegram` / `api`
-- 📂 **Column toggles** — pilih kolom mana yang ditampilkan, state disimpan di localStorage
-- 💬 **Feedback tracking** — kolom `feedback_status` di setiap log, filter feedback di Query Log, 3 stat card (✅ Sudah / ❌ Belum / ⏺ Tidak Klik)
-
-### Tech Stack Dashboard
-- **Backend:** FastAPI + SQLite (`query_log.db`) + httpx (health check)
-- **Frontend:** Vanilla HTML/CSS/JS + Chart.js 4.4 + Inter font (Google Fonts)
-- **Design system:** PlayStation-inspired — flat no-shadow, `#0070d1` primary, 8px cards, `9999px` pill buttons
-
 ---
 
 ## 📜 Riwayat Versi
-
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
@@ -1731,16 +1720,18 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 ---
 
-## 📞 Kontak & Dukungan
+---
 
+## 📞 Kontak & Dukungan
 Dibuat dan dikelola oleh **Syahrul Toha Saputra** — Pengembang & Arsitek Sistem.
 
 Untuk update, fitur baru, atau laporan error, hubungi tim teknis BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
 
-## 📄 Lisensi
+---
 
+## 📄 Lisensi
 Proyek internal BPS Provinsi Kepulauan Bangka Belitung.
 
 ---
@@ -1748,3 +1739,5 @@ Proyek internal BPS Provinsi Kepulauan Bangka Belitung.
 <p align="center">
   <sub>© 2026 — Badan Pusat Statistik Provinsi Kepulauan Bangka Belitung</sub>
 </p>
+
+---
