@@ -46,7 +46,7 @@ init_classifier()
 load_llm_config()
 identity, system_template, greeting_template, acronyms = load_prompts()
 responses = load_responses()
-REJECTION_MSG = responses.get("rejection", "").format(topics_line=", ".join(identity["topics"]))
+REJECTION_MSG = responses.get("rejection").format(topics_line=", ".join(identity["topics"]))
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
@@ -228,7 +228,7 @@ async def chat(req: ChatRequest):
         for em in set(emojis[5:]):
             req.pertanyaan = req.pertanyaan.replace(em, '')
     if len(req.pertanyaan.strip()) == 0:
-        return {"jawaban": responses.get("question_empty", "⚠️ Pesan kosong setelah penyaringan."), "skor": 0}
+        return {"jawaban": responses.get("question_empty"), "skor": 0}
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
     if req.image_path:
         try:
@@ -254,7 +254,7 @@ async def chat(req: ChatRequest):
     # Character limit — skip kalo dari OCR
     if not req.is_ocr and not req.image_path:
         if len(req.pertanyaan) > 500:
-            return {"jawaban": responses.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500), "skor": 0}
+            return {"jawaban": responses.get("question_too_long").format(max_length=500), "skor": 0}
     # ===================== ANTI-SPAM =====================
     init_rate_limit_entry(cid)
     if cid not in TRUSTED_IDS:
@@ -274,7 +274,7 @@ async def chat(req: ChatRequest):
             if last_notified != today:
                 daily_limit_notified[clean_cid] = today
                 return {
-                    "jawaban": responses.get("daily_limit_reached", "").format(limit=DAILY_LIMIT),
+                    "jawaban": responses.get("daily_limit_reached").format(limit=DAILY_LIMIT),
                     "skor": 0
                 }
             return {"jawaban": "", "skor": 0}
@@ -285,7 +285,7 @@ async def chat(req: ChatRequest):
     if req.pertanyaan == "feedback_yes":
         if session_has_forward.get(cid, False):
             update_feedback_status(cid, "positive")
-            jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
+            jawaban = responses.get("positive_feedback")
             jawaban += "\n\n" + _format_end_footer(cid)
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
@@ -293,13 +293,13 @@ async def chat(req: ChatRequest):
             return {"jawaban": jawaban, "skor": 1.0}
         else:
             topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-            jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+            jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
             return {"jawaban": jawaban, "skor": 1.0}
 
     if req.pertanyaan == "feedback_no":
         if session_has_forward.get(cid, False):
             update_feedback_status(cid, "negative")
-            jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
+            jawaban = responses.get("negative_feedback")
             return {"jawaban": jawaban, "skor": 1.0}
         else:
             # Treat sebagai forward
@@ -327,7 +327,7 @@ async def chat(req: ChatRequest):
             jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
             if not jawaban:
                 topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+                jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
             api_rate_limit[cid]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
@@ -353,7 +353,7 @@ async def chat(req: ChatRequest):
         else:
             # Template statis — gak panggil LLM (cegah ngarang definisi)
             topics_list = "\n".join(f"  {t}" for t in identity['topics'])
-            jawaban = responses.get("capability", "").format(
+            jawaban = responses.get("capability").format(
                 name=identity['name'],
                 role=identity['role'],
                 topics_list=topics_list
@@ -375,7 +375,7 @@ async def chat(req: ChatRequest):
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback + stop session
             update_feedback_status(cid, "positive")
-            jawaban = responses.get("positive_feedback", "Sama-sama! 😊")
+            jawaban = responses.get("positive_feedback")
             jawaban += "\n\n" + _format_end_footer(cid)
             # Stop session internal
             sessions.pop(cid, None)
@@ -394,7 +394,7 @@ async def chat(req: ChatRequest):
             jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
             if not jawaban:
                 topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity['topics']))
-                jawaban = responses.get("greeting", "").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
+                jawaban = responses.get("greeting").format(name=identity['name'], role=identity['role'], topics_list=topics_list)
             api_rate_limit[cid]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
@@ -412,7 +412,7 @@ async def chat(req: ChatRequest):
         if session_has_forward.get(cid, False):
             # Ada interaksi sebelumnya → balas feedback
             update_feedback_status(cid, "negative")
-            jawaban = responses.get("negative_feedback", "Maaf ya... 🙏")
+            jawaban = responses.get("negative_feedback")
             api_rate_limit[cid]["last_active"] = time.time()
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
@@ -466,7 +466,7 @@ async def chat(req: ChatRequest):
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
-        jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
+        jawaban = RESP_G("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -480,7 +480,7 @@ async def chat(req: ChatRequest):
 
     if 3.0 <= bm25_top < 5.0:
         # Tier 2: borderline — domain BPS possible tapi gak match FAQ → QNA link
-        jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
+        jawaban = RESP_G("rejection_no_answer", REJECTION_MSG)
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=centroid_sim,
                   clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -553,11 +553,11 @@ async def chat(req: ChatRequest):
         jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
         if not jawaban:
             llm_model = llm_provider = ""; llm_time = 0
-            jawaban = responses.get("error_llm", "Maaf, terjadi error. Silakan coba lagi.")
+            jawaban = responses.get("error_llm")
         gate_label = "ANSWER"
 
     # Feedback footer untuk forward answer
-    jawaban += responses.get("feedback_footer", "")
+    jawaban += responses.get("feedback_footer")
 
     history.append({"role": "user", "content": req.pertanyaan})
     history.append({"role": "assistant", "content": jawaban})

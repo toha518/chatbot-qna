@@ -100,7 +100,7 @@ def wa_message():
                     pertanyaan = caption
 
                 if not pertanyaan.strip():
-                    return jsonify({"jawaban": _RESPONSES.get("image_no_text", "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.")})
+                    return jsonify({"jawaban": _RESPONSES.get("image_no_text")})
             else:
                 pertanyaan = caption
         except (json.JSONDecodeError, Exception) as e:
@@ -138,7 +138,7 @@ def wa_message():
         name = _IDENTITY.get("name", "Nara")
         role = _IDENTITY.get("role", "asisten IT")
         return jsonify({
-            "jawaban": _RESPONSES.get("greeting", "").format(
+            "jawaban": _RESPONSES.get("greeting").format(
                 name=name,
                 role=role,
                 topics_list=topics_list
@@ -180,12 +180,12 @@ def wa_message():
             pertanyaan = pertanyaan.replace(em, '')
 
     if len(pertanyaan.strip()) == 0:
-        return jsonify({"jawaban": _RESPONSES.get("question_empty", "⚠️ Pesan kosong setelah penyaringan.")})
+        return jsonify({"jawaban": _RESPONSES.get("question_empty")})
 
     # Character limit hanya untuk teks biasa (bukan OCR)
     if not is_image:
         if len(pertanyaan) > 500:
-            return jsonify({"jawaban": _RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.").format(max_length=500)})
+            return jsonify({"jawaban": _RESPONSES.get("question_too_long").format(max_length=500)})
 
     # ===================== PANGGIL SERVER API =====================
     try:
@@ -206,11 +206,11 @@ def wa_message():
 
     except requests.exceptions.ConnectionError:
         return jsonify({
-            "jawaban": _RESPONSES.get("server_down", "⚠️ Server Nara tidak merespon.")
+            "jawaban": _RESPONSES.get("server_down")
         }), 503
     except Exception as e:
         print(f"[WA ERROR] Panggil server.py gagal: {e}")
-        return jsonify({"jawaban": _RESPONSES.get("image_failed", "⚠️ Error: {error}").format(error=str(e))}), 500
+        return jsonify({"jawaban": _RESPONSES.get("image_failed").format(error=str(e))}), 500
 
 
 # ===================== HEALTH CHECK =====================

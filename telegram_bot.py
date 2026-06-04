@@ -93,7 +93,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     topics_list = "\n".join(f"{i+1}. {t}" for i, t in enumerate(_IDENTITY.get("topics", [])))
     name = _IDENTITY.get("name", "Nara")
     role = _IDENTITY.get("role", "asisten IT")
-    greeting_text = _RESPONSES.get("greeting", "").format(
+    greeting_text = _RESPONSES.get("greeting").format(
         name=name,
         role=role,
         topics_list=topics_list
@@ -171,12 +171,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = text.replace(em, '')
 
     if len(text.strip()) == 0:
-        await update.message.reply_text(_RESPONSES.get("question_empty", "⚠️ Pesan kosong setelah penyaringan."))
+        await update.message.reply_text(_RESPONSES.get("question_empty"))
         return
 
     # ===================== BATAS KARAKTER =====================
     if len(text) > 500:
-        await update.message.reply_text(_RESPONSES.get("question_too_long", "⚠️ Pertanyaan terlalu panjang.").format(max_length=500))
+        await update.message.reply_text(_RESPONSES.get("question_too_long").format(max_length=500))
         return
 
     # ===================== TOMBOL MENU =====================
@@ -231,7 +231,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
-        await update.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
+        await update.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
 async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -253,7 +253,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
         except Exception as e:
-            await query.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
+            await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
     elif query.data == "fb_no":
         # Kirim negative_feedback ke server
@@ -268,7 +268,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
         except Exception as e:
-            await query.message.reply_text(f"{_RESPONSES.get('error_llm', 'Maaf, terjadi error.')} {str(e)}", reply_markup=MENU_MARKUP)
+            await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
 # ===================== MAIN =====================
@@ -325,7 +325,7 @@ def main():
                     await msg_processing.delete()
                 except Exception:
                     pass
-                await update.message.reply_text(_RESPONSES.get("image_format", "⚠️ Format tidak didukung."))
+                await update.message.reply_text(_RESPONSES.get("image_format"))
                 return
 
             # Download gambar
@@ -356,7 +356,7 @@ def main():
                 combined = caption
 
             if not combined.strip():
-                await update.message.reply_text(_RESPONSES.get("image_no_text", "⚠️ Tidak bisa membaca teks dari gambar."))
+                await update.message.reply_text(_RESPONSES.get("image_no_text"))
                 return
 
             # Kirim ke server chatbot — kasih flag is_ocr biar skip 500 char limit
@@ -386,14 +386,14 @@ def main():
                 await msg_processing.delete()
             except Exception:
                 pass
-            await update.message.reply_text(_RESPONSES.get("image_failed", "⚠️ Gagal memproses gambar.").format(error=str(e)), reply_markup=MENU_MARKUP)
+            await update.message.reply_text(_RESPONSES.get("image_failed").format(error=str(e)), reply_markup=MENU_MARKUP)
             print(f"[IMAGE ERROR] {e}")
 
     # Handler untuk foto, gambar, dokumen gambar
     app.add_handler(MessageHandler((filters.PHOTO | filters.Document.IMAGE) & filters.ChatType.PRIVATE, handle_image))
     # Handler untuk media lain (sticker, voice, video) — tetap ditolak
     async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(_RESPONSES.get("text_only", "⚠️ Hanya menerima teks dan gambar."))
+        await update.message.reply_text(_RESPONSES.get("text_only"))
     app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE & filters.ChatType.PRIVATE, handle_media))
 
     # Daftarin command menu ke Telegram (biar muncul pas ketik /)
