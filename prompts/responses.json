@@ -15,7 +15,6 @@
   "image_failed": "⚠️ Gagal memproses gambar: {error}",
   "text_only": "⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.",
   "server_down": "⚠️ Server Nara (server.py) tidak merespon. Pastikan sudah dijalankan.",
-  "multi_part_note": "ℹ️ *Catatan:* Bagian pertanyaan yang tidak dapat saya jawab: {skipped_parts}",
   "feedback_footer": "\n\n━━━━━━━━━━━━━━━━━━━━\n💡 Apakah jawaban ini sudah membantu?\n",
   "session_ended": "Sesi obrolan telah ditutup, pukul {time} WIB, obrolan berlangsung selama {duration}.",
   "session_new": "🆕 Sesi obrolan baru telah dibuka — pukul {time} WIB",
@@ -24,8 +23,6 @@
   "help_text": "Cukup ketik pertanyaan Anda, saya akan cari jawabannya dari database mengenai {topics_line}.",
   "topics_text": "Topik permasalahan IT yang saya kuasai:\n{topics_text}",
   "stop_confirm": "{end_msg}\n\nSilakan kirim /start untuk memulai lagi.",
-  "image_ocr_prefix": "{caption}\n\n[Gambar: {ocr_text}]",
-  "image_ocr_only": "[Gambar: {ocr_text}]",
   "session_ended_fallback": "Sesi diskusi telah diakhiri.",
   "stop_command": "{end_msg}\n\nSilakan kirim pesan atau tap Mulai untuk memulai lagi.",
   "help_text_wa": "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya dari database mengenai {topics_line}."
