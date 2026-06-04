@@ -570,6 +570,7 @@ async def chat(req: ChatRequest):
                     jawaban += '\n\n' + responses.get("rejection_out_of_context").format(topics_line=", ".join(identity["topics"]))
             gate_label = "MULTI_PART"
             _dijawab = True
+            _feedback_eligible = True
         total_skipped = len(ooc_parts) + len(borderline_parts)
         print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab, {total_skipped} di-skip")
     else:
@@ -584,11 +585,14 @@ async def chat(req: ChatRequest):
         if not jawaban:
             llm_model = llm_provider = ""; llm_time = 0
             jawaban = responses.get("error_llm")
+            _feedback_eligible = False
+        else:
+            _feedback_eligible = True
         gate_label = "ANSWER"
         _dijawab = True
 
-    # Feedback footer — skip kalo OOC (gak dijawab)
-    if _dijawab:
+    # Feedback footer — cuma untuk jawaban LLM beneran (forward pipeline)
+    if _dijawab and _feedback_eligible:
         jawaban += responses.get("feedback_footer")
         history.append({"role": "user", "content": req.pertanyaan})
         history.append({"role": "assistant", "content": jawaban})
