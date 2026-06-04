@@ -29,10 +29,11 @@ def init_trusted_ids(env_value: str):
     global TRUSTED_IDS
     if env_value and env_value.strip():
         ids = [x.strip() for x in env_value.split(",") if x.strip()]
-        TRUSTED_IDS = set(ids)
+        TRUSTED_IDS.clear()
+        TRUSTED_IDS.update(ids)
         print(f"[SECURITY] Trusted IDs: {TRUSTED_IDS}")
     else:
-        TRUSTED_IDS = set()
+        TRUSTED_IDS.clear()
         print("[SECURITY] Trusted IDs: (kosong)")
 
 # State per chat_id
