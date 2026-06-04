@@ -226,7 +226,7 @@ def _batch_encode_sync(queries: list[str]) -> list[np.ndarray]:
         init_embedder()
     texts = ["query: " + q for q in queries]
     # batch_size=0 artinya model pake default (optimal buat CPU ~8-16)
-    vecs = embedder.encode(texts, batch_size=0)
+    vecs = embedder.encode(texts)
     return [v for v in vecs]
 
 
@@ -303,10 +303,6 @@ async def async_encode_query(query: str) -> np.ndarray:
     async with _batch_lock:
         _batch_queries.append((query, future))
         if _batch_task is None:
-            _batch_task = asyncio.create_task(_process_batch())
-        # Kalo udah cukup banyak, trigger langsung (gak nunggu 40ms)
-        elif len(_batch_queries) >= _BATCH_MAX:
-            _batch_task.cancel()
             _batch_task = asyncio.create_task(_process_batch())
 
     return await future
