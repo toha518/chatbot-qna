@@ -29,6 +29,11 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
+
+def _tg_format(text: str) -> str:
+    """Convert **bold** ke <b>bold</b> buat Telegram HTML mode"""
+    return re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+
 # ===================== OCR ENGINE (EasyOCR) =====================
 # Model ~500MB, di-load pas pertama kali ada gambar masuk
 # Support bahasa Indonesia + Inggris
@@ -220,12 +225,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("❌ Belum", callback_data="fb_no"),
             ]])
             try:
-                await update.message.reply_text(display_text, reply_markup=feedback_keyboard, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_tg_format(display_text), reply_markup=feedback_keyboard, parse_mode=ParseMode.HTML)
             except Exception:
                 await update.message.reply_text(display_text, reply_markup=feedback_keyboard)
         else:
             try:
-                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
@@ -374,7 +379,7 @@ def main():
                 # Silent block — jangan kirim apapun
                 return
             try:
-                await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP, parse_mode=ParseMode.MARKDOWN)
+                await update.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
 
