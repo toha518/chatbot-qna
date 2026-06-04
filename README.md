@@ -96,6 +96,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Melayan
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. Sidebar collapsible (desktop + mobile). |
 | 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
+| 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
 | 📊 **Query Logging** | Dual-log (JSONL + SQLite) — 24 kolom: pertanyaan asli user, CLF, RRF, E5 Top, BM25 Gate, BM25 Raw, gate status, LLM response, source tracking. `top5_faq` diberi label ranking (#1-#5) |
@@ -310,12 +311,54 @@ USER CHAT
   ▼
 ┌─ 10. RESPONSE ──────────────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
-│  Tambah footer kalo session baru                  │
-│  + Feedback poll/buttons (✅/❌) di WA & Telegram  │
+│  + Feedback footer: "💡 Apakah jawaban ini sudah   │
+│    membantu?" (hanya untuk CLF forward)           │
+│  + Tambah footer session baru kalo baru mulai     │
+└───────────────────────────────────────────────────┘
+  │
+  ▼
+┌─ 11. FEEDBACK PLATFORM ─────────────────────────┐
+│  Cek source user:                                │
+│                                                   │
+│  TELEGRAM:                                        │
+│  ├─ Parse footer "💡 Apakah jawaban ini sudah      │
+│  │   membantu?" dari jawaban                      │
+│  ├─ Kirim teks + InlineKeyboardButton             │
+│  │   [✅ Sudah] [❌ Belum]                        │
+│  ├─ User tap → callback_data "fb_yes"/"fb_no"     │
+│  ├─ Langsung hapus keyboard (reply_markup=None)   │
+│  └─ Kirim feedback ke server → balas respon       │
+│                                                   │
+│  WHATSAPP:                                         │
+│  ├─ Kirim jawaban (teks) dulu                     │
+│  ├─ Kirim native Poll: new Poll(                  │
+│  │    '💡 Apakah jawaban ini sudah membantu?',     │
+│  │    ['✅ Sudah', '❌ Belum'],                    │
+│  │    { allowMultipleAnswers: false }              │
+│  │  )                                              │
+│  ├─ User vote → event 'vote_update'               │
+│  ├─ Poll otomatis dihapus (delete for everyone)   │
+│  ├─ Kirim feedback_yes/no ke server               │
+│  └─ Fallback: user reply 👍/👎/"sudah"/"belum"    │
+│                                                   │
+│  SERVER RECEIVE feedback (positive_feedback):      │
+│  ├─ Ada riwayat forward?                           │
+│  │  YA → "Senang bisa membantu, terima kasih       │
+│  │  │     telah menggunakan layanan Nara 😊"        │
+│  │  │   + Stop session + footer jam/durasi         │
+│  │  TIDAK → treat sebagai greeting                 │
+│  │                                                 │
+│  SERVER RECEIVE feedback (negative_feedback):      │
+│  ├─ Ada riwayat forward?                           │
+│  │  YA → "Maaf kalau jawaban saya belum            │
+│  │  │     membantu. 🙏\nBiar saya bantu lebih      │
+│  │  │     lanjut, boleh info:..."                  │
+│  │  │   + Link QNA http://s.bps.go.id/nara-qna     │
+│  │  TIDAK → treat sebagai forward → BM25 gate      │
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **BM25 3-tier gate** (dengan cascade BM25 + E5 guard depth 1-3) → hybrid search (E5+BM25 RRF) → multi-part split (E5 merge) → LLM → save + log
+> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **BM25 3-tier gate** (dengan cascade BM25 + E5 guard depth 1-3) → hybrid search (E5+BM25 RRF) → multi-part split (E5 merge) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
 
 ---
 
@@ -452,7 +495,10 @@ Input user → CLF (SGDClassifier + TF-IDF, 185KB, 97.4% accuracy)
 ```
 
 **Context-aware feedback (v2.5.1+):**
-- Feedback responses (`positive_feedback` / `negative_feedback`) **hanya muncul** jika session telah memiliki riwayat CLF `forward` (user pernah bertanya sebelumnya).
+- Setiap jawaban CLF forward ditambahi footer "💡 Apakah jawaban ini sudah membantu?"
+- **Telegram**: inline keyboard ✅ Sudah / ❌ Belum di bawah jawaban, dengan teks pertanyaan
+- **WhatsApp**: native Poll (✅ Sudah / ❌ Belum) — saat user vote, Poll otomatis dihapus (delete for everyone) cegah ganti pilihan
+- **Feedback responses** (`positive_feedback` / `negative_feedback`) **hanya muncul** jika session telah memiliki riwayat CLF `forward` (user pernah bertanya sebelumnya).
 - `positive_feedback` tanpa konteks → diarahkan ke **greeting** (user mungkin cuma ramah).
 - `negative_feedback` tanpa konteks → diarahkan ke **forward pipeline** (user mungkin typo atau iseng; fallback ke BM25 gate normal).
 
@@ -1229,13 +1275,13 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 ---
 
-#### v2.5.1 — 2026-06-03
+#### v2.5.1 — 2026-06-04
 
 **Context-Aware Feedback + WA Polls + Session Closure**
 
 **Added**
 - **Feedback footer** — setiap jawaban (CLF forward) ditambahi footer "💡 Apakah jawaban ini sudah membantu?"
-- **Telegram inline keyboard** — ✅ Sudah / ❌ Belum sebagai tombol di bawah jawaban, dengan teks pertanyaan sebelumnya
+- **Telegram inline keyboard** — ✅ Sudah / ❌ Belum sebagai tombol di bawah jawaban, dengan teks pertanyaan sebelumnya ("Apakah jawaban ini sudah membantu?")
 - **WhatsApp native Poll** — ganti Buttons (deprecated sejak 2023) dengan native WhatsApp Poll. Work di Web, Android, iOS.
   - User vote → poll otomatis dihapus (delete for everyone) — cegah ganti pilihan
   - Event `vote_update` → route ke `feedback_yes` / `feedback_no` di server
@@ -1262,6 +1308,16 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 **Fixed**
 - `whatsapp-web.js` Buttons class deprecated — ganti native Poll
 - `format_end_msg()` tidak digunakan untuk ✅ Sudah → pakai `_format_end_footer()` yang hanya menampilkan jam + durasi (tanpa teks panjang)
+
+**Dependencies**
+- `whatsapp-web.js` wajib di-**upgrade** ke `^1.34.3` atau lebih tinggi (versi 1.26 tidak support Poll).
+  Poll class memang ada di ekspor v1.26, tapi `Client.sendMessage()` belum punya handler untuknya — silent fail.
+  Di v1.34.3+ native Poll sudah didukung penuh melalui `chat.sendMessage(new Poll(...))`.
+
+**Verified**
+- ✅ Feedback button Telegram work — inline keyboard ✅ Sudah / ❌ Belum muncul dan terkirim ke server
+- ✅ Feedback Poll WhatsApp work — native Poll muncul, otomatis hapus setelah vote, respon feedback tayang
+- ✅ Fallback WA via teks/emoji tetap berfungsi
 
 **Files changed:** `prompts/responses.json`, `server.py`, `security/session.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `requirements.txt`, `README.md`, `VERSION`
 
