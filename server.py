@@ -540,17 +540,18 @@ async def chat(req: ChatRequest):
                 _llm_model = _llm_provider = ""; _llm_time = 0
             relevant_answers.append(_jawaban)
 
-        # All parts skipped → OOC rejection
+        # All parts skipped → langsung rejection_no_answer
         if not relevant_answers:
-            jawaban = responses.get("rejection_out_of_context", REJECTION_MSG).format(topics_line=", ".join(identity["topics"]))
+            jawaban = responses.get("rejection_no_answer", REJECTION_MSG)
             gate_label = "OOC_MULTI_PART"
             _dijawab = False
-            print(f"[SPLIT] Semua bagian di-skip — OOC")
+            print(f"[SPLIT] Semua bagian di-skip — rejection_no_answer")
         else:
             jawaban = '\n\n---\n\n'.join(relevant_answers)
-            # Some parts skipped → append note
+            # Some parts skipped → multi_part_note + rejection_no_answer
             if skipped_parts:
                 jawaban += '\n\n' + responses.get("multi_part_note").format(skipped_parts="; ".join(skipped_parts))
+                jawaban += '\n\n' + responses.get("rejection_no_answer")
             gate_label = "MULTI_PART"
             _dijawab = True
         print(f"[QUERY] Multi-part: {len(relevant_answers)}/{len(parts)} bagian dijawab, {len(skipped_parts)} di-skip")
