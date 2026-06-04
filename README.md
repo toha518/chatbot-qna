@@ -6,6 +6,9 @@
 - [✨ Fitur](#fitur)
 - [🧠 Arsitektur Modular](#arsitektur-modular)
 - [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#detail-hybrid-search-e5--bm25-via-rrf)
+- [🧠 Intent Classifier (CLF)](#intent-classifier-clf)
+- [🧠 Multi-Part Split (E5 Semantic Boundary)](#multi-part-split-e5-semantic-boundary)
+- [🧠 Cascade Fallback (BM25 + E5 Guard)](#cascade-fallback-bm25--e5-guard)
 - [🆚 Perbandingan & Arsitektur Pipeline](#perbandingan-arsitektur-pipeline)
 - [🔒 Security & Proteksi](#security-proteksi)
 - [📊 Logging & Evaluasi](#logging-evaluasi)
@@ -278,7 +281,10 @@ USER CHAT
 ---
 
 ## 🧠 Detail Hybrid Search (E5 + BM25 via RRF)
+
 Hybrid search menggabungkan **2 pendekatan berbeda** — keyword exact match (BM25) dan semantic similarity (E5) — lalu menyatukan peringkatnya pakai **Reciprocal Rank Fusion (RRF)**.
+
+Ini adalah **inti retrieval system** NARA — menentukan FAQ mana yang paling relevan dengan pertanyaan user.
 
 ---
 
@@ -388,7 +394,13 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 
 ---
 
-### 🏷️ scikit-learn — Intent Classifier (CLF)
+---
+
+## 🧠 Intent Classifier (CLF)
+
+Sebelum hybrid search dijalankan, **CLF (Classifier)** menyaring intent user yang **gak perlu retrieval** — langsung respon dengan template atau LLM greeting.
+
+---
 
 Sebelum hybrid search dijalankan, **CLF (Classifier)** menyaring 5 jenis intent user yang **gak perlu retrieval** — langsung respon dengan template / LLM greeting:
 
@@ -443,7 +455,14 @@ __label__negative_feedback kamu tidak membantu
 __label__forward siapa presiden
 ```
 
-### 🧩 Multi-Part Split (E5 Semantic Boundary)
+---
+
+## 🧠 Multi-Part Split (E5 Semantic Boundary)
+
+User sering nanya multiple hal dalam 1 chat — "cara daftar SOBAT dan aktivasi FASIH" atau "lupa password? cara reset?".
+Multi-Part Split memisahkan pertanyaan majemuk jadi beberapa query independen, masing-masing diproses sendiri.
+
+---
 
 User sering nanya multiple hal dalam 1 chat — "cara daftar SOBAT dan aktivasi FASIH" atau "lupa password? cara reset?". Dulu cuma split pake regex konjungsi (`dan`, `serta`, `lalu`), tapi ada false positive:
 
@@ -489,7 +508,11 @@ else:
 
 ---
 
-### 🔄 Cascade Fallback
+## 🧠 Cascade Fallback (BM25 + E5 Guard)
+
+Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabisa" setelah "verifikasi NIK gimana"), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
+
+---
 
 Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabisa" setelah "verifikasi NIK gimana"), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
 
@@ -506,8 +529,6 @@ Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabis
 | Follow-up: "tetep gabisa" setelah "verifikasi NIK" | 0.0 | 9.2 | 0.89 ✅ | LLM jawab |
 | Topic drift: "BPS bukan satu-satunya" setelah "verifikasi NIK" | 2.1 | 5.2 | 0.55 ❌ | Cascade skip → tier gate |
 | Non-BPS: "siapa presiden" setelah "aktivasi FASIH" | 0.0 | 5.8 | 0.34 ❌ | Cascade skip → tier gate |
-
----
 
 ---
 
