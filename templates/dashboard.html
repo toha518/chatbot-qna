@@ -371,6 +371,47 @@
     .stat-icon-amber { background: var(--stat-amber-bg); color: #d97706; }
     .stat-icon-purple { background: var(--stat-purple-bg); color: #7c3aed; }
     .stat-icon-danger { background: #fef2f2; color: #dc2626; }
+
+    /* ── Feedback Cards (PlayStation Design System) ── */
+    .fb-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px 24px;
+      border-radius: 8px;
+      border: 1px solid var(--ps-hairline);
+      background: var(--ps-surface-card);
+    }
+    .fb-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .fb-card-icon-green { background: #22c55e; color: #fff; }
+    .fb-card-icon-red { background: #dc2626; color: #fff; }
+    .fb-card-icon-amber { background: #eab308; color: #fff; }
+    .fb-card-value {
+      font: 300 28px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      letter-spacing: -0.1px;
+    }
+    .fb-card-label {
+      font: 600 14px/1.5 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      margin-top: 2px;
+    }
+    .fb-card-desc {
+      font: 400 11px/1.3 'Inter', system-ui, sans-serif;
+      color: var(--ps-mute);
+    }
+    .fb-card-accent-green { border-left: 4px solid #22c55e; }
+    .fb-card-accent-red { border-left: 4px solid #dc2626; }
+    .fb-card-accent-amber { border-left: 4px solid #eab308; }
     .stat-value {
       font: 300 30px/1.25 'Inter', system-ui, sans-serif;
       color: var(--ps-ink);
@@ -936,41 +977,41 @@
     <div id="page-analytics" style="display:none">
       <h2 class="section-title">📈 Analytics</h2>
 
-      <!-- Feedback Analysis Cards (top section) -->
-      <div class="card mb-4">
-        <div class="d-flex align-items-center gap-2 mb-3">
-          <span class="badge badge-success" style="font-size:13px;padding:4px 12px">💬 Feedback</span>
-          <span class="text-muted small">Analisis respon user terhadap jawaban NARA</span>
+      <!-- Feedback Analysis (PlayStation Design System) -->
+      <div class="row g-3 mb-3">
+        <div class="col-12">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge badge-success" style="font-size:13px;padding:4px 12px">💬 Feedback</span>
+            <span class="text-muted small">Analisis respon user terhadap jawaban NARA</span>
+          </div>
         </div>
-        <div class="row g-3">
-          <div class="col-md-4">
-            <div class="d-flex align-items-center gap-3 p-3" style="background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
-              <div style="width:48px;height:48px;background:#22c55e;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-hand-thumbs-up-fill"></i></div>
-              <div style="min-width:0">
-                <div class="stat-value" id="statFBPositive" style="font-size:28px">-</div>
-                <div class="stat-label" style="font-weight:600">Terbantu</div>
-                <div class="text-muted" style="font-size:11px;line-height:1.3">Klik "Sudah" / bilang makasih</div>
-              </div>
+        <div class="col-md-4">
+          <div class="fb-card fb-card-accent-green">
+            <div class="fb-card-icon fb-card-icon-green"><i class="bi bi-hand-thumbs-up-fill"></i></div>
+            <div style="min-width:0">
+              <div class="fb-card-value" id="statFBPositive">-</div>
+              <div class="fb-card-label">Terbantu</div>
+              <div class="fb-card-desc">Klik "Sudah" / bilang makasih</div>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center gap-3 p-3" style="background:#fef2f2;border-radius:12px;border:1px solid #fecaca;">
-              <div style="width:48px;height:48px;background:#dc2626;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-hand-thumbs-down-fill"></i></div>
-              <div style="min-width:0">
-                <div class="stat-value" id="statFBNegative" style="font-size:28px">-</div>
-                <div class="stat-label" style="font-weight:600">Kurang Terbantu</div>
-                <div class="text-muted" style="font-size:11px;line-height:1.3">Klik "Belum" / komplain</div>
-              </div>
+        </div>
+        <div class="col-md-4">
+          <div class="fb-card fb-card-accent-red">
+            <div class="fb-card-icon fb-card-icon-red"><i class="bi bi-hand-thumbs-down-fill"></i></div>
+            <div style="min-width:0">
+              <div class="fb-card-value" id="statFBNegative">-</div>
+              <div class="fb-card-label">Kurang Terbantu</div>
+              <div class="fb-card-desc">Klik "Belum" / komplain</div>
             </div>
           </div>
-          <div class="col-md-4">
-            <div class="d-flex align-items-center gap-3 p-3" style="background:#fefce8;border-radius:12px;border:1px solid #fde68a;">
-              <div style="width:48px;height:48px;background:#eab308;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:white;flex-shrink:0"><i class="bi bi-dash-circle-fill"></i></div>
-              <div style="min-width:0">
-                <div class="stat-value" id="statFBNone" style="font-size:28px">-</div>
-                <div class="stat-label" style="font-weight:600">Tanpa Feedback</div>
-                <div class="text-muted" style="font-size:11px;line-height:1.3">User diam / lanjut bertanya</div>
-              </div>
+        </div>
+        <div class="col-md-4">
+          <div class="fb-card fb-card-accent-amber">
+            <div class="fb-card-icon fb-card-icon-amber"><i class="bi bi-dash-circle-fill"></i></div>
+            <div style="min-width:0">
+              <div class="fb-card-value" id="statFBNone">-</div>
+              <div class="fb-card-label">Tanpa Feedback</div>
+              <div class="fb-card-desc">User diam / lanjut bertanya</div>
             </div>
           </div>
         </div>
