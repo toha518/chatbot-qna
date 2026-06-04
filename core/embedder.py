@@ -54,13 +54,17 @@ def check_domain(query_vec: np.ndarray) -> float:
 
 
 def init_embedder():
-    """Load E5-base model (~278MB)"""
+    """Load E5-base model (~278MB) — ONNX backend (2x faster on CPU, same accuracy)"""
     global embedder
     if embedder is None:
-        print("[BOOT] Loading E5-base...")
+        print("[BOOT] Loading E5-base with ONNX backend...")
         t0 = time.time()
-        embedder = SentenceTransformer('intfloat/multilingual-e5-base')
-        print(f"[BOOT] E5-base loaded ({time.time()-t0:.1f}s)")
+        embedder = SentenceTransformer(
+            'intfloat/multilingual-e5-base',
+            backend="onnx",
+            model_kwargs={"file_name": "onnx/model.onnx"}  # float32, same accuracy as PyTorch
+        )
+        print(f"[BOOT] E5-base ONNX loaded ({time.time()-t0:.1f}s)")
     return embedder
 
 

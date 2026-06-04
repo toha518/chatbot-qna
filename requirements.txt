@@ -31,3 +31,8 @@ python-telegram-bot>=20.0
 flask
 requests
 rank-bm25>=0.2.2
+
+# ONNX — 2x faster E5 inference (CPU)
+optimum
+optimum-onnx
+onnxruntime
