@@ -102,9 +102,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "http://localhost:8000/start",
             json={"chat_id": chat_id}
         )
-            data = resp.json()
-            if data.get("status") == "session_baru" and data.get("footer"):
-                footer = f"\n\n---\n{data['footer']}"
+        data = resp.json()
+        if data.get("status") == "session_baru" and data.get("footer"):
+            footer = f"\n\n---\n{data['footer']}"
     except:
         pass
 
@@ -154,9 +154,9 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "http://localhost:8000/stop",
             json={"chat_id": chat_id}
         )
-            data = resp.json()
-            if data.get("message"):
-                end_msg = data["message"]
+        data = resp.json()
+        if data.get("message"):
+            end_msg = data["message"]
     except:
         pass
     await update.message.reply_text(
@@ -265,9 +265,9 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "source": "telegram"}
             )
             data = resp.json()
-                jawaban = data.get("jawaban", "")
-                await query.edit_message_reply_markup(reply_markup=None)
-                await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
+            jawaban = data.get("jawaban", "")
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
         except Exception as e:
             await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
@@ -280,9 +280,9 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 json={"pertanyaan": "feedback_no", "chat_id": chat_id, "source": "telegram"}
             )
             data = resp.json()
-                jawaban = data.get("jawaban", "")
-                await query.edit_message_reply_markup(reply_markup=None)
-                await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
+            jawaban = data.get("jawaban", "")
+            await query.edit_message_reply_markup(reply_markup=None)
+            await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
         except Exception as e:
             await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
