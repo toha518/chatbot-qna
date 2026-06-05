@@ -492,7 +492,7 @@ User sering nanya multiple hal dalam 1 chat — "cara daftar SOBAT dan aktivasi 
 | "cara daftar SOBAT dan ketentuannya" | ❌ Split padahal 1 konteks | ❌ Jangan split |
 | "aktivasi FASIH bagaimana? kalau error?" | ❌ Gak split | ✅ Split |
 
-**Solusi — 2 Layer Split:**
+**Solusi — 2 Layer Split + CLF Guard:**
 
 **Layer 1: Heuristic Split**
 Split berdasarkan delimiter alami:
@@ -515,6 +515,37 @@ if sim >= 0.78:
 else:
     SPLIT → beda intent ("verifikasi NIK" + "siapa presiden" → 0.77)
 ```
+
+**Layer 3: CLF Guard — gak semua layak di-split**
+Setelah E5 merge, tiap part dicek intent classifier-nya. Kalo cuma 0-1 part yang **substantif** (bukan greeting/capability/feedback), multi-part dibatalkan dan query asli diproses sebagai 1 kesatuan.
+
+| Part diklasifikasi sebagai | Non-substantif? |
+|---------------------------|:---------------:|
+| `greeting` — halo, pagi, assalamualaikum | ✅ ya, skip |
+| `capability` — kamu bisa apa, siapa kamu | ✅ ya, skip |
+| `positive_feedback` — makasih, ok, sip | ✅ ya, skip |
+| `negative_feedback` — gak membantu, jelek | ✅ ya, skip |
+| `forward` — pertanyaan beneran tentang BPS | ❌ substantif |
+
+**Contoh CLF Guard:**
+```
+Query:  "Halo nara, kenapa link aktivasi sobat tidak berlaku"
+Split:  ["Halo nara", "kenapa link aktivasi sobat tidak berlaku"]
+CLF:    [greeting,       forward]
+        ^^^^^^^^^        ^^^^^^^
+        non-substantif   substantif
+        (1 dari 2 part non-substantif → skip multi-part, pake query asli ✅)
+```
+
+| Query | Part | CLF | Multi-part? |
+|-------|------|-----|:-----------:|
+| "Halo nara, kenapa link aktivasi sobat tidak berlaku" | [halo, kenapa link...] | [greeting, forward] | ❌ **Skip** → jawab utuh |
+| "Makasih, cara daftar SOBAT gimana?" | [makasih, cara daftar...] | [positive_fb, forward] | ❌ **Skip** → jawab utuh |
+| "Reset password SOBAT, cara daftar FASIH" | [reset..., cara daftar...] | [forward, forward] | ✅ **Split** → 2 jawaban terpisah |
+| "Halo, reset password SOBAT, cara daftar FASIH" | [halo, reset..., cara...] | [greeting, forward, forward] | ✅ **Split** → 2 jawaban (greeting di-skip) |
+| "Pagi, makasih" | [pagi, makasih] | [greeting, positive_fb] | ❌ **Skip** → pipeline single handle |
+
+**Kenapa CLF Guard penting:** Tanpa ini, "Halo nara" yang BM25 < 3.0 bakal dianggap Out-Of-Context dan kena rejection "Maaf, saya hanya bisa membantu seputar..." — padahal itu cuma sapaan pembuka. CLF Guard ngecek: kalo part-nya greeting/feedback, gak usah dianggap OOC. Skip aja. Kalo sisanya masih ada 2+ pertanyaan substantif, baru di-split.
 
 **E5 encode tiap part** — ini **reuse** dari pipeline yang udah jalan, jadi zero additional model cost.
 
