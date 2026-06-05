@@ -27,8 +27,10 @@ if _RESPONSES_DIR.exists():
     try:
         with open(_RESPONSES_DIR) as f:
             _RESPONSES = json.load(f)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[WATCHDOG] ⚠️ Gagal load responses.json: {e}")
+if not _RESPONSES.get("session_ending_idle"):
+    print(f"[WATCHDOG] ⚠️ session_ending_idle kosong di responses.json — pake fallback hardcoded")
 
 # Telegram API untuk notifikasi watchdog
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -87,8 +89,15 @@ def format_end_msg(cid: str, now_ts: float = None) -> str:
     now_str = datetime.fromtimestamp(now_ts, wib).strftime("%H:%M")
     start = session_start_times.get(cid)
     durasi_str = format_durasi(now_ts - start) if start else "-"
-    ended_part = _RESPONSES.get("session_ended", "").format(time=now_str, duration=durasi_str)
-    return _RESPONSES.get("session_ending_idle", "").format(ended=ended_part)
+    # Fallback hardcoded — jaga-jaga kalo responses.json gagal di-load
+    _fb_ended = _RESPONSES.get("session_ended", "")
+    if not _fb_ended:
+        _fb_ended = "Sesi obrolan telah ditutup, pukul {time} WIB, obrolan berlangsung selama {duration}."
+    _fb_idle = _RESPONSES.get("session_ending_idle", "")
+    if not _fb_idle:
+        _fb_idle = "💬 Sesi diskusi Anda telah berakhir."
+    ended_part = _fb_ended.format(time=now_str, duration=durasi_str)
+    return _fb_idle.format(ended=ended_part)
 
 
 def cleanup_sessions():
