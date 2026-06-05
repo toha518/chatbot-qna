@@ -9,10 +9,28 @@ import re
 import os
 import json
 import tempfile
-import requests
 import base64
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+
+# ── Shared requests.Session (connection pooling) ──
+_wa_session = None
+
+def _get_session():
+    global _wa_session
+    if _wa_session is None:
+        _wa_session = requests.Session()
+        # Set adapter dengan pool size
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=5,
+            pool_maxsize=10,
+            max_retries=1
+        )
+        _wa_session.mount('http://', adapter)
+        _wa_session.mount('https://', adapter)
+        print(f"[WA] Shared requests.Session initialized (pool: maxsize=10, keepalive)")
+    return _wa_session
+
 
 # Load responses + identity from prompts/
 _RESPONSES = {}
@@ -120,7 +138,7 @@ def wa_message():
         payload = {"pertanyaan": "feedback_yes", "chat_id": sender, "source": "wa"}
         try:
             api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
-            resp = requests.post(api_url, json=payload, timeout=30)
+            resp = _get_session().post(api_url, json=payload, timeout=30)
             data = resp.json()
             return jsonify({"jawaban": _strip_markdown(data.get("jawaban", ""))})
         except Exception as e:
@@ -130,7 +148,7 @@ def wa_message():
         payload = {"pertanyaan": "feedback_no", "chat_id": sender, "source": "wa"}
         try:
             api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
-            resp = requests.post(api_url, json=payload, timeout=30)
+            resp = _get_session().post(api_url, json=payload, timeout=30)
             data = resp.json()
             return jsonify({"jawaban": _strip_markdown(data.get("jawaban", ""))})
         except Exception as e:
@@ -162,7 +180,7 @@ def wa_message():
         # Ambil base URL (strip /chat kalau ada)
         base_url = SERVER_URL.replace('/chat', '')
         try:
-            resp = requests.post(f"{base_url}/stop", json={"chat_id": sender}, timeout=10)
+            resp = _get_session().post(f"{base_url}/stop", json={"chat_id": sender}, timeout=10)
             data = resp.json()
             end_msg = data.get("message", _RESPONSES.get("session_ended_fallback"))
         except Exception:
@@ -194,7 +212,7 @@ def wa_message():
         payload = {"pertanyaan": pertanyaan, "chat_id": sender, "source": "wa"}
         if is_image:
             payload["is_ocr"] = True
-        resp = requests.post(
+        resp = _get_session().post(
             api_url,
             json=payload,
             timeout=120

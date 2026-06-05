@@ -7,6 +7,7 @@ import os
 import time
 import asyncio
 import numpy as np
+import multiprocessing
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
 
@@ -201,7 +202,7 @@ _encode_semaphore: asyncio.Semaphore | None = None
 def _get_encode_executor():
     global _encode_executor
     if _encode_executor is None:
-        _encode_executor = ThreadPoolExecutor(max_workers=2)
+        _encode_executor = ThreadPoolExecutor(max_workers=max(4, (multiprocessing.cpu_count() or 4) // 2))
     return _encode_executor
 
 

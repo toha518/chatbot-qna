@@ -10,6 +10,20 @@ LLM_APIS: list[str] = []
 LLM_KEYS: list[str] = []
 LLM_MODELS: list[str] = []
 
+# ── Shared httpx client dengan connection pooling ──
+_llm_client: httpx.AsyncClient | None = None
+
+async def _get_llm_client(timeout: int = 30):
+    global _llm_client
+    if _llm_client is None:
+        _llm_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+            headers={"Content-Type": "application/json"}
+        )
+        print(f"[LLM] Shared httpx client initialized (pool: max_connections=20, keepalive=10)")
+    return _llm_client
+
 
 def load_responses() -> dict:
     """
@@ -128,32 +142,32 @@ async def call_llm(messages: list[dict], timeout: int = 30):
                 print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal) [{elapsed}ms]")
                 return response.message.content, model, f"ollama:{i+1}", elapsed
 
-            # API eksternal — pake httpx
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                payload = {
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": 2000,
-                    "temperature": 0.1
-                }
+            # API eksternal — pake shared httpx client
+            client = await _get_llm_client(timeout)
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 2000,
+                "temperature": 0.1
+            }
 
-                if "deepseek" in model.lower():
-                    payload["thinking"] = {"type": "disabled"}
+            if "deepseek" in model.lower():
+                payload["thinking"] = {"type": "disabled"}
 
-                headers = {}
-                if key and key != "***":
-                    headers["Authorization"] = f"Bearer {key}"
+            headers = {}
+            if key and key != "***":
+                headers["Authorization"] = f"Bearer {key}"
 
-                resp = await client.post(api, json=payload, headers=headers)
-                result = resp.json()
+            resp = await client.post(api, json=payload, headers=headers)
+            result = resp.json()
 
-                if "choices" not in result or not result["choices"]:
-                    err_msg = result.get("error", {}).get("message", str(result))
-                    raise Exception(f"API {resp.status_code}: {err_msg}")
+            if "choices" not in result or not result["choices"]:
+                err_msg = result.get("error", {}).get("message", str(result))
+                raise Exception(f"API {resp.status_code}: {err_msg}")
 
-                elapsed = int((_time.time() - t0) * 1000)
-                print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
-                return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
+            elapsed = int((_time.time() - t0) * 1000)
+            print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
+            return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
 
         except Exception as e:
             print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")

@@ -434,6 +434,153 @@
       margin-top: 2px;
     }
 
+    /* ── PlayStation Design System ── */
+    /* 5-column grid — override bootstrap col-6 at lg+ */
+    @media (min-width: 992px) {
+      .ps-col-fifth { flex: 0 0 20%; max-width: 20%; }
+    }
+    @media (max-width: 500px) {
+      .ps-col-fifth { flex: 0 0 100%; max-width: 100%; }
+    }
+
+    /* Hero Band — PlayStation Blue */
+    .hero-band-blue {
+      background: var(--ps-blue);
+      border-radius: var(--radius-md);
+      padding: 32px 40px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+    }
+    @media (max-width: 768px) {
+      .hero-band-blue { flex-direction: column; padding: 24px; text-align: center; }
+    }
+    .hero-content { flex: 1; min-width: 0; }
+    .hero-badge {
+      display: inline-block;
+      font: 500 12px/1.5 'Inter', system-ui, sans-serif;
+      background: rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.85);
+      padding: 2px 12px;
+      border-radius: var(--radius-full);
+      margin-bottom: 12px;
+    }
+    .hero-headline {
+      font: 300 35px/1.25 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.1px;
+      margin: 0 0 6px;
+    }
+    .hero-headline-light { opacity: 0.75; font-weight: 300; }
+    .hero-subtitle {
+      font: 400 16px/1.5 'Inter', system-ui, sans-serif;
+      opacity: 0.7;
+      margin: 0;
+    }
+    .hero-metrics {
+      display: flex;
+      gap: 24px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) { .hero-metrics { justify-content: center; } }
+    .hero-metric { text-align: center; }
+    .hero-metric-value {
+      font: 300 32px/1.25 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.1px;
+    }
+    .hero-metric-label {
+      font: 400 12px/1.5 'Inter', system-ui, sans-serif;
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* PS Stat Cards */
+    .ps-stat-card {
+      background: var(--ps-surface-card);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      border: 1px solid var(--ps-hairline);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color .2s;
+    }
+    .ps-stat-card:hover { border-color: var(--ps-blue); }
+    .ps-stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .bg-blue-soft { background: rgba(0,112,209,0.12); }
+    .bg-green-soft { background: rgba(22,163,74,0.12); }
+    .bg-purple-soft { background: rgba(124,58,237,0.12); }
+    .bg-amber-soft { background: rgba(217,119,6,0.12); }
+    .bg-session-soft { background: rgba(0,112,209,0.08); }
+    .ps-stat-value {
+      font: 300 26px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      letter-spacing: -0.1px;
+    }
+    .ps-stat-label {
+      font: 400 12px/1.3 'Inter', system-ui, sans-serif;
+      color: var(--ps-mute);
+      margin-top: 1px;
+    }
+    .ps-stat-period { font: 400 11px/1.3 'Inter', system-ui, sans-serif; color: var(--ps-mute); }
+
+    /* PS Plus Banner — feedback section */
+    .ps-plus-banner {
+      background: var(--ps-surface-dark-elevated);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      position: relative;
+    }
+    .ps-plus-gold-bar {
+      height: 4px;
+      background: linear-gradient(90deg, #ffce21, #f5a623, #ee8e00);
+    }
+    .ps-plus-inner {
+      padding: 24px 28px;
+    }
+    .ps-plus-title {
+      font: 300 22px/1.25 'Inter', system-ui, sans-serif;
+      color: var(--ps-on-dark);
+      margin-bottom: 16px;
+    }
+    .ps-plus-cards {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ps-plus-cards .fb-card { flex: 1; min-width: 160px; }
+
+    /* PS Chart Cards */
+    .ps-chart-card {
+      background: var(--ps-surface-card);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      border: 1px solid var(--ps-hairline);
+    }
+    .ps-chart-title {
+      font: 600 16px/1 'Inter', system-ui, sans-serif;
+      color: var(--ps-ink);
+      margin-bottom: 16px;
+    }
+
+    /* ── Dark mode overrides ── */
+    [data-theme="dark"] .ps-plus-banner {
+      background: var(--ps-surface-dark-elevated);
+    }
+    [data-theme="dark"] .ps-plus-title {
+      color: var(--ps-on-dark);
+    }
+
     /* ── Table ── */
     /* ── Table ── */
     .table-scroll {
@@ -823,16 +970,109 @@
 
     <!-- ===== OVERVIEW PAGE ===== -->
     <div id="page-overview">
-      <h2 class="section-title">📊 Overview</h2>
-      <div class="row mb-4" id="statCards">
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-blue"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
+      
+      <!-- Hero Band -- PlayStation Blue -->
+      <div class="hero-band-blue mb-4">
+        <div class="hero-content">
+          <div class="hero-badge" id="heroVersion">v--</div>
+          <h1 class="hero-headline"><span id="heroName">NARA</span> <span class="hero-headline-light">Intelligence Dashboard</span></h1>
+          <p class="hero-subtitle">Live monitoring — retrieval pipeline · query analytics · system health</p>
+        </div>
+        <div class="hero-metrics" id="heroMetrics">
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="heroTotalQueries">0</div>
+            <div class="hero-metric-label">Total Queries</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="heroTodayQueries">0</div>
+            <div class="hero-metric-label">Today</div>
+          </div>
+          <div class="hero-metric">
+            <div class="hero-metric-value" id="heroAnswered">0%</div>
+            <div class="hero-metric-label">Answered</div>
+          </div>
+        </div>
       </div>
-      <div class="row">
-        <div class="col-md-6"><div class="card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
-        <div class="col-md-6"><div class="card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
+
+      <!-- Stats Row -- 5 Cards (light canvas) -->
+      <div class="ps-section mb-4" id="statCards">
+        <div class="row g-3">
+          <div class="col-6 ps-col-fifth">
+            <div class="ps-stat-card">
+              <div class="ps-stat-icon bg-blue-soft"><i class="bi bi-chat-dots" style="color:var(--ps-blue)"></i></div>
+              <div class="ps-stat-value" id="statTotal">-</div>
+              <div class="ps-stat-label">Queries <span class="ps-stat-period" id="statTotalPeriod">(7d)</span></div>
+            </div>
+          </div>
+          <div class="col-6 ps-col-fifth">
+            <div class="ps-stat-card">
+              <div class="ps-stat-icon bg-green-soft"><i class="bi bi-people" style="color:#16a34a"></i></div>
+              <div class="ps-stat-value" id="statUsers">-</div>
+              <div class="ps-stat-label">Unique Users</div>
+            </div>
+          </div>
+          <div class="col-6 ps-col-fifth">
+            <div class="ps-stat-card">
+              <div class="ps-stat-icon bg-purple-soft"><i class="bi bi-activity" style="color:#7c3aed"></i></div>
+              <div class="ps-stat-value" id="statRRF">-</div>
+              <div class="ps-stat-label">Avg RRF Score</div>
+            </div>
+          </div>
+          <div class="col-6 ps-col-fifth">
+            <div class="ps-stat-card">
+              <div class="ps-stat-icon bg-amber-soft"><i class="bi bi-check-circle" style="color:#d97706"></i></div>
+              <div class="ps-stat-value" id="statAnswered">-</div>
+              <div class="ps-stat-label">Answered %</div>
+            </div>
+          </div>
+          <div class="col-6 ps-col-fifth">
+            <div class="ps-stat-card">
+              <div class="ps-stat-icon bg-session-soft"><i class="bi bi-headset" style="color:var(--ps-blue)"></i></div>
+              <div class="ps-stat-value" id="statSessions">-</div>
+              <div class="ps-stat-label">Active Sessions</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feedback Row -- PlayStation Plus style banner -->
+      <div class="ps-plus-banner mb-4" id="fbBanner">
+        <div class="ps-plus-gold-bar"></div>
+        <div class="ps-plus-inner">
+          <div class="ps-plus-title">💡 Feedback Overview</div>
+          <div class="ps-plus-cards">
+            <div class="fb-card fb-card-accent-green">
+              <div class="fb-card-icon fb-card-icon-green"><i class="bi bi-hand-thumbs-up"></i></div>
+              <div>
+                <div class="fb-card-value" id="fbPositive">0</div>
+                <div class="fb-card-label">Positive</div>
+                <div class="fb-card-desc">User satisfied</div>
+              </div>
+            </div>
+            <div class="fb-card fb-card-accent-red">
+              <div class="fb-card-icon fb-card-icon-red"><i class="bi bi-hand-thumbs-down"></i></div>
+              <div>
+                <div class="fb-card-value" id="fbNegative">0</div>
+                <div class="fb-card-label">Negative</div>
+                <div class="fb-card-desc">Needs improvement</div>
+              </div>
+            </div>
+            <div class="fb-card fb-card-accent-amber">
+              <div class="fb-card-icon fb-card-icon-amber"><i class="bi bi-dash-circle"></i></div>
+              <div>
+                <div class="fb-card-value" id="fbNone">0</div>
+                <div class="fb-card-label">No Feedback</div>
+                <div class="fb-card-desc">Unrated responses</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="row g-3">
+        <div class="col-md-6"><div class="ps-chart-card"><h6 class="ps-chart-title">🎯 Gate Distribution</h6><canvas id="chartGate" height="220"></canvas></div></div>
+        <div class="col-md-6"><div class="ps-chart-card"><h6 class="ps-chart-title">🧠 CLF Distribution</h6><canvas id="chartCLF" height="220"></canvas></div></div>
       </div>
     </div>
 
@@ -1138,13 +1378,33 @@
     // Stats cards
     async function loadStats() {
       const data = await fetchAPI('stats');
-      document.getElementById('statTotal').textContent = data.total || 0;
-      document.getElementById('statUsers').textContent = data.unique_users || 0;
-      document.getElementById('statRRF').textContent = (data.avg_rrf || 0).toFixed(4);
+      // Hero badge — fetch version
+      fetch(`${API}/version`).then(r=>r.json()).then(v=>{
+        document.getElementById('heroVersion').textContent = 'v' + (v.version||'--');
+      }).catch(()=>{});
+      // Hero metrics
+      document.getElementById('heroTotalQueries').textContent = (data.total || 0).toLocaleString();
+      document.getElementById('heroTodayQueries').textContent = (data.today_count || 0).toLocaleString();
       const total = data.total || 1;
       const answered = data.answered || 0;
+      document.getElementById('heroAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
+      // Stat cards — 5 items
+      document.getElementById('statTotal').textContent = (data.total || 0).toLocaleString();
+      document.getElementById('statUsers').textContent = (data.unique_users || 0).toLocaleString();
+      document.getElementById('statRRF').textContent = (data.avg_rrf || 0).toFixed(4);
       document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
-      document.getElementById('logCount').textContent = total;
+      document.getElementById('statSessions').textContent = (data.active_sessions || 0).toLocaleString();
+      // Period label
+      const daysSel = document.getElementById('timeRange');
+      document.getElementById('statTotalPeriod').textContent = daysSel ? '('+daysSel.value+'d)' : '(7d)';
+      // Log count
+      document.getElementById('logCount').textContent = data.total || 0;
+      // Feedback
+      const fb = data.by_feedback || {};
+      document.getElementById('fbPositive').textContent = (fb.positive || fb.Positive || 0);
+      document.getElementById('fbNegative').textContent = (fb.negative || fb.Negative || 0);
+      document.getElementById('fbNone').textContent = (fb.none || fb.None || 0);
+      // Charts
       drawGateChart(data.by_gate || {});
       drawCLFChart(data.by_clf || {});
     }

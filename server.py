@@ -8,7 +8,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 load_dotenv()
@@ -196,19 +196,30 @@ def _format_end_footer(cid: str) -> str:
         responses.get("session_ended").format(time=now_str, duration=durasi_str)
     )
 
+# ===================== CONCURRENT REQUEST LIMITER =====================
+MAX_CONCURRENT_CHATS = 4
+_concurrent_chat_sem = asyncio.Semaphore(MAX_CONCURRENT_CHATS)
+
+async def _concurrent_chat_limit():
+    """Dependency: limits concurrent /chat requests. Released otomatis setelah response."""
+    async with _concurrent_chat_sem:
+        yield
+
+
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     """
     Alur lengkap pas user chat:
-      1. Bersihin session expired
-      2. Anti-spam
-      3. Cek greeting → langsung LLM (tanpa retrieval)
-      4. E5 retrieval: cari data relevan
-      5. Cek top score — tolak kalo di luar domain BPS
-      6. Multi-part split kalo perlu
-      7. LLM: tulis jawaban dari konteks
-      8. Simpan history
-      9. Return jawaban
+      1. Batas concurrent request via Semaphore(Depends)
+      2. Bersihin session expired
+      3. Anti-spam
+      4. Cek greeting → langsung LLM (tanpa retrieval)
+      5. E5 retrieval: cari data relevan
+      6. Cek top score — tolak kalo di luar domain BPS
+      7. Multi-part split kalo perlu
+      8. LLM: tulis jawaban dari konteks
+      9. Simpan history
+      10. Return jawaban
     """
     cleanup_sessions()
     cid = req.chat_id
@@ -489,8 +500,10 @@ async def chat(req: ChatRequest):
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
     # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
     _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
-    context, scores, best_q, top5_all = hybrid_search(_search_query, top_k=5,
-        query_vec=query_vec if _cascade_query is None else None)
+    context, scores, best_q, top5_all = await asyncio.to_thread(
+        hybrid_search, _search_query, 5,
+        query_vec if _cascade_query is None else None
+    )
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
@@ -534,7 +547,7 @@ async def chat(req: ChatRequest):
                     borderline_parts.append(part)
                 print(f"[SPLIT] Skip part (BM25={p_bm25:.1f}): '{part[:60]}'")
                 continue
-            p_ctx, p_scores, _, p_top5 = hybrid_search(part, top_k=5)
+            p_ctx, p_scores, _, p_top5 = await asyncio.to_thread(hybrid_search, part, 5)
             _system = build_system_prompt(system_template, identity, acronyms)
             _msgs = [{"role": "system", "content": _system}]
             _msgs.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{p_ctx}"})

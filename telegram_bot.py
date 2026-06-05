@@ -29,6 +29,19 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
+# ── Shared httpx client (connection pooling) ──
+_tg_client: httpx.AsyncClient | None = None
+
+async def _get_tg_client(timeout: int = 120):
+    global _tg_client
+    if _tg_client is None:
+        _tg_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(timeout, connect=5.0),
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        )
+        print(f"[TELEGRAM] Shared httpx client initialized (pool: max_connections=10)")
+    return _tg_client
+
 
 def _tg_format(text: str) -> str:
     """Convert **bold** ke <b>bold</b> buat Telegram HTML mode"""
@@ -84,11 +97,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Init session di server — sekalian dapetin footer kalau session baru
     footer = ""
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                "http://localhost:8000/start",
-                json={"chat_id": chat_id}
-            )
+        client = await _get_tg_client(10)
+        resp = await client.post(
+            "http://localhost:8000/start",
+            json={"chat_id": chat_id}
+        )
             data = resp.json()
             if data.get("status") == "session_baru" and data.get("footer"):
                 footer = f"\n\n---\n{data['footer']}"
@@ -136,11 +149,11 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Panggil server buat reset session
     end_msg = _RESPONSES.get("session_ended_fallback")
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                "http://localhost:8000/stop",
-                json={"chat_id": chat_id}
-            )
+        client = await _get_tg_client(10)
+        resp = await client.post(
+            "http://localhost:8000/stop",
+            json={"chat_id": chat_id}
+        )
             data = resp.json()
             if data.get("message"):
                 end_msg = data["message"]
@@ -201,11 +214,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ===================== PANGGIL SERVER API =====================
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                CHATBOT_URL,
-                json={"pertanyaan": text, "chat_id": chat_id, "source": "telegram"}
-            )
+        client = await _get_tg_client(120)
+        resp = await client.post(
+            CHATBOT_URL,
+            json={"pertanyaan": text, "chat_id": chat_id, "source": "telegram"}
+        )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
         if not jawaban:
@@ -246,12 +259,12 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "fb_yes":
         # Kirim positive_feedback ke server — server akan stop session
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    CHATBOT_URL,
-                    json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "source": "telegram"}
-                )
-                data = resp.json()
+            client = await _get_tg_client(30)
+            resp = await client.post(
+                CHATBOT_URL,
+                json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "source": "telegram"}
+            )
+            data = resp.json()
                 jawaban = data.get("jawaban", "")
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
@@ -261,12 +274,12 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "fb_no":
         # Kirim negative_feedback ke server
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    CHATBOT_URL,
-                    json={"pertanyaan": "feedback_no", "chat_id": chat_id, "source": "telegram"}
-                )
-                data = resp.json()
+            client = await _get_tg_client(30)
+            resp = await client.post(
+                CHATBOT_URL,
+                json={"pertanyaan": "feedback_no", "chat_id": chat_id, "source": "telegram"}
+            )
+            data = resp.json()
                 jawaban = data.get("jawaban", "")
                 await query.edit_message_reply_markup(reply_markup=None)
                 await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
@@ -363,11 +376,11 @@ def main():
                 return
 
             # Kirim ke server chatbot — kasih flag is_ocr biar skip 500 char limit
-            async with httpx.AsyncClient(timeout=120) as client:
-                resp = await client.post(
-                    CHATBOT_URL,
-                    json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True, "source": "telegram"}
-                )
+            client = await _get_tg_client(120)
+            resp = await client.post(
+                CHATBOT_URL,
+                json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True, "source": "telegram"}
+            )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
             # Hapus pesan "Memproses gambar..."
