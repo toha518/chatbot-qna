@@ -142,7 +142,7 @@ async def session_watchdog():
     while True:
         try:
             now = time.time()
-            print(f"[WATCHDOG] Scan: {len(session_activity)} sessions active")
+            # print(f"[WATCHDOG] Scan: {len(session_activity)} sessions active")  # di-spam, hidden
             expired = [
                 cid for cid, last in list(session_activity.items())
                 if now - last > SESSION_TIMEOUT
