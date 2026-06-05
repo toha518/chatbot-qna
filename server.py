@@ -534,6 +534,18 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                 print(f"[SPLIT] Part {i-1} vs {i}: sim={sim:.3f} -> separate intents")
         parts = merged_parts
 
+    # Cek: kalo cuma 0-1 part substantif (bukan greeting/capability/fb),
+    # skip multi-part — biar diproses sebagai single query biasa
+    if len(parts) > 1:
+        _clf_hits = 0
+        for p in parts:
+            p_clf, _ = ft_classify(p)
+            if p_clf in ("greeting", "capability", "positive_feedback", "negative_feedback"):
+                _clf_hits += 1
+        if _clf_hits >= len(parts) - 1:
+            print(f"[SPLIT] {_clf_hits}/{len(parts)} part non-substantif — skip multi-part, pake query asli")
+            parts = [req.pertanyaan]
+
     if len(parts) > 1:
         relevant_answers = []
         ooc_parts = []  # BM25 < 3.0 → out of context
