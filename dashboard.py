@@ -112,19 +112,10 @@ async def favicon():
 # ── API ──
 
 @app.get("/api/stats")
-async def api_stats(days: int = 7):
+def api_stats(days: int = 7):
     if not _table_exists():
-        active_sessions = 0
-        try:
-            async with httpx.AsyncClient(timeout=3) as client:
-                resp = await client.get("http://localhost:8000/health")
-                if resp.status_code == 200:
-                    active_sessions = resp.json().get("active_sessions", 0)
-        except Exception:
-            pass
         return {"total_logs": 0, "unique_users": 0, "avg_rrf": 0, "answered": 0,
-                "active_sessions": active_sessions, "today_count": 0,
-                "by_gate": {}, "by_clf": {}, "by_feedback": {}}
+                "by_gate": {}, "by_clf": {}}
     clause = _period_clause(days)
     sql = f"""
         SELECT
@@ -135,23 +126,10 @@ async def api_stats(days: int = 7):
         FROM logs WHERE {clause}
     """
     row = _rows(sql)[0]
-    # Today count
-    today_cutoff = datetime.now(WIB).replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d")
-    today_row = _rows("SELECT COALESCE(COUNT(*), 0) as cnt FROM logs WHERE waktu >= ?", (today_cutoff,))[0]
-    row["today_count"] = today_row["cnt"]
     by_gate = {r["gate"]: r["cnt"] for r in _rows(f"SELECT gate, COUNT(*) as cnt FROM logs WHERE {clause} GROUP BY gate ORDER BY cnt DESC")}
     by_clf = {r["clf_domain"]: r["cnt"] for r in _rows(f"SELECT clf_domain, COUNT(*) as cnt FROM logs WHERE {clause} AND clf_domain != '' GROUP BY clf_domain ORDER BY cnt DESC")}
     by_feedback = {r["feedback_status"]: r["cnt"] for r in _rows(f"SELECT feedback_status, COUNT(*) as cnt FROM logs WHERE {clause} AND feedback_status != '' GROUP BY feedback_status ORDER BY cnt DESC")}
-    # Fetch active sessions from server health endpoint
-    active_sessions = 0
-    try:
-        async with httpx.AsyncClient(timeout=3) as client:
-            resp = await client.get("http://localhost:8000/health")
-            if resp.status_code == 200:
-                active_sessions = resp.json().get("active_sessions", 0)
-    except Exception:
-        pass
-    return {**row, "active_sessions": active_sessions, "by_gate": by_gate, "by_clf": by_clf, "by_feedback": by_feedback}
+    return {**row, "by_gate": by_gate, "by_clf": by_clf, "by_feedback": by_feedback}
 
 
 @app.get("/api/logs")
