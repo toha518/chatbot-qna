@@ -7,6 +7,14 @@ import os
 import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env — cari dari directory file ini, naik ke project root
+_env_path = Path(__file__).parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(dotenv_path=str(_env_path))
+else:
+    load_dotenv()  # fallback ke CWD
 
 # ===================== KONFIGURASI =====================
 SESSION_TIMEOUT = 1800      # 30 menit idle → session expired
@@ -28,6 +36,13 @@ TELEGRAM_API = (
     f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
     if TELEGRAM_BOT_TOKEN else None
 )
+# Debug token
+if TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != "***":
+    hidden = TELEGRAM_BOT_TOKEN[:6] + "..." + TELEGRAM_BOT_TOKEN[-4:]
+    print(f"[WATCHDOG] TELEGRAM_BOT_TOKEN loaded ({hidden})")
+else:
+    print(f"[WATCHDOG] ⚠️ TELEGRAM_BOT_TOKEN tidak terbaca! Notif session expired gak akan dikirim.")
+    print(f"[WATCHDOG]    Cek .env: pastikan TELEGRAM_BOT_TOKEN diisi dengan token asli dari @BotFather")
 
 # WhatsApp Bridge URL untuk notifikasi session expired
 WA_BRIDGE_URL = os.getenv("WA_BRIDGE_URL", "http://localhost:3000")
