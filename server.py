@@ -89,7 +89,7 @@ async def auto_reload_gsheet():
     """Tiap 10 menit: download ulang database dari Google Sheets"""
     await asyncio.sleep(60)
     while True:
-        await asyncio.sleep(600)
+        await asyncio.sleep(7200)  # 2 jam
         try:
             prev = len(questions)
             total = await asyncio.to_thread(load_from_gsheet, GSHEET_CSV_URL)
