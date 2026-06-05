@@ -1502,6 +1502,36 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.7.0 — 2026-06-05
+
+**Concurrency Optimization + Dashboard Redesign (PlayStation Design System)**
+
+**Performance — Multilayer Concurrency**
+- **ThreadPoolExecutor `max_workers=2` → `max(4, cpu_count//2)`** — encoding paralel 4 user sekaligus. CPU 8GB typical punya 4+ core, worker 2 cuma nganggurin setengah kapasitas
+- **Global Semaphore(4) via FastAPI Depends** — maksimal 4 request `/chat` diproses bersamaan. Sisanya antri non-blocking di event loop. Proteksi dari overload 50+ user
+- **Shared httpx client (connection pooling)** — di 3 layer: `llm.py` (pool 20), `telegram_bot.py` (pool 10), `wa_handler.py` (Session pool 10). Hemat TCP handshake per-request
+- **`hybrid_search()` → `asyncio.to_thread()`** — blocking E5 encode + RRF jalan di thread pool, enggak ngeganggu event loop
+- **LLM per-request timeout fix** — `call_llm(timeout=X)` beneran ngirim `timeout=X` ke `client.post()`. Shared client gak beku lagi
+
+**Dashboard — Overview Redesign**
+- **Hero band PS Blue** (`#0070d1`) — badge versi, headline light weight, 3 metrics (Total Queries, Users, Answered%)
+- **5 Stat Cards** — tambah **Active Sessions** (icon headset, ambil dari server `/health`)
+- **5-col grid** — `col-fifth` (20%) di desktop, 2 kolom di tablet, 1 di mobile
+- **`/api/stats` jadi async** — fetch `active_sessions` dari `server.py/health`
+- Feedback banner dihapus dari overview (udah ada di analytics)
+
+**README Update**
+- **Section ⚡ Optimasi Performa** — diperluas dari 5 jadi 7 teknik: +Global Semaphore, +Connection Pooling, +`hybrid_search` async
+- **Pipeline Flow diagram** — lapis proteksi lengkap: Rate Limiter → Daily Limit → Intent CLF → BM25 Gate → Semaphore → ThreadPool → Pooling
+- **Estimasi Kapasitas** — tabel 1-50 user di PC 8GB RAM
+
+**Bug Fixes**
+- **`telegram_bot.py` IndentationError** — 4 tempat indentasi berantakan pas ganti `async with httpx.AsyncClient()` ke shared client. di-fix semua
+
+**Files changed:** `core/embedder.py`, `server.py`, `core/llm.py`, `telegram_bot.py`, `wa_handler.py`, `dashboard.py`, `templates/dashboard.html`, `README.md`, `VERSION`
+
+---
+
 #### v2.6.0 — 2026-06-04
 
 **Optimasi Performa — Concurrent Request + ONNX Runtime**
