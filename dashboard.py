@@ -112,7 +112,7 @@ async def favicon():
 # ── API ──
 
 @app.get("/api/stats")
-def api_stats(days: int = 7):
+async def api_stats(days: int = 7):
     if not _table_exists():
         return {"total_logs": 0, "unique_users": 0, "avg_rrf": 0, "answered": 0,
                 "by_gate": {}, "by_clf": {}}
@@ -129,7 +129,15 @@ def api_stats(days: int = 7):
     by_gate = {r["gate"]: r["cnt"] for r in _rows(f"SELECT gate, COUNT(*) as cnt FROM logs WHERE {clause} GROUP BY gate ORDER BY cnt DESC")}
     by_clf = {r["clf_domain"]: r["cnt"] for r in _rows(f"SELECT clf_domain, COUNT(*) as cnt FROM logs WHERE {clause} AND clf_domain != '' GROUP BY clf_domain ORDER BY cnt DESC")}
     by_feedback = {r["feedback_status"]: r["cnt"] for r in _rows(f"SELECT feedback_status, COUNT(*) as cnt FROM logs WHERE {clause} AND feedback_status != '' GROUP BY feedback_status ORDER BY cnt DESC")}
-    return {**row, "by_gate": by_gate, "by_clf": by_clf, "by_feedback": by_feedback}
+    active_sessions = 0
+    try:
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get("http://localhost:8000/health")
+            if resp.status_code == 200:
+                active_sessions = resp.json().get("active_sessions", 0)
+    except Exception:
+        pass
+    return {**row, "active_sessions": active_sessions, "by_gate": by_gate, "by_clf": by_clf, "by_feedback": by_feedback}
 
 
 @app.get("/api/logs")

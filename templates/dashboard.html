@@ -434,6 +434,42 @@
       margin-top: 2px;
     }
 
+    /* ── Overview Hero Band ── */
+    .ov-hero {
+      background: var(--ps-blue);
+      border-radius: var(--radius-md);
+      padding: 28px 36px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 32px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 768px) { .ov-hero { flex-direction: column; padding: 24px; } }
+    .ov-hero-info h1 {
+      font: 300 28px/1.25 'Inter', system-ui, sans-serif;
+      letter-spacing: -0.1px;
+      margin: 0 0 4px;
+    }
+    .ov-hero-info h1 span { opacity: .75; font-weight: 300; }
+    .ov-hero-info p { font: 400 14px/1.5 'Inter', system-ui, sans-serif; opacity: .65; margin: 0; }
+    .ov-hero-badge {
+      display: inline-block;
+      font: 500 11px/1.2 'Inter', system-ui, sans-serif;
+      background: rgba(255,255,255,.15);
+      padding: 2px 10px;
+      border-radius: var(--radius-full);
+      margin-bottom: 8px;
+    }
+    .ov-hero-metrics { display: flex; gap: 28px; flex-shrink: 0; }
+    .ov-hero-m { text-align: center; }
+    .ov-hero-m .val { font: 300 28px/1.25 'Inter', system-ui, sans-serif; }
+    .ov-hero-m .lbl { font: 400 11px/1.5 'Inter', system-ui, sans-serif; opacity: .65; margin-top: 2px; }
+
+    /* ── 5-col stat grid ── */
+    @media (min-width: 992px) { .col-fifth { flex: 0 0 20%; max-width: 20%; } }
+
     /* ── Table ── */
     /* ── Table ── */
     .table-scroll {
@@ -823,13 +859,31 @@
 
     <!-- ===== OVERVIEW PAGE ===== -->
     <div id="page-overview">
-      <h2 class="section-title">📊 Overview</h2>
-      <div class="row mb-4" id="statCards">
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-blue"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
-        <div class="col-6 col-lg-3"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
+
+      <!-- Hero Band -->
+      <div class="ov-hero">
+        <div class="ov-hero-info">
+          <div class="ov-hero-badge" id="ovVer">NARA v--</div>
+          <h1>Dashboard <span>Overview</span></h1>
+          <p>Live monitoring — retrieval pipeline · query analytics · system health</p>
+        </div>
+        <div class="ov-hero-metrics">
+          <div class="ov-hero-m"><div class="val" id="ovTotalQ">0</div><div class="lbl">Total Queries</div></div>
+          <div class="ov-hero-m"><div class="val" id="ovUsers">0</div><div class="lbl">Users</div></div>
+          <div class="ov-hero-m"><div class="val" id="ovAnswered">0%</div><div class="lbl">Answered</div></div>
+        </div>
       </div>
+
+      <!-- Stat Cards — 5 columns -->
+      <div class="row g-3 mb-4" id="statCards">
+        <div class="col-6 col-fifth"><div class="stat-card"><div class="stat-icon stat-icon-blue"><i class="bi bi-chat-dots"></i></div><div><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Queries</div></div></div></div>
+        <div class="col-6 col-fifth"><div class="stat-card"><div class="stat-icon stat-icon-green"><i class="bi bi-people"></i></div><div><div class="stat-value" id="statUsers">-</div><div class="stat-label">Unique Users</div></div></div></div>
+        <div class="col-6 col-fifth"><div class="stat-card"><div class="stat-icon stat-icon-amber"><i class="bi bi-graph-up-arrow"></i></div><div><div class="stat-value" id="statRRF">-</div><div class="stat-label">Avg RRF Score</div></div></div></div>
+        <div class="col-6 col-fifth"><div class="stat-card"><div class="stat-icon stat-icon-purple"><i class="bi bi-check-circle"></i></div><div><div class="stat-value" id="statAnswered">-</div><div class="stat-label">Answered %</div></div></div></div>
+        <div class="col-6 col-fifth"><div class="stat-card"><div class="stat-icon stat-icon-blue"><i class="bi bi-headset"></i></div><div><div class="stat-value" id="statSessions">-</div><div class="stat-label">Active Sessions</div></div></div></div>
+      </div>
+
+      <!-- Charts Row -->
       <div class="row">
         <div class="col-md-6"><div class="card"><h6>🎯 Gate Distribution</h6><canvas id="chartGate" height="240"></canvas></div></div>
         <div class="col-md-6"><div class="card"><h6>🧠 CLF Distribution</h6><canvas id="chartCLF" height="240"></canvas></div></div>
@@ -1138,13 +1192,23 @@
     // Stats cards
     async function loadStats() {
       const data = await fetchAPI('stats');
-      document.getElementById('statTotal').textContent = data.total || 0;
-      document.getElementById('statUsers').textContent = data.unique_users || 0;
-      document.getElementById('statRRF').textContent = (data.avg_rrf || 0).toFixed(4);
+      // Hero badge
+      fetch(`${API}/version`).then(r=>r.json()).then(v=>{
+        document.getElementById('ovVer').textContent = 'NARA v' + (v.version||'--');
+      }).catch(()=>{});
+      // Hero metrics
+      document.getElementById('ovTotalQ').textContent = (data.total || 0).toLocaleString();
+      document.getElementById('ovUsers').textContent = (data.unique_users || 0).toLocaleString();
       const total = data.total || 1;
       const answered = data.answered || 0;
+      document.getElementById('ovAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
+      // Stat cards
+      document.getElementById('statTotal').textContent = (data.total || 0).toLocaleString();
+      document.getElementById('statUsers').textContent = (data.unique_users || 0).toLocaleString();
+      document.getElementById('statRRF').textContent = (data.avg_rrf || 0).toFixed(4);
       document.getElementById('statAnswered').textContent = ((answered / total) * 100).toFixed(1) + '%';
-      document.getElementById('logCount').textContent = total;
+      document.getElementById('statSessions').textContent = (data.active_sessions || 0).toLocaleString();
+      document.getElementById('logCount').textContent = data.total || 0;
       drawGateChart(data.by_gate || {});
       drawCLFChart(data.by_clf || {});
     }
