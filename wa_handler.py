@@ -10,6 +10,7 @@ import os
 import json
 import tempfile
 import base64
+import requests
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
