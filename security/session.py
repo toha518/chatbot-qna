@@ -176,7 +176,7 @@ async def session_watchdog():
                                 json={"chat_id": int(cid), "text": end_msg}
                             )
                             if resp.status_code == 200:
-                                print(f"[WATCHDOG] Notif session ended → {cid}")
+                                print(f"[WATCHDOG] ✅ Notif session ended → {cid}")
                             else:
                                 body = resp.text[:200]
                                 print(f"[WATCHDOG] Gagal kirim TG {cid}: HTTP {resp.status_code} — {body}")
@@ -193,7 +193,7 @@ async def session_watchdog():
                             json={"to": cid, "message": end_msg}
                         )
                         if resp.status_code == 200:
-                            print(f"[WATCHDOG] Notif session ended → {cid} (WA)")
+                            print(f"[WATCHDOG] ✅ Notif session ended → {cid} (WA)")
                         else:
                             print(f"[WATCHDOG] Gagal kirim WA {cid}: HTTP {resp.status_code} — {resp.text[:200]}")
                     except Exception as e:
@@ -215,7 +215,7 @@ async def session_watchdog():
                                 json={"chat_id": int(cid), "text": end_msg}
                             )
                             if resp.status_code == 200:
-                                print(f"[WATCHDOG] Queue notif TG → {cid}")
+                                print(f"[WATCHDOG] ✅ Queue notif TG → {cid}")
                             else:
                                 print(f"[WATCHDOG] Queue gagal kirim TG {cid}: HTTP {resp.status_code}")
                         except Exception as e:
@@ -229,7 +229,7 @@ async def session_watchdog():
                             json={"to": cid, "message": end_msg}
                         )
                         if resp.status_code == 200:
-                            print(f"[WATCHDOG] Queue notif WA → {cid}")
+                            print(f"[WATCHDOG] ✅ Queue notif WA → {cid}")
                         else:
                             print(f"[WATCHDOG] Gagal kirim WA {cid}: HTTP {resp.status_code} — {resp.text[:200]}")
                     except Exception as e:
