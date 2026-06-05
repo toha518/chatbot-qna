@@ -1035,43 +1035,6 @@
         </div>
       </div>
 
-      <!-- Feedback Row -- PlayStation Plus style banner -->
-      <div class="ps-plus-banner mb-4" id="fbBanner">
-        <div class="ps-plus-gold-bar"></div>
-        <div class="ps-plus-inner">
-          <div class="ps-plus-title">💡 Feedback Overview</div>
-          <div class="ps-plus-cards">
-            <div class="fb-card fb-card-accent-green">
-              <div class="fb-card-icon fb-card-icon-green"><i class="bi bi-hand-thumbs-up"></i></div>
-              <div>
-                <div class="fb-card-value" id="fbPositive">0</div>
-                <div class="fb-card-label">Positive</div>
-                <div class="fb-card-desc">User satisfied</div>
-              </div>
-            </div>
-            <div class="fb-card fb-card-accent-red">
-              <div class="fb-card-icon fb-card-icon-red"><i class="bi bi-hand-thumbs-down"></i></div>
-              <div>
-                <div class="fb-card-value" id="fbNegative">0</div>
-                <div class="fb-card-label">Negative</div>
-                <div class="fb-card-desc">Needs improvement</div>
-              </div>
-            </div>
-            <div class="fb-card fb-card-accent-amber">
-              <div class="fb-card-icon fb-card-icon-amber"><i class="bi bi-dash-circle"></i></div>
-              <div>
-                <div class="fb-card-value" id="fbNone">0</div>
-                <div class="fb-card-label">No Feedback</div>
-                <div class="fb-card-desc">Unrated responses</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Charts Row -->
-      <div class="row g-3">
-        <div class="col-md-6"><div class="ps-chart-card"><h6 class="ps-chart-title">🎯 Gate Distribution</h6><canvas id="chartGate" height="220"></canvas></div></div>
         <div class="col-md-6"><div class="ps-chart-card"><h6 class="ps-chart-title">🧠 CLF Distribution</h6><canvas id="chartCLF" height="220"></canvas></div></div>
       </div>
     </div>
@@ -1399,11 +1362,7 @@
       document.getElementById('statTotalPeriod').textContent = daysSel ? '('+daysSel.value+'d)' : '(7d)';
       // Log count
       document.getElementById('logCount').textContent = data.total || 0;
-      // Feedback
-      const fb = data.by_feedback || {};
-      document.getElementById('fbPositive').textContent = (fb.positive || fb.Positive || 0);
-      document.getElementById('fbNegative').textContent = (fb.negative || fb.Negative || 0);
-      document.getElementById('fbNone').textContent = (fb.none || fb.None || 0);
+
       // Charts
       drawGateChart(data.by_gate || {});
       drawCLFChart(data.by_clf || {});
