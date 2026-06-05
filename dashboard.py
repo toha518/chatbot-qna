@@ -547,6 +547,17 @@ async def api_stop_all():
     }
 
 
+@app.post("/api/system/reload-faq")
+async def api_reload_faq():
+    """Proxy reload FAQ ke server.py/reload"""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post("http://localhost:8000/reload")
+            return resp.json()
+    except httpx.RequestError as e:
+        return {"status": "error", "message": f"Server API gak reachable: {e}"}
+
+
 @app.post("/api/system/start-all")
 async def api_start_all():
     """Start semua service Nara via start-all.bat."""

@@ -851,6 +851,7 @@
           <option value="90">90 hari</option>
           <option value="9999">Semua</option>
         </select>
+        <button class="btn-pill btn-pill-outline" onclick="reloadFAQ()" id="reloadFaqBtn"><i class="bi bi-cloud-download"></i> Reload FAQ</button>
         <button class="btn-pill btn-pill-outline" onclick="refreshAll()" id="refreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode" id="themeBtn"><i class="bi bi-moon-stars"></i></button>
 
@@ -1699,6 +1700,27 @@
         if (!catColorMap[cat]) catColorMap[cat] = CAT_COLORS[colorIdx++ % CAT_COLORS.length];
         return `<tr><td>${i+1}</td><td>${f.faq||''}</td><td><span class="badge ${catColorMap[cat]}">${cat}</span></td><td>${f.hits}</td><td>${(f.avg_rrf||0).toFixed(4)}</td><td>${f.last?.slice(5,16)||''}</td></tr>`;
       }).join('') || '<tr><td colspan="6" class="text-center>No data</td></tr>';
+    }
+
+    async function reloadFAQ() {
+      const btn = document.getElementById('reloadFaqBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Reloading...';
+      try {
+        const resp = await fetch('/api/system/reload-faq', { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          showToast('✅ FAQ reloaded: ' + (data.total_qna || 'OK') + ' Q&A', 'success');
+          loadStats();
+        } else {
+          showToast('❌ Gagal: ' + (data.message || 'unknown'), 'danger');
+        }
+      } catch (e) {
+        showToast('❌ Error: ' + e.message, 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-cloud-download"></i> Reload FAQ';
+      }
     }
 
     function refreshAll() {
