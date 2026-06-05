@@ -94,7 +94,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
 | 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
-| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 10 menit. Bisa reload manual via `/reload` |
+| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 2 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
 | 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
@@ -1527,8 +1527,18 @@ sudo lsof -i :8000              # Linux
 
 **Bug Fixes**
 - **`telegram_bot.py` IndentationError** — 4 tempat indentasi berantakan pas ganti `async with httpx.AsyncClient()` ke shared client. di-fix semua
+- **Watchdog notif session end gak nyampe** — `load_dotenv()` langsung di `session.py`, cek response HTTP, shared client. Token sebelumnya cuma kebaca kalo `server.py` duluan import
 
-**Files changed:** `core/embedder.py`, `server.py`, `core/llm.py`, `telegram_bot.py`, `wa_handler.py`, `dashboard.py`, `templates/dashboard.html`, `README.md`, `VERSION`
+**Auto-Reload FAQ Optimization**
+- **Interval 10 menit → 2 jam** — reload FAQ tiap 10 menit bikin CPU spike 100% ~13 detik. Sekarang tiap 2 jam, gak ganggu performa
+- **Tombol Reload FAQ di dashboard** — top bar, proxy ke `server.py/reload`, toast notif hasil. Manual reload tetep bisa kapan aja
+
+**Watchdog Notification Fix**
+- **`load_dotenv()` langsung di `session.py`** — gak ngarepin import order dari `server.py`. Token kebaca meski CWD berbeda
+- **Response HTTP dicek** — `resp.status_code == 200` sebelum print success. Kalo gagal, body error di-log
+- **Shared httpx client** — `_get_watchdog_client()` — gak bikin client baru tiap loop 15 detik
+
+**Files changed:** `core/embedder.py`, `server.py`, `core/llm.py`, `telegram_bot.py`, `wa_handler.py`, `dashboard.py`, `templates/dashboard.html`, `security/session.py`, `README.md`, `VERSION`
 
 ---
 
