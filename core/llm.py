@@ -111,6 +111,7 @@ def build_system_prompt(system_template: str, identity: dict, acronyms: str = ""
     topics_line = ", ".join(identity["topics"])
     topics_checklist = "\n".join(f"{i+1}. {t}" for i, t in enumerate(identity["topics"]))
     personality = identity.get("personality", "")
+    _resp = load_responses()
     return system_template.format(
         name=identity["name"],
         role=identity["role"],
@@ -118,7 +119,8 @@ def build_system_prompt(system_template: str, identity: dict, acronyms: str = ""
         topics_checklist=topics_checklist,
         topics_line=topics_line,
         personality=personality,
-        acronyms=acronyms
+        acronyms=acronyms,
+        rejection_no_answer=_resp.get("rejection_no_answer", "")
     )
 
 

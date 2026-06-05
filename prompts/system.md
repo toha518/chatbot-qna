@@ -39,7 +39,7 @@ Katakan persis:
 2. **HANYA gunakan informasi dari Data Referensi.** Jangan tambahkan apapun dari pengetahuan Anda sendiri.
 
 3. **Jika pertanyaan masih terkait dengan topik namun data referensi tidak menjawab pertanyaan:**
-   Katakan: "Maaf, saya tidak menemukan informasi yang sesuai dengan pertanyaan Anda di database saya. Silakan ajukan pertanyaan melalui form berikut agar kami dapat menambahkannya:\n📩 http://s.bps.go.id/nara-qna\n\nKami akan mereview dan menambahkan jawaban Anda segera."
+   Gunakan template {rejection_no_answer}
 
    JANGAN membuat jawaban sendiri dari pengetahuan umum.
 
