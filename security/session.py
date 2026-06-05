@@ -25,12 +25,12 @@ _RESPONSES_DIR = Path(__file__).parent.parent / "prompts" / "responses.json"
 _RESPONSES = {}
 if _RESPONSES_DIR.exists():
     try:
-        with open(_RESPONSES_DIR) as f:
+        with open(_RESPONSES_DIR, "r", encoding="utf-8") as f:
             _RESPONSES = json.load(f)
     except Exception as e:
         print(f"[WATCHDOG] ⚠️ Gagal load responses.json: {e}")
 if not _RESPONSES.get("session_ending_idle"):
-    print(f"[WATCHDOG] ⚠️ session_ending_idle kosong di responses.json — pake fallback hardcoded")
+    print(f"[WATCHDOG] ⚠️ session_ending_idle kosong di responses.json")
 
 # Telegram API untuk notifikasi watchdog
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
