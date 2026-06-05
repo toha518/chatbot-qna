@@ -32,6 +32,14 @@ TELEGRAM_API = (
 # WhatsApp Bridge URL untuk notifikasi session expired
 WA_BRIDGE_URL = os.getenv("WA_BRIDGE_URL", "http://localhost:3000")
 
+# ── Shared httpx client buat watchdog ──
+_watchdog_client: httpx.AsyncClient | None = None
+async def _get_watchdog_client():
+    global _watchdog_client
+    if _watchdog_client is None:
+        _watchdog_client = httpx.AsyncClient(timeout=10, limits=httpx.Limits(max_keepalive_connections=5))
+    return _watchdog_client
+
 # State per-user
 sessions: dict = {}                  # {chat_id: [list of messages]}
 session_activity: dict = {}          # {chat_id: timestamp_terakhir}
@@ -136,24 +144,30 @@ async def session_watchdog():
 
                 if cid.lstrip('-').isdigit():
                     # Telegram — kirim via Bot API
-                    if TELEGRAM_API:
+                    if TELEGRAM_API and TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != '***':
                         try:
-                            async with httpx.AsyncClient(timeout=10) as client:
-                                await client.post(
-                                    f"{TELEGRAM_API}/sendMessage",
-                                    json={"chat_id": int(cid), "text": end_msg}
-                                )
-                            print(f"[WATCHDOG] Notif session ended → {cid}")
+                            client = await _get_watchdog_client()
+                            resp = await client.post(
+                                f"{TELEGRAM_API}/sendMessage",
+                                json={"chat_id": int(cid), "text": end_msg}
+                            )
+                            if resp.status_code == 200:
+                                print(f"[WATCHDOG] Notif session ended → {cid}")
+                            else:
+                                body = resp.text[:200]
+                                print(f"[WATCHDOG] Gagal kirim TG {cid}: HTTP {resp.status_code} — {body}")
                         except Exception as e:
                             print(f"[WATCHDOG] Gagal kirim TG {cid}: {e}")
+                    else:
+                        print(f"[WATCHDOG] TELEGRAM_BOT_TOKEN gak di-set atau masih placeholder '***' — skip notif ke {cid}")
                 else:
                     # WhatsApp — kirim via bridge /send
                     try:
-                        async with httpx.AsyncClient(timeout=10) as client:
-                            resp = await client.post(
-                                f"{WA_BRIDGE_URL}/send",
-                                json={"to": cid, "message": end_msg}
-                            )
+                        client = await _get_watchdog_client()
+                        resp = await client.post(
+                            f"{WA_BRIDGE_URL}/send",
+                            json={"to": cid, "message": end_msg}
+                        )
                         if resp.status_code == 200:
                             print(f"[WATCHDOG] Notif session ended → {cid} (WA)")
                         else:
@@ -169,24 +183,27 @@ async def session_watchdog():
                 end_msg = format_end_msg(cid)
                 if cid.lstrip('-').isdigit():
                     # Telegram
-                    if TELEGRAM_API:
+                    if TELEGRAM_API and TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != '***':
                         try:
-                            async with httpx.AsyncClient(timeout=10) as client:
-                                await client.post(
-                                    f"{TELEGRAM_API}/sendMessage",
-                                    json={"chat_id": int(cid), "text": end_msg}
-                                )
-                            print(f"[WATCHDOG] Queue notif TG → {cid}")
+                            client = await _get_watchdog_client()
+                            resp = await client.post(
+                                f"{TELEGRAM_API}/sendMessage",
+                                json={"chat_id": int(cid), "text": end_msg}
+                            )
+                            if resp.status_code == 200:
+                                print(f"[WATCHDOG] Queue notif TG → {cid}")
+                            else:
+                                print(f"[WATCHDOG] Queue gagal kirim TG {cid}: HTTP {resp.status_code}")
                         except Exception as e:
                             print(f"[WATCHDOG] Gagal queue kirim TG {cid}: {e}")
                 else:
                     # WhatsApp
                     try:
-                        async with httpx.AsyncClient(timeout=10) as client:
-                            resp = await client.post(
-                                f"{WA_BRIDGE_URL}/send",
-                                json={"to": cid, "message": end_msg}
-                            )
+                        client = await _get_watchdog_client()
+                        resp = await client.post(
+                            f"{WA_BRIDGE_URL}/send",
+                            json={"to": cid, "message": end_msg}
+                        )
                         if resp.status_code == 200:
                             print(f"[WATCHDOG] Queue notif WA → {cid}")
                         else:
