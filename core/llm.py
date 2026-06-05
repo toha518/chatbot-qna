@@ -158,7 +158,7 @@ async def call_llm(messages: list[dict], timeout: int = 30):
             if key and key != "***":
                 headers["Authorization"] = f"Bearer {key}"
 
-            resp = await client.post(api, json=payload, headers=headers)
+            resp = await client.post(api, json=payload, headers=headers, timeout=timeout)
             result = resp.json()
 
             if "choices" not in result or not result["choices"]:
