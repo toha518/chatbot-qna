@@ -507,15 +507,26 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
-    # ── MULTI-PART SPLIT (E5 Semantic Boundary) ──
-    _SPLIT_PATTERN = re.compile(
+    # ── COMPARISON GUARD: skip split kalo pola perbandingan ──
+    # Cegah false positive: "Bedanya peran LP dan MK" (1 pertanyaan) jangan kena split
+    _COMPARISON_GUARD = re.compile(
+        r'(?:perbedaan|bedanya?|apa\s+bedanya?|perbandingan|bandingkan|peran|tugas|fungsi)'
+        r'\s+.+?(?:dan|dengan)\s+',
+        re.IGNORECASE
+    )
+    if _COMPARISON_GUARD.search(_raw_query):
+        print(f"[SPLIT] Comparison detected — skip multi-part, pake query asli")
+        parts = [req.pertanyaan]
+    else:
+        # ── MULTI-PART SPLIT (E5 Semantic Boundary) ──
+        _SPLIT_PATTERN = re.compile(
         r'\s+(?:dan|serta|sedangkan|namun|tetapi|tapi)\s+'
         r'|(?<=\?)\s+(?=[A-Za-z])'
         r'|\.\s+'
         r'|,\s*'
     )
-    parts = _SPLIT_PATTERN.split(_raw_query.strip())
-    parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
+        parts = _SPLIT_PATTERN.split(_raw_query.strip())
+        parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
 
     if len(parts) > 1:
         _SEMANTIC_MERGE_THRESHOLD = 0.78

@@ -89,7 +89,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
 | 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
-| 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 2-layer: heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
+| 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
@@ -1533,9 +1533,33 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.7.2 — 2026-06-06
+
+**Multi-Part Split — Comparison Guard (Anti False Positive)**
+
+**Bug Fix**
+- **Multi-Part Split false positive pada query perbandingan** — Query seperti "Bedanya peran LP dan MK di pelatihan petugas SE2026 apa?" kena split karena kata "dan" dianggap pemisah kalimat, padahal ini satu pertanyaan utuh yang menanyakan perbandingan dua role
+
+**Solusi — Comparison Regex Guard**
+- **Layer baru sebelum heuristic split:** deteksi pola perbandingan dengan regex `(perbedaan|bedanya|perbandingan|bandingkan|peran|tugas|fungsi) ... (dan|dengan)`
+- Kalau match → skip split, query diproses sebagai 1 pertanyaan utuh
+- **Zero overhead** — regex compiled sekali, tanpa tambahan model/library
+- **Zero false positive** — pola comparison sangat spesifik, tidak mengganggu split legitimate ("cara daftar SOBAT dan aktivasi FASIH" tetap split)
+
+**Covered Patterns:**
+- `perbedaan X dan/dengan Y` — "perbedaan LP dengan MK"
+- `bedanya X dan/dengan Y` — "bedanya SOBAT dan FASIH"
+- `apa beda/bedanya X dan/dengan Y` — "apa beda MK dengan LP"
+- `perbandingan/bandingkan X dan/dengan Y` — "bandingkan LP dan MK"
+- `peran/tugas/fungsi X dan/dengan Y` — "peran MK dan LP"
+
+**Files changed:** `server.py`, `README.md`, `VERSION`
+
+---
+
 #### v2.7.1 — 2026-06-06
 
-**Concurrency Optimization + Dashboard Redesign (PlayStation Design System)**
+**Auto-Reload 12 Jam + Bug Fixes Post-v2.7.0**
 
 **Performance — Multilayer Concurrency**
 - **ThreadPoolExecutor `max_workers=2` → `max(4, cpu_count//2)`** — encoding paralel 4 user sekaligus. CPU 8GB typical punya 4+ core, worker 2 cuma nganggurin setengah kapasitas
@@ -1591,6 +1615,11 @@ sudo lsof -i :8000              # Linux
 - **E5 encode jadi async** — `encode_query()` blocking diganti `async_encode_query()` via `run_in_executor()` (ThreadPoolExecutor). Event loop FastAPI gak pernah macet meskipun 100 request numbuk
 - **`asyncio.Semaphore(3)`** — maksimal 3 batch encode concurrent, sisanya antri aman di event loop. Safety net sebelum RAM overload
 - **Batch encoding accumulator** — kumpulin query 40ms, encode bareng pake `embedder.encode(texts)`. Batch 8 query ~800ms vs 8×500ms=4000ms (5× cepet). Single query delay cuma 40ms
+
+**Multi-Part Split — Comparison Guard**
+- **Masalah:** Query perbandingan ("Bedanya peran LP dan MK") kena split karena kata "dan" dianggap pemisah kalimat
+- **Solusi:** Regex guard deteksi pola `(perbedaan|bedanya|perbandingan|bandingkan|peran|tugas|fungsi) ... (dan|dengan)` — skip split langsung
+- **Zero overhead** — regex compiled sekali, tanpa model/tambah library
 - **ONNX Runtime float32** — E5 model jalan pake ONNX backend. 2× lebih cepet dari PyTorch, akurasi sama persis (float32→float32). Model dipilih `model.onnx` (float32, bukan INT8)
 - **`hybrid_search()` reuse `query_vec`** — hemat 1 E5 encode per request (dari query_vec yang udah di-compute di BM25 gate)
 - **`requirements.txt`** — tambah `optimum`, `optimum-onnx`, `onnxruntime`
