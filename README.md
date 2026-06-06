@@ -94,7 +94,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
 | 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
-| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 2 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
+| 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 12 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
 | 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
@@ -1533,7 +1533,7 @@ sudo lsof -i :8000              # Linux
 
 ---
 
-#### v2.7.0 — 2026-06-05
+#### v2.7.1 — 2026-06-06
 
 **Concurrency Optimization + Dashboard Redesign (PlayStation Design System)**
 
@@ -1559,9 +1559,15 @@ sudo lsof -i :8000              # Linux
 **Bug Fixes**
 - **`telegram_bot.py` IndentationError** — 4 tempat indentasi berantakan pas ganti `async with httpx.AsyncClient()` ke shared client. di-fix semua
 - **Watchdog notif session end gak nyampe** — `load_dotenv()` langsung di `session.py`, cek response HTTP, shared client. Token sebelumnya cuma kebaca kalo `server.py` duluan import
+- **Multi-part split: greeting/feedback kena OOC rejection** — CLF Guard mencegah part greeting/feedback tanpa keyword BPS kena tolak OOC. Cek: kalo ≥1 part substantif tersisa, multi-part tetap jalan
+- **`wa_handler.py` 500 error** — import `requests` ilang saat migrasi ke shared Session. Ditambahkan lagi
+- **Loading `responses.json` encoding error** — semua file pake `encoding="utf-8"` eksplisit saat `json.load()`
+- **Watchdog kirim pesan kosong** — fallback hardcoded ketika template `session_ending_idle` kosong di `responses.json`
+- **`system.md: rejection_no_answer` hardcode** — pake dari `responses.json` biar konsisten
+- **Emoji di system prompt** — dari 'boleh pake' jadi 'WAJIB pake emoji' + dikasih contoh penggunaan
 
 **Auto-Reload FAQ Optimization**
-- **Interval 10 menit → 2 jam** — reload FAQ tiap 10 menit bikin CPU spike 100% ~13 detik. Sekarang tiap 2 jam, gak ganggu performa
+- **Interval 2 jam → 12 jam** — dengan 500+ baris FAQ, reload tiap 2 jam bikin CPU spike. Sekarang tiap 12 jam (2x sehari), beban CPU turun 83%. Admin tetap bisa `/reload` manual lewat dashboard kapan aja
 - **Tombol Reload FAQ di dashboard** — top bar, proxy ke `server.py/reload`, toast notif hasil. Manual reload tetep bisa kapan aja
 
 **Watchdog Notification Fix**

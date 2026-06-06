@@ -86,10 +86,10 @@ async def start_background():
         asyncio.create_task(auto_reload_gsheet())
     print("[BOOT] Background tasks started")
 async def auto_reload_gsheet():
-    """Tiap 10 menit: download ulang database dari Google Sheets"""
+    """Tiap 12 jam: download ulang database dari Google Sheets"""
     await asyncio.sleep(60)
     while True:
-        await asyncio.sleep(7200)  # 2 jam
+        await asyncio.sleep(43200)  # 12 jam
         try:
             prev = len(questions)
             total = await asyncio.to_thread(load_from_gsheet, GSHEET_CSV_URL)
