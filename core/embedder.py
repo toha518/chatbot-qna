@@ -409,7 +409,7 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
     bm25_rank = np.argsort(-bm25_scores)
 
     # ── RRF fusion ──
-    K = 60  # smoothing constant
+    K = 40  # smoothing constant
     bm25_max = float(np.max(bm25_scores))
     rrf_scores = np.zeros(len(questions))
     for i, idx in enumerate(e5_rank):
