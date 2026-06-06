@@ -68,7 +68,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
-| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=60) — E5 semantic + BM25 keyword, top-5 FAQ |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword, top-5 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
@@ -88,7 +88,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=60). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -227,7 +227,7 @@ USER CHAT
 ┌─ 7. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
-│  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=60      │
+│  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=30      │
 │  Top-5 FAQ (RRF ranking, untuk konteks LLM)       │
 └───────────────────────────────────────────────────┘
   │
@@ -396,13 +396,13 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
    Kalo BM25_max == 0 (out of context):
      RRF_score(d) = 1/(K+rank_E5(d))  ← skip BM25, hindari ranking noise
    ```
-   **K = 60** — konstanta smoothing industry standard.
+   **K = 30** — konstanta smoothing RRF, diturunkan dari default 60 untuk top_k kecil + BM25 presisi.
 4. Ambil **top-5** FAQ berdasarkan RRF_score tertinggi
 
 **Visual sederhana (2 FAQ):**
-| FAQ | rank_E5 | rank_BM25 | RRF dengan K=60 |
+| FAQ | rank_E5 | rank_BM25 | RRF dengan K=30 |
 |-----|:-------:|:---------:|:----------------:|
-| "Cara aktivasi FASIH" | 1 | 2 | 1/(60+1) + 1/(60+2) = 0.0325 |
+| "Cara aktivasi FASIH" | 1 | 2 | 1/(30+1) + 1/(30+2) = 0.0641 |
 | "FASIH error terus" | 3 | 1 | 1/(60+3) + 1/(60+1) = 0.0323 |
 
 → FAQ pertama menang tipis. Tapi kalo BM25 gak cocok sama sekali (rank rendah), E5 masih bisa angkat FAQ yang relevan secara semantik.
@@ -1530,6 +1530,19 @@ sudo lsof -i :8000              # Linux
 
 
 ---
+
+---
+
+#### v2.7.3 — 2026-06-06
+
+**RRF K: 60 → 30 — Optimalisasi Hybrid Search untuk 500+ FAQ**
+
+**Rasional** — Berdasarkan riset eksternal (Mehrotra 2025, glaforge.dev 2026, drittich, avchauzov, spice.ai):
+- **top_k=5** + BM25 presisi (FAQ teknis) + corpus terstruktur → lower K lebih optimal
+- K=30 bikin rank #1 vs #5 dari beda 6% (K=60) jadi 13% — FAQ paling relevan lebih jelas menonjol
+- Zero RAM tambahan, zero latency tambahan
+
+**Files changed:** `core/embedder.py`, `README.md`, `VERSION`
 
 ---
 
