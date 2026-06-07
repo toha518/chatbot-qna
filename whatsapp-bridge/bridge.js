@@ -84,6 +84,14 @@ client.on('message', async (msg) => {
             }
         }
 
+        // ── Filter: hanya terima teks & gambar ──
+        const _isText = msg.type === 'chat' || msg.type === 'buttons_response';
+        const _isImage = msg.type === 'image' || (msg.type === 'document' && msg.mimetype && msg.mimetype.startsWith('image/'));
+        if (!_isText && !_isImage) {
+            await client.sendMessage(sender, '⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.');
+            return;
+        }
+
         // Dapetin chat reference
         const chat = await msg.getChat();
 
