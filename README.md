@@ -23,7 +23,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 ## 📋 Daftar Isi
 
 - [📸 Tangkapan Layar](#-tangkapan-layar)
-- [🛠️ Tech Stack](#-tech-stack)
+- [🛠️ Tech Stack](#️-tech-stack)
 - [✨ Fitur](#-fitur)
 - [🧠 Arsitektur Modular](#-arsitektur-modular)
 - [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#-detail-hybrid-search-e5--bm25-via-rrf)
@@ -33,7 +33,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 - [🆚 Perbandingan & Arsitektur Pipeline](#-perbandingan--arsitektur-pipeline)
 - [🔒 Security & Proteksi](#-security--proteksi)
 - [📊 Logging & Evaluasi](#-logging--evaluasi)
-- [🖥️ Dashboard](#-dashboard)
+- [🖥️ Dashboard](#️-dashboard)
 - [⚡ Optimasi Performa](#-optimasi-performa)
 - [🔗 API Endpoints](#-api-endpoints)
 - [💻 Panduan Instalasi — Windows](#-panduan-instalasi--windows)
