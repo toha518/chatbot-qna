@@ -41,6 +41,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 - [✅ Verifikasi](#verifikasi)
 - [🔄 Replikasi / Custom Bot](#replikasi-custom-bot)
 - [❓ FAQ](#faq)
+- [🏷️ Category-Aware BM25 (v2.8.0+)](#-category-aware-bm25-v280)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
 - [📄 Lisensi](#lisensi)
@@ -68,7 +69,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
-| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword, top-5 FAQ |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-5 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
@@ -88,7 +89,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata terpisah (gak ikut embedding). top_k=5. Centroid di-log untuk analytics. |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata — dari v2.8.0 di-append ke BM25 doc text biar keyword kategori ngaruh ke ranking. top_k=5. Centroid di-log untuk analytics. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -413,6 +414,31 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
 - **Average score** gak fair karena BM25 score range beda dengan cosine similarity
 - **Weighted sum** butuh tuning bobot manual
 - **RRF** cuma butuh ranking (bukan skor mentah), jadi scale-invariant, zero-config, dan terbukti robust di berbagai dataset
+
+### 🏷️ Category-Aware BM25 (v2.8.0+)
+
+Sejak **v2.8.0**, BM25 index dibangun dengan menggabungkan nama kategori ke tiap dokumen FAQ:
+
+```python
+# Di core/bm25.py — build()
+docs = [f"{q} {c}" if c else q for q, c in zip(questions, categories)]
+```
+
+**Efek terhadap hybrid search:**
+
+| Skenario | Sebelum (tanpa kategori) | Sesudah (dengan kategori) |
+|:---------|:------------------------:|:-------------------------:|
+| Query nyebut kategori (`"SOBAT verifikasi NIK"`) | BM25 skor dari konten doang | ✅ BM25 dapat extra signal dari keyword "SOBAT" di tiap FAQ kategori SOBAT |
+| Query tanpa kategori (`"verifikasi NIK"`) | Sama | ✅ Sama persis — tidak ada efek |
+| Query keyword kategori tapi beda topik (`"SOBAT"` doang) | Rank #1-#5 sesuai konten | 🟠 BM25 rank #2-#4 bisa terisi FAQ kategori SOBAT yang kurang relevan, tapi E5 tetap jadi penyeimbang di RRF |
+
+**Korelasi K=30 dengan category append:**
+K=30 tetap optimal karena:
+- Category append hanya menambah **1 sinyal** (keyword), bukan mengubah representasi vektor
+- RRF tetap scale-invariant — BM25 ranking dari category boost masih kena smoothing K=30
+- E5 tetap sebagai penyeimbang utama untuk FAQ yang relevan secara konten tapi berbeda kategori
+
+**Tidak perlu weighted RRF** — efek category append cukup kecil sehingga tidak mengganggu keseimbangan E5:BM25 yang sudah ada.
 
 ---
 
