@@ -84,8 +84,18 @@ client.on('message', async (msg) => {
             }
         }
 
-        // Langsung typing biar user tau bot lagi proses
+        // Dapetin chat reference
         const chat = await msg.getChat();
+
+        // ── Keep typing alive selama proses ──
+        const typingInterval = setInterval(async () => {
+            try {
+                await chat.sendStateTyping();
+            } catch (e) {
+                // ignore — chat mungkin udah closed
+            }
+        }, 4000);
+        // Kirim typing langsung
         await chat.sendStateTyping();
 
         console.log(`[WA IN] Dari ${sender}: ${text.substring(0, 100)}`);
@@ -128,15 +138,18 @@ client.on('message', async (msg) => {
         }, { timeout: 120000 });
 
         const reply = resp.data?.jawaban || resp.data?.message || '';
+        // Hentikan typing loop — response udah dapet
+        clearInterval(typingInterval);
+        await chat.clearState();
+
         if (!reply) {
             console.log(`[WA OUT] Silent block — ${sender} gak dikirimi apapun`);
-            await chat.clearState();
             return;
         }
         console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
 
         // ===================== KIRIM PESAN DENGAN TOMBOL FEEDBACK =====================
-        await chat.clearState();
+
 
         const _fb_sep = '\n━━━━━━━━━━━━━━━━━━━━\n';
         if (reply.includes(_fb_sep)) {
@@ -164,6 +177,11 @@ client.on('message', async (msg) => {
         }
 
     } catch (err) {
+        // Pastiin typing loop mati walau error
+        if (typeof typingInterval !== 'undefined') {
+            clearInterval(typingInterval);
+            try { await chat.clearState(); } catch (e) {}
+        }
         if (err.code === 'ECONNREFUSED') {
             console.error('[ERROR] Flask handler gak jalan! Jalankan: python wa_handler.py');
         } else if (err.response) {

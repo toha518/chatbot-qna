@@ -6,6 +6,7 @@ import httpx                       # HTTP client buat panggil server API
 import re
 import os
 import io
+import asyncio
 import tempfile
 import json
 import threading
@@ -209,8 +210,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await stop_command(update, context)
         return
 
-    # Kirim typing indicator biar user tau bot lagi mikir
-    await update.message.chat.send_action("typing")
+    # ── Keep typing alive selama proses ──
+    async def _keep_typing():
+        """Kirim typing indicator tiap 4 detik sampai di-cancel"""
+        try:
+            while True:
+                await update.message.chat.send_action("typing")
+                await asyncio.sleep(4)
+        except asyncio.CancelledError:
+            pass
+
+    _typing_task = asyncio.create_task(_keep_typing())
 
     # ===================== PANGGIL SERVER API =====================
     try:
@@ -221,8 +231,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
+        _typing_task.cancel()
         if not jawaban:
-            # Silent block — gak kirim apapun, typing auto ilang ~5 detik
+            # Silent block — gak kirim apapun
             return
         # Cek apakah jawaban mengandung feedback_footer
         # Tampilkan jawaban + pertanyaan, kirim tombol sebagai inline keyboard
@@ -247,6 +258,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
     except Exception as e:
+        _typing_task.cancel()
         await update.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
 
@@ -330,6 +342,16 @@ def main():
         # Kirim pesan sementara biar user tau lg diproses
         msg_processing = await update.message.reply_text("⏳ Memproses gambar...", reply_markup=MENU_MARKUP)
 
+        # ── Keep typing alive selama proses ──
+        async def _keep_typing_img():
+            try:
+                while True:
+                    await update.message.chat.send_action("typing")
+                    await asyncio.sleep(4)
+            except asyncio.CancelledError:
+                pass
+        _typing_img_task = asyncio.create_task(_keep_typing_img())
+
         try:
             # Ambil foto resolusi tertinggi
             if update.message.photo:
@@ -372,6 +394,7 @@ def main():
                 combined = caption
 
             if not combined.strip():
+                _typing_img_task.cancel()
                 await update.message.reply_text(_RESPONSES.get("image_no_text"))
                 return
 
@@ -383,6 +406,7 @@ def main():
             )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
+            _typing_img_task.cancel()
             # Hapus pesan "Memproses gambar..."
             try:
                 await msg_processing.delete()
@@ -398,6 +422,7 @@ def main():
 
 
         except Exception as e:
+            _typing_img_task.cancel()
             try:
                 await msg_processing.delete()
             except Exception:
