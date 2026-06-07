@@ -1560,6 +1560,34 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.9.0 — 2026-06-07
+
+**Concurrency Increase + Typing Loop + Proteksi Media**
+
+**Performance — MAX_CONCURRENT_CHATS 4 → 12**
+- **`server.py`** — Global Semaphore dinaikkan dari 4 ke 12. Setelah optimasi E5 async + ThreadPool(6) + batch encoding + ONNX + `asyncio.to_thread()`, E5 encode punya Semaphore(3) sendiri — Semaphore di server gak perlu sekonservatif 4. LLM call murni I/O wait (CPU idle).
+- **Aman:** 100 user chat bareng → user paling lambat ~25 detik (bukan 35+). Server gak crash, gak ada request ilang — cuma antri di event loop.
+
+**UX — Typing Indicator Loop**
+- **`telegram_bot.py`** — `handle_message()` dan `handle_image()` spawn `asyncio.create_task()` yang kirim typing indicator tiap 4 detik. Cancel otomatis pas response datang atau error.
+- **`whatsapp-bridge/bridge.js`** — `setInterval()` kirim `sendStateTyping()` tiap 4 detik. `clearInterval()` pas response/error.
+- **Fix:** OCR EasyOCR dibungkus `asyncio.to_thread()` biar gak blocking event loop — typing loop tetap jalan pas proses gambar (~3-8 detik).
+
+**Security — Image Rate Limit (1 gambar/menit)**
+- **`security/rate_limiter.py`** — Fungsi `check_image_rate_limit(chat_id)`: tracking timestamp gambar terakhir per user. Cooldown 60 detik. Module singleton — shared state antar semua handler.
+- **`telegram_bot.py`** — `handle_image()` cek sebelum proses OCR.
+- **`wa_handler.py`** — `wa-message` cek sebelum OCR untuk `is_image`.
+- **`server.py`** — cek sebelum proses `image_path` (API langsung).
+- **`prompts/responses.json`** — Template `image_rate_limit`.
+
+**Security — Filter Media (WA)**
+- **`whatsapp-bridge/bridge.js`** — Cek `msg.type` sebelum proses: tolak voice note, video, sticker, document non-image. Hanya teks (`chat`) dan gambar (`image`/`document image`) yang diproses. Respon: `"⚠️ Hanya menerima teks dan gambar."`
+- **Telegram** sudah ada sebelumnya via `handle_media` handler.
+
+**Files changed:** `server.py`, `security/rate_limiter.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
 #### v2.8.0 — 2026-06-07
 
 **BM25 Append Kategori + Dashboard Fix Top FAQ**
