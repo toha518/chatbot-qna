@@ -332,6 +332,8 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
 > **Catatan:** BM25 punya dua peran: (1) **Gate 3-tier** — `get_bm25_score()` ambil max dari semua FAQ, putuskan OOC/BM25_BORDERLINE/lanjut. Juga sebagai **cascade trigger** — concat prev query depth 1-3 kalo BM25 < 5. Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25.. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 di-log untuk analytics (bukan gate).
+>
+> **v2.8.0+ — Category-Aware BM25:** Setiap FAQ digabung dengan nama kategorinya (`"{pertanyaan} {kategori}"`) saat BM25 index di-build. Query yang menyebut nama kategori mendapat BM25 score lebih tinggi untuk FAQ di kategori tersebut. Tidak ada perubahan untuk query tanpa kategori. Lihat riwayat versi untuk detail.
 
 **✅ Kelebihan:**
 - ⚡ **Cepat & ringan** — tanpa GPU, CPU doang udah cukup. Index built dalam < 1 detik untuk 127 FAQ
@@ -1530,6 +1532,23 @@ sudo lsof -i :8000              # Linux
 
 
 ---
+
+---
+
+#### v2.8.0 — 2026-06-07
+
+**BM25 Append Kategori + Dashboard Fix Top FAQ**
+
+**Category-Aware BM25 Scoring**
+- **`core/bm25.py`** — `build()` sekarang menerima parameter `categories` opsional. Saat diberikan, tiap FAQ doc digabung dengan nama kategorinya (contoh: `"Verifikasi NIK Gagal SOBAT"`) sebelum di-tokenize.
+- **`core/embedder.py`** — `_rebuild_bm25()` mengirim `categories` dari global state ke `build_bm25()`. Setiap reload FAQ otomatis rebuild BM25 index dengan kategori.
+- **Efek:** Query yang menyebut nama kategori (`"SOBAT"`, `"FASIH"`, `"GC PBI"`) mendapat BM25 score lebih tinggi untuk FAQ di kategori tersebut → RRF ranking ikut naik.
+- **Zero side effect:** Query tanpa kategori tidak terpengaruh sama sekali. Category append hanya menambah keyword — tidak mengubah representasi vektor atau logika gate.
+
+**Fixed — Dashboard Top FAQ Kategori Kosong**
+- **`dashboard.py`** — Fix lookup kategori di Top FAQ. `top5_faq` di log disimpan dengan prefix `#N ` (contoh: `"#1 Verifikasi NIK Gagal"`), tapi `faq_categories.json` menggunakan teks polos tanpa prefix. Strip prefix sebelum lookup.
+
+**Files changed:** `core/bm25.py`, `core/embedder.py`, `dashboard.py`, `README.md`, `VERSION`
 
 ---
 
