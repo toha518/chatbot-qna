@@ -97,6 +97,11 @@ def wa_message():
 
     # ===================== PROSES GAMBAR =====================
     if is_image:
+        from security.rate_limiter import check_image_rate_limit
+        # Image rate limit: 1 gambar per 1 menit per user
+        if not check_image_rate_limit(sender):
+            return jsonify({"jawaban": _RESPONSES.get("image_rate_limit")})
+
         try:
             payload = json.loads(message)
             caption = payload.get("text", "")

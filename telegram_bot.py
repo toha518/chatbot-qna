@@ -337,7 +337,13 @@ def main():
     # Tolak sticker, gambar, voice dll
     async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler gambar: download → OCR → gabung caption → kirim ke server"""
+        from security.rate_limiter import check_image_rate_limit
         chat_id = str(update.effective_chat.id)
+
+        # Image rate limit: 1 gambar per 1 menit
+        if not check_image_rate_limit(chat_id):
+            await update.message.reply_text(_RESPONSES.get("image_rate_limit"))
+            return
 
         # Kirim pesan sementara biar user tau lg diproses
         msg_processing = await update.message.reply_text("⏳ Memproses gambar...", reply_markup=MENU_MARKUP)
