@@ -26,7 +26,8 @@ from core.llm import (
     build_greeting_prompt, build_system_prompt, call_llm
 )
 from security.rate_limiter import (
-    check_api_rate_limit, init_rate_limit_entry, init_trusted_ids, TRUSTED_IDS, api_rate_limit
+    check_api_rate_limit, init_rate_limit_entry, init_trusted_ids, TRUSTED_IDS, api_rate_limit,
+    check_image_rate_limit
 )
 from security.session import (
     cleanup_sessions, init_session, session_watchdog,
@@ -240,6 +241,10 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         return {"jawaban": responses.get("question_empty"), "skor": 0}
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
     if req.image_path:
+        # Image rate limit: 1 gambar per 1 menit per user
+        if cid not in TRUSTED_IDS:
+            if not check_image_rate_limit(cid):
+                return {"jawaban": responses.get("image_rate_limit", "⏳ Mohon tunggu 1 menit sebelum kirim gambar lagi."), "skor": 0}
         try:
             import sys
             # Lazy load EasyOCR khusus pas ada gambar (mirip telegram_bot.py)

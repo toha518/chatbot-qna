@@ -42,6 +42,26 @@ def init_trusted_ids(env_value: str):
 #                    "block_notified": False}}
 api_rate_limit: dict = {}
 
+# ── Image rate limiter: 1 gambar per 1 menit per user ──
+_image_last_time: dict[str, float] = {}
+_IMAGE_COOLDOWN = 60  # 1 menit
+
+
+def check_image_rate_limit(chat_id: str) -> bool:
+    """
+    Cek apakah user boleh kirim gambar.
+    1 gambar per 60 detik per chat_id.
+    Return True kalo boleh, False kalo masih cooldown.
+    """
+    now = time.time()
+    last = _image_last_time.get(chat_id, 0)
+    if now - last < _IMAGE_COOLDOWN:
+        remaining = int(_IMAGE_COOLDOWN - (now - last))
+        print(f"[IMAGE LIMIT] {chat_id} cooldown — tunggu {remaining}s")
+        return False
+    _image_last_time[chat_id] = now
+    return True
+
 
 def normalize(text: str) -> str:
     """Bersihin teks: lowercase, buang tanda baca, normalize spasi"""
@@ -49,6 +69,11 @@ def normalize(text: str) -> str:
     text = re.sub(r'[^\w\s]', '', text)
     text = re.sub(r'\s+', ' ', text)
     return text
+
+
+def clear_image_rate_limit(chat_id: str):
+    """Reset image rate limit untuk chat_id tertentu (manual override)"""
+    _image_last_time.pop(chat_id, None)
 
 
 def init_rate_limit_entry(chat_id: str):
