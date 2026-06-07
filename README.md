@@ -41,7 +41,6 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 - [✅ Verifikasi](#verifikasi)
 - [🔄 Replikasi / Custom Bot](#replikasi-custom-bot)
 - [❓ FAQ](#faq)
-- [🏷️ Category-Aware BM25 (v2.8.0+)](#-category-aware-bm25-v280)
 - [📜 Riwayat Versi](#riwayat-versi)
 - [📞 Kontak & Dukungan](#kontak-dukungan)
 - [📄 Lisensi](#lisensi)
