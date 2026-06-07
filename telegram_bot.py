@@ -372,13 +372,16 @@ def main():
             await file.download_to_memory(image_bytes)
             image_bytes.seek(0)
 
-            # OCR
-            reader = get_ocr_reader()
+            # OCR — seluruh proses (load model + readtext) di thread biar gak block event loop
             with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp:
                 tmp.write(image_bytes.read())
                 tmp_path = tmp.name
 
-            result = reader.readtext(tmp_path)
+            def _do_ocr(path):
+                rdr = get_ocr_reader()
+                return rdr.readtext(path)
+
+            result = await asyncio.to_thread(_do_ocr, tmp_path)
             os.unlink(tmp_path)
 
             # Ambil teks dengan confidence > 0.3
