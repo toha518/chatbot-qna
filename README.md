@@ -27,7 +27,6 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 - [✨ Fitur](#fitur)
 - [🧠 Arsitektur Modular](#arsitektur-modular)
 - [🧠 Detail Hybrid Search (E5 + BM25 via RRF)](#detail-hybrid-search-e5-bm25-via-rrf)
-  - [🏷️ Category-Aware BM25 (v2.8.0+)](#category-aware-bm25-v280)
 - [🧠 Intent Classifier (CLF)](#intent-classifier-clf)
 - [🧠 Multi-Part Split (E5 Semantic Boundary)](#multi-part-split-e5-semantic-boundary)
 - [🧠 Cascade Fallback (BM25 + E5 Guard)](#cascade-fallback-bm25-e5-guard)
