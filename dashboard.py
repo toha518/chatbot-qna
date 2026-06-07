@@ -611,7 +611,11 @@ def api_top_faq(days: int = 7, limit: int = 20):
     for r in faqs:
         r["avg_rrf"] = round(r["avg_rrf"], 4) if r["avg_rrf"] else 0
         # Cari kategori dari spreadsheet FAQ (SOBAT, dll)
-        r["category"] = _FAQ_CATEGORIES.get(r["faq"], "-")
+        # Strip prefix "#N " dari top5_faq log biar match sama key di faq_categories.json
+        faq_text = r["faq"]
+        if faq_text.startswith("#") and " " in faq_text:
+            _, faq_text = faq_text.split(" ", 1)
+        r["category"] = _FAQ_CATEGORIES.get(faq_text, "-")
     return {"faqs": faqs}
 
 

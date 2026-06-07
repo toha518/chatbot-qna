@@ -51,9 +51,16 @@ class BM25DomainChecker:
         self.n_docs = 0
         self.ready = False
 
-    def build(self, questions: list[str]):
-        """Build index dari list pertanyaan FAQ"""
-        self.tokenized_docs = [_tokenize(q) for q in questions if q]
+    def build(self, questions: list[str], categories: list[str] = None):
+        """Build index dari list pertanyaan FAQ.
+        Jika categories diberikan, tiap doc digabung dengan kategori biar keyword kategori
+        (contoh: "SOBAT", "FASIH") ikut mempengaruhi BM25 scoring.
+        """
+        if categories:
+            docs = [f"{q} {c}" if c else q for q, c in zip(questions, categories) if q]
+        else:
+            docs = questions
+        self.tokenized_docs = [_tokenize(d) for d in docs if d]
         self.n_docs = len(self.tokenized_docs)
         if self.n_docs > 0:
             self.bm25 = BM25Okapi(self.tokenized_docs, k1=K1, b=B)
@@ -90,8 +97,8 @@ class BM25DomainChecker:
 _checker = BM25DomainChecker()
 
 
-def build_bm25(questions: list[str]):
-    _checker.build(questions)
+def build_bm25(questions: list[str], categories: list[str] = None):
+    _checker.build(questions, categories)
 
 
 def check_domain(query: str) -> bool:

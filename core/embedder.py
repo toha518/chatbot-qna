@@ -155,10 +155,13 @@ def load_from_gsheet(csv_url: str) -> int:
 
 
 def _rebuild_bm25(questions: list):
-    """Build BM25 index — robust: warning kalo rank_bm25 missing, fallback ke basic."""
+    """Build BM25 index — robust: warning kalo rank_bm25 missing, fallback ke basic.
+    Append kategori ke tiap doc biar keyword kategori (SOBAT, FASIH, dll) ikut
+    mempengaruhi BM25 scoring — query yang nyebut kategori dapet boost ranking.
+    """
     try:
         from core.bm25 import build_bm25
-        build_bm25(questions)
+        build_bm25(questions, categories)
     except ImportError:
         print("[BM25] ⚠️  rank_bm25 TIDAK DIINSTALL! Install: pip install rank-bm25")
         print("[BM25] ⚠️  BM25 scoring disabled — hanya E5 yang jalan")
