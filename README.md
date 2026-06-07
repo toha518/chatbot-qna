@@ -1004,7 +1004,7 @@ Request E:  ─→ [antri di event loop, non-blocking] ─→ ...
 2. **Daily Limit** — 25 chat/hari/user — batasi total konsumsi
 3. **Intent Classifier** — 4/5 kelas skip E5+LLM (sapaan/feedback/capability)
 4. **BM25 3-Tier Gate** — <3.0 tolak, 3.0-4.9 borderline → skip E5+LLM
-5. **Global Semaphore(4)** — batasi concurrent chat
+5. **Global Semaphore(12)** — batasi concurrent chat (dinaikkan dari 4 setelah optimasi E5 async + ThreadPool + batch — LLM I/O wait gak bebanin CPU, E5 encoding udah di-limit terpisah via Semaphore(3))
 6. **ThreadPool(4+) + Batch** — optimasi E5 encode parallel
 7. **Connection Pooling** — reuse HTTP koneksi semua layer
 
@@ -1015,10 +1015,10 @@ Request E:  ─→ [antri di event loop, non-blocking] ─→ ...
 | Skenario | Response Tercepat | Response Terlambat | Keterangan |
 |----------|:-----------------:|:------------------:|------------|
 | 1 user | ~2-3 detik | — | Normal: BM25 gate + E5 + LLM |
-| 4 user bareng | ~2.5 detik | ~3 detik | Semaphore penuh, LLM overlap |
-| 10 user bareng | ~2.5 detik | ~8 detik | Antri semaphore, serial LLM |
-| 20 user bareng | ~2.5 detik | ~15 detik | Paling belakang kena antrian LLM |
-| 50 user bareng | ~2.5 detik | ~35 detik | ⚠️ Pastikan LLM timeout ≥60s |
+| 4 user bareng | ~2.5 detik | ~3 detik | Normal, semua langsung diproses |
+| 12 user bareng | ~2.5 detik | ~5 detik | Semaphore(12) penuh, E5 batch encode optimal (8 query bareng) |
+| 20 user bareng | ~2.5 detik | ~10 detik | LLM serial jadi bottleneck — CPU masih longgar |
+| 50 user bareng | ~2.5 detik | ~25 detik | ⚠️ Pastikan LLM timeout ≥60s |
 
 > **RAM idle:** ~1.2GB (dari 8GB). Spike per request ~100-200MB sementara (OCR gambar bisa +500MB tapi lazy load).
 > **CPU:** Component berat cuma E5 encode (~250ms) dan OCR gambar (~3-8 detik). LLM cloud—CPU ringan.
@@ -1620,7 +1620,7 @@ sudo lsof -i :8000              # Linux
 
 **Performance — Multilayer Concurrency**
 - **ThreadPoolExecutor `max_workers=2` → `max(4, cpu_count//2)`** — encoding paralel 4 user sekaligus. CPU 8GB typical punya 4+ core, worker 2 cuma nganggurin setengah kapasitas
-- **Global Semaphore(4) via FastAPI Depends** — maksimal 4 request `/chat` diproses bersamaan. Sisanya antri non-blocking di event loop. Proteksi dari overload 50+ user
+- **Global Semaphore(12) via FastAPI Depends** — maksimal 12 request `/chat` diproses bersamaan (dinaikkan dari 4 di v2.8.0). E5 encoding udah punya Semaphore(3) sendiri + ThreadPool(4-8). LLM call murni I/O wait — gak bebanin CPU.
 - **Shared httpx client (connection pooling)** — di 3 layer: `llm.py` (pool 20), `telegram_bot.py` (pool 10), `wa_handler.py` (Session pool 10). Hemat TCP handshake per-request
 - **`hybrid_search()` → `asyncio.to_thread()`** — blocking E5 encode + RRF jalan di thread pool, enggak ngeganggu event loop
 - **LLM per-request timeout fix** — `call_llm(timeout=X)` beneran ngirim `timeout=X` ke `client.post()`. Shared client gak beku lagi

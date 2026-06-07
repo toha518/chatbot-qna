@@ -197,7 +197,7 @@ def _format_end_footer(cid: str) -> str:
     )
 
 # ===================== CONCURRENT REQUEST LIMITER =====================
-MAX_CONCURRENT_CHATS = 4
+MAX_CONCURRENT_CHATS = 12
 _concurrent_chat_sem = asyncio.Semaphore(MAX_CONCURRENT_CHATS)
 
 async def _concurrent_chat_limit():
