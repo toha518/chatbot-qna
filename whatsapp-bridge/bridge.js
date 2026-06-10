@@ -90,10 +90,21 @@ client.on('message', async (msg) => {
         if (msg.from.endsWith('@g.us')) {
             // Cek mention: apakah bot di-mention?
             const botNumber = client.info.wid.user;
-            // Cek mention: mentionedIds atau @nomor di teks
-            const isMentionedIds = msg.mentionedIds && msg.mentionedIds.some(id => id === botNumber || id.split('@')[0] === botNumber);
-            const isMentionText = msg.body && msg.body.includes(`@${botNumber}`);
-            const isMentioned = isMentionedIds || isMentionText;
+            // Cek mention: getMentions() + mentionedIds + @nomor di teks
+            let isMentioned = false;
+            try {
+                const mentions = await msg.getMentions();
+                if (mentions && mentions.some(c => c.id.user === botNumber || c.id._serialized === `${botNumber}@c.us`)) {
+                    isMentioned = true;
+                }
+            } catch (e) {
+                // getMentions() may fail, fallback
+            }
+            if (!isMentioned) {
+                const isMentionedIds = msg.mentionedIds && msg.mentionedIds.some(id => id === botNumber || id.split('@')[0] === botNumber);
+                const isMentionText = msg.body && msg.body.includes(`@${botNumber}`);
+                isMentioned = isMentionedIds || isMentionText;
+            }
 
             // Cek reply ke bot
             let isReplyToBot = false;
