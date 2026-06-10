@@ -1588,6 +1588,33 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.9.1 — 2026-06-10
+
+**Word Count Gate + Greeting Revision**
+
+**Minimum Word Count — Forward Pipeline**
+- **`server.py`** — Filter baru sebelum BM25 Gate untuk CLF `forward`: jika word count < 3 **dan** tidak ada riwayat chat, langsung return warning tanpa BM25/hybrid/LLM.
+- **Tidak ada efek pada cascade** — user dengan riwayat forward sebelumnya tetap bisa follow-up pendek (`"tetep gabisa"`) karena `has_history = True` → skip filter, cascade concat prev query jalan normal.
+- **Tidak ada efek pada greeting/capability/feedback** — keempat intent return early sebelum mencapai filter ini. History session hanya berisi forward yang pernah dijawab, jadi cascade otomatis cuma concat pesan forward.
+- **`prompts/responses.json`** — Key baru `min_words_warning`: `"⚠️ Pertanyaan harus minimal {min_words} kata."`
+- **BM25 3-Tier Gate tetap utuh** — untuk forward ≥ 3 kata, gate BM25 < 3.0 (OOC) / 3.0-4.9 (borderline) / ≥ 5.0 (hybrid) berjalan normal.
+
+| Skenario | Word Count | History? | Hasil |
+|----------|:----------:|:--------:|:-----|
+| `"error"` (new user) | 1 | ❌ | ⚠️ Warning minimal 3 kata |
+| `"FASIH error"` (new user) | 2 | ❌ | ⚠️ Warning minimal 3 kata |
+| `"tetep gabisa"` (lanjutan) | 2 | ✅ | Cascade concat prev → BM25 → hybrid |
+| `"FASIH login error"` | 3+ | — | BM25 Gate normal |
+
+**Greeting — Tidak Minta Pilih Topik**
+- **`prompts/greeting.md`** — Prompt greeting diubah: tetap menyebutkan topik yang dikuasai secara singkat dalam 1 kalimat, tapi langsung mendorong user untuk menceritakan kendalanya, bukan memilih topik.
+- **Efek:** Output greeting tidak lagi menampilkan 6 bullet point topik + "Silakan beri tahu saya topik mana yang ingin Anda bahas". Sebaliknya langsung: *"Ada kendala dengan aplikasi BPS? Coba ceritakan detailnya, saya bantu cari solusi!"*
+- **Capability tetap daftar topik** — handler `"kamu bisa apa?"` via `responses.json → capability` tidak berubah.
+
+**Files changed:** `server.py`, `prompts/greeting.md`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
 #### v2.8.0 — 2026-06-07
 
 **BM25 Append Kategori + Dashboard Fix Top FAQ**
