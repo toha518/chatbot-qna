@@ -183,17 +183,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = ""
 
     if is_group:
-        # Cek mention
+        # Cek mention — case insensitive
         bot_username = context.bot.username
+        bot_mention_lower = f"@{bot_username}".lower() if bot_username else ""
         is_mentioned = False
-        if update.message.entities:
+        if update.message.entities and bot_mention_lower:
             for entity in update.message.entities:
                 if entity.type == "mention":
                     mention_text = update.message.text[entity.offset:entity.offset+entity.length]
-                    if f"@{bot_username}" in mention_text:
+                    if bot_mention_lower in mention_text.lower():
                         is_mentioned = True
-                        # Hapus mention dari teks
-                        text = text.replace(f"@{bot_username}", "").strip()
+                        # Hapus mention dari teks (case insensitive)
+                        text = re.sub(re.escape(f"@{bot_username}"), "", text, flags=re.IGNORECASE).strip()
                         break
                 elif entity.type == "text_mention":
                     if entity.user.id == context.bot.id:
@@ -390,12 +391,13 @@ def main():
 
         if is_group:
             bot_username = context.bot.username
+            bot_mention_lower = f"@{bot_username}".lower() if bot_username else ""
             is_mentioned = False
-            if update.message.entities:
+            if update.message.entities and bot_mention_lower:
                 for entity in update.message.entities:
                     if entity.type == "mention":
                         mention_text = update.message.text[entity.offset:entity.offset+entity.length]
-                        if f"@{bot_username}" in mention_text:
+                        if bot_mention_lower in mention_text.lower():
                             is_mentioned = True
                             break
                     elif entity.type == "text_mention":
