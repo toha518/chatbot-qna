@@ -1016,7 +1016,7 @@ Request E:  ─→ [antri di event loop, non-blocking] ─→ ...
 2. **Daily Limit** — 25 chat/hari/user — batasi total konsumsi
 3. **Intent Classifier** — 4/5 kelas skip E5+LLM (sapaan/feedback/capability)
 4. **BM25 3-Tier Gate** — <3.0 tolak, 3.0-4.9 borderline → skip E5+LLM
-5. **Global Semaphore(12)** — batasi concurrent chat (dinaikkan dari 4 setelah optimasi E5 async + ThreadPool + batch — LLM I/O wait gak bebanin CPU, E5 encoding udah di-limit terpisah via Semaphore(3))
+5. **Global Semaphore(12)** — batasi concurrent chat (dinaikkan dari 4 setelah optimasi E5 async + ThreadPool + batch — LLM I/O wait gak bebanin CPU, E5 encoding udah di-limit terpisah via Semaphore(2))
 6. **ThreadPool(4+) + Batch** — optimasi E5 encode parallel
 7. **Connection Pooling** — reuse HTTP koneksi semua layer
 
@@ -1662,13 +1662,16 @@ sudo lsof -i :8000              # Linux
 - Jika cascade BM25 < 5.0 → `bm25_top` di-set ke 3.0 (borderline) bukan OOC. User dapat `rejection_no_answer` (saran) bukan `rejection_out_of_context` (tolak).
 - Tidak ada efek pada query ≥ 3 kata — tetap pake logika cascade normal dengan E5 guard.
 
+**Tuning — E5 ONNX Semaphore(3) → (2)**
+- **`core/embedder.py`** — Turunkan Semaphore E5 encoding dari 3 ke 2. Dengan ONNX backend (2-3x lebih cepat dari PyTorch CPU) dan `Semaphore(12)` global, 12 concurrent user ÷ 8 query per batch = maksimal 2 batch bareng. Semaphore(2) cukup — gak perlu buffer slot ke-3.
+
 **Bug Fixes**
 - **`whatsapp-bridge/bridge.js`** — Fix: `msg.mentionedIds.includes(botNumber)` tidak cocok karena `mentionedIds` berisi `"628xxx@c.us"` sementara `botNumber` tanpa `@c.us`. Diubah ke `.some(id.split('@')[0] === botNumber)`.
 - **`telegram_bot.py`** — Fix: `RuntimeError: Event loop is closed` karena manual event loop untuk `get_me()`. Diganti ke `app.post_init`.
 - **`whatsapp-bridge/bridge.js`** — Poll feedback: tambah try-catch + log `hasSep` untuk debugging poll yang tidak muncul.
-- **`telegram_bot.py`** — Fix: Deteksi mention case insensitive (sebelum dihapus).
+- **`telegram_bot.py`**, **`wa_handler.py`**, **`server.py`** — OCR thread-safe: tambah `threading.Lock` + wrapper `ocr_readtext()`. EasyOCR `readtext()` gak thread-safe — 2 user kirim gambar bareng bisa race condition. Sekarang antri 1 per 1 via lock.
 
-**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
+**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `core/embedder.py`, `prompts/responses.json`, `README.md`, `VERSION`
 
 ---
 
