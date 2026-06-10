@@ -90,7 +90,10 @@ client.on('message', async (msg) => {
         if (msg.from.endsWith('@g.us')) {
             // Cek mention: apakah bot di-mention?
             const botNumber = client.info.wid.user;
-            const isMentioned = msg.mentionedIds && msg.mentionedIds.some(id => id === botNumber || id.split('@')[0] === botNumber);
+            // Cek mention: mentionedIds atau @nomor di teks
+            const isMentionedIds = msg.mentionedIds && msg.mentionedIds.some(id => id === botNumber || id.split('@')[0] === botNumber);
+            const isMentionText = msg.body && msg.body.includes(`@${botNumber}`);
+            const isMentioned = isMentionedIds || isMentionText;
 
             // Cek reply ke bot
             let isReplyToBot = false;
@@ -105,11 +108,7 @@ client.on('message', async (msg) => {
                 }
             }
 
-            // Fallback: cek @nomor di teks kalo mentionedIds gak work
-            const mentionFallback = !isMentioned && !isReplyToBot && msg.body &&
-                msg.body.includes(`@${botNumber}`);
-
-            if (!isMentioned && !isReplyToBot && !mentionFallback) {
+            if (!isMentioned && !isReplyToBot) {
                 console.log(`[WA GROUP] Skip — bot not targeted in ${msg.from}`);
                 return;
             }
