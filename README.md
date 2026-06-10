@@ -97,7 +97,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 12 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (E5 similarity)** | Jika BM25 < 5 + ada history, concat prev query depth 1-3 lalu hitung BM25 ulang. Jika cascade BM25 ≥ 5, cek **E5 similarity** antara query asli vs query sebelumnya (cosine sim ≥ 0.78). Jika similarity rendah → topic drift → cascade skip, jatuh ke 3-tier gate normal. Cegah query non-BPS yang numpang keyword dari history tembus cascade. |
+| 🔄 **Cascade Fallback (E5 similarity + Short Follow-up)** | Jika BM25 < 5 + ada history → concat prev query depth 1-3. Query < 3 kata (**short follow-up**: `"tetep"`, `"gimana"`) **skip BM25 gate & E5 guard** — langsung cascade. Jika cascade BM25 ≥ 5 → hybrid search. Jika < 5 → borderline fallback (bukan OOC). Query ≥ 3 kata tetap pake E5 similarity guard (≥ 0.78). Cegah query non-BPS numpang keyword. |
 | 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error. **Tracking otomatis** — semua feedback (tombol & chat) tercatat di `feedback_status` query log |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
@@ -592,21 +592,33 @@ Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabis
 
 ---
 
-Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabisa" setelah "verifikasi NIK gimana"), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
+Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep" atau "gimana" setelah pertanyaan sebelumnya), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
 
-**Cara kerja (BM25 + E5 similarity guard):**
-1. **BM25 original < 5** + ada history → concat prev query depth 1-3, hitung BM25 ulang
-2. Jika **BM25 cascade ≥ 5** (dapat keyword dari prev query) → cek **E5 cosine similarity** antara query asli vs prev query
-3. **E5 sim ≥ 0.78** → masih satu topik → ✅ lanjut hybrid search → LLM
-4. **E5 sim < 0.78** → topic drift → ❌ cascade skip, jatuh ke 3-tier BM25 gate
+**Cara kerja — Dua Mode Cascade:**
 
-> 🔑 **Biaya:** E5 query_vec sudah di-compute untuk BM25 gate, prev query di LRU cache. Cek cosine similarity cuma ~0.001ms — praktis gratis.
+### Mode 1: Short Follow-up (< 3 kata + ada history)
+Query user < 3 kata dengan history sebelumnya:
+1. **Short follow-up flag ON** — skip BM25 gate, langsung cascade depth 1-3
+2. **BM25 cascade ≥ 5.0** — ✅ langsung pakai, **E5 similarity guard di-skip**
+3. **BM25 cascade < 5.0** — set `bm25_top = 3.0` (borderline) bukan OOC, user dikasih saran
 
-| Skenario | BM25 original | BM25 cascade | E5 sim | Hasil |
-|----------|:---:|:---:|:---:|:--:|
-| Follow-up: "tetep gabisa" setelah "verifikasi NIK" | 0.0 | 9.2 | 0.89 ✅ | LLM jawab |
-| Topic drift: "BPS bukan satu-satunya" setelah "verifikasi NIK" | 2.1 | 5.2 | 0.55 ❌ | Cascade skip → tier gate |
-| Non-BPS: "siapa presiden" setelah "aktivasi FASIH" | 0.0 | 5.8 | 0.34 ❌ | Cascade skip → tier gate |
+### Mode 2: Cascade Normal (≥ 3 kata / BM25 < 5)
+Untuk query ≥ 3 kata yang BM25 < 5:
+1. **BM25 original < 5** + ada history — concat prev query depth 1-3
+2. **BM25 cascade ≥ 5** — cek **E5 cosine similarity** (≥ 0.78)
+3. **E5 sim ≥ 0.78** — ✅ satu topik → hybrid search → LLM
+4. **E5 sim < 0.78** — topic drift → cascade skip → 3-tier BM25 gate
+
+> 🔑 Short follow-up skip E5 guard — nol biaya tambahan.
+
+| Skenario | BM25 ori | BM25 cascade | E5 sim | Short? | Hasil |
+|----------|:---:|:---:|:---:|:---:|:--:|
+| Short: "tetep" setelah "verifikasi NIK" | 0.0 | 9.2 | — (skip) | ✅ | Langsung hybrid |
+| Short: "error" setelah "aktivasi FASIH" | 0.0 | 7.5 | — (skip) | ✅ | Langsung hybrid |
+| Short: "gimana" setelah "cara daftar" | 0.0 | 4.2 | — (skip) | ✅ | Borderline fallback |
+| Normal: "tetep gabisa" setelah "verifikasi NIK" | 0.0 | 9.2 | 0.89 ✅ | ❌ | LLM jawab |
+| Drift: "BPS bukan satu-satunya" setelah NIK | 2.1 | 5.2 | 0.55 ❌ | ❌ | Cascade skip |
+| Non-BPS: "siapa presiden" setelah FASIH | 0.0 | 5.8 | 0.34 ❌ | ❌ | Cascade skip |
 
 ---
 
@@ -1644,9 +1656,16 @@ sudo lsof -i :8000              # Linux
 - Fitur group chat Telegram (mention detection, user_id, post_init) dihapus. Bot kembali private-only untuk Telegram karena kendala event loop dan deteksi mention yang tidak stabil.
 - File `telegram_bot.py` dikembalikan ke handler private-only (`& filters.ChatType.PRIVATE` untuk image handler).
 
+**Cascade — Short Follow-up Mode**
+- **`server.py`** — Mode baru: jika query < 3 kata **dan** ada history, langsung cascade depth 1-3 tanpa BM25 gate dan tanpa E5 similarity guard. Follow-up pendek seperti `"tetep"`, `"gimana"`, `"error"` langsung concat dengan prev query.
+- Jika cascade BM25 ≥ 5.0 → langsung hybrid search (skip E5 sim guard).
+- Jika cascade BM25 < 5.0 → `bm25_top` di-set ke 3.0 (borderline) bukan OOC. User dapat `rejection_no_answer` (saran) bukan `rejection_out_of_context` (tolak).
+- Tidak ada efek pada query ≥ 3 kata — tetap pake logika cascade normal dengan E5 guard.
+
 **Bug Fixes**
 - **`whatsapp-bridge/bridge.js`** — Fix: `msg.mentionedIds.includes(botNumber)` tidak cocok karena `mentionedIds` berisi `"628xxx@c.us"` sementara `botNumber` tanpa `@c.us`. Diubah ke `.some(id.split('@')[0] === botNumber)`.
 - **`telegram_bot.py`** — Fix: `RuntimeError: Event loop is closed` karena manual event loop untuk `get_me()`. Diganti ke `app.post_init`.
+- **`whatsapp-bridge/bridge.js`** — Poll feedback: tambah try-catch + log `hasSep` untuk debugging poll yang tidak muncul.
 - **`telegram_bot.py`** — Fix: Deteksi mention case insensitive (sebelum dihapus).
 
 **Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
