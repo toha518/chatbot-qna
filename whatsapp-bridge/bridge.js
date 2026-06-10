@@ -201,12 +201,12 @@ client.on('message', async (msg) => {
             console.log(`[WA OUT] Silent block — ${sender} gak dikirimi apapun`);
             return;
         }
-        console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 100)}...`);
+        const _fb_sep = '\n━━━━━━━━━━━━━━━━━━━━\n';
+        const _hasSep = reply.includes(_fb_sep);
+        console.log(`[WA OUT] Ke ${sender}: ${reply.substring(0, 80)}... | hasSep=${_hasSep} | len=${reply.length}`);
 
         // ===================== KIRIM PESAN DENGAN TOMBOL FEEDBACK =====================
 
-
-        const _fb_sep = '\n━━━━━━━━━━━━━━━━━━━━\n';
         if (reply.includes(_fb_sep)) {
             // Pisahkan jawaban dari footer
             const parts = reply.split(_fb_sep);
@@ -215,21 +215,23 @@ client.on('message', async (msg) => {
             // Kirim jawaban dulu
             await client.sendMessage(sender, answerText);
 
-            // Kirim native WA Poll — user tinggal tap ✅ atau ❌
-            // otomatis dihapus pas user vote
-            const pollBody = new Poll('💡 Apakah jawaban ini sudah membantu?', [
-                '✅ Sudah',
-                '❌ Belum'
-            ], { allowMultipleAnswers: false });
-            const pollMsg = await chat.sendMessage(pollBody);
+            // Kirim native WA Poll
+            try {
+                const pollBody = new Poll('💡 Apakah jawaban ini sudah membantu?', [
+                    '✅ Sudah',
+                    '❌ Belum'
+                ], { allowMultipleAnswers: false });
+                const pollMsg = await chat.sendMessage(pollBody);
 
-            // Simpan polling message reference + konteks grup biar bisa dihapus nanti
-            if (!global._pollMap) global._pollMap = new Map();
-            // Key = poll message ID — unik per poll, FCFS: siapa pun klik pertama dilayani
-            global._pollMap.set(pollMsg.id._serialized, {
-                sender: msg.from.endsWith('@g.us') ? msg.from : sender,
-                author: msg.from.endsWith('@g.us') ? _author : ''
-            });
+                // Simpan polling message reference + konteks grup biar bisa dihapus nanti
+                if (!global._pollMap) global._pollMap = new Map();
+                global._pollMap.set(pollMsg.id._serialized, {
+                    sender: msg.from.endsWith('@g.us') ? msg.from : sender,
+                    author: msg.from.endsWith('@g.us') ? _author : ''
+                });
+            } catch (pollErr) {
+                console.log(`[WA POLL] Gagal kirim poll: ${pollErr.message}`);
+            }
         } else {
             await client.sendMessage(sender, reply);
         }
