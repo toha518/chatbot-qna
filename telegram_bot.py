@@ -40,6 +40,9 @@ def _debug(msg: str):
     except Exception:
         pass
 
+# ── BOT USERNAME (fallback untuk group mention) ──
+BOT_USERNAME: str | None = None
+
 # ── Shared httpx client (connection pooling) ──
 _tg_client: httpx.AsyncClient | None = None
 
@@ -196,7 +199,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if is_group:
         # Cek mention atau reply ke bot — pake teks langsung, case insensitive
-        bot_username = context.bot.username
+        bot_username = context.bot.username or BOT_USERNAME
+        if not bot_username:
+            try:
+                me = await context.bot.get_me()
+                bot_username = me.username
+            except Exception:
+                pass
         is_mentioned = False
         if bot_username:
             mention_text = f"@{bot_username}"
@@ -370,6 +379,18 @@ def main():
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    # ── Ambil username bot di startup ──
+    global BOT_USERNAME
+    loop = asyncio.new_event_loop()
+    try:
+        me = loop.run_until_complete(app.bot.get_me())
+        BOT_USERNAME = me.username
+        print(f"[BOOT] Bot username: @{BOT_USERNAME}")
+    except Exception as e:
+        print(f"[BOOT] Gagal ambil username bot: {e}")
+    finally:
+        loop.close()
+
     # Daftarin handler
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
@@ -390,7 +411,13 @@ def main():
         _limit_key = chat_id
 
         if is_group:
-            bot_username = context.bot.username
+            bot_username = context.bot.username or BOT_USERNAME
+            if not bot_username:
+                try:
+                    me = await context.bot.get_me()
+                    bot_username = me.username
+                except Exception:
+                    pass
             is_mentioned = False
             if bot_username:
                 mention_text = f"@{bot_username}"
