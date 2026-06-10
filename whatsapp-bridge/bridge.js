@@ -289,7 +289,7 @@ client.on('vote_update', async (vote) => {
 
             const reply = resp.data?.jawaban || '';
             if (reply) {
-                await client.sendMessage(voter, reply);
+                await client.sendMessage(pollEntry.sender, reply);
             }
         }
     } catch (err) {
