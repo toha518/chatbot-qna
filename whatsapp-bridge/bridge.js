@@ -225,7 +225,8 @@ client.on('message', async (msg) => {
 
             // Simpan polling message reference + konteks grup biar bisa dihapus nanti
             if (!global._pollMap) global._pollMap = new Map();
-            const _key = sender.split('@')[0];
+            // Gunakan user_id sebagai key (voter di vote_update juga pake user_id)
+            const _key = (msg.from.endsWith('@g.us') ? _author : sender).split('@')[0];
             global._pollMap.set(_key, {
                 pollId: pollMsg.id._serialized,
                 sender: msg.from.endsWith('@g.us') ? msg.from : sender,
