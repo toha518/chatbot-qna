@@ -437,6 +437,15 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     if ft_domain == "forward":
         session_has_forward[cid] = True
 
+    # ── MINIMUM WORD COUNT (forward only, no history) ──
+    if ft_domain == "forward":
+        word_count = len(req.pertanyaan.split())
+        has_history = bool(history and any(m["role"] == "user" for m in history))
+        if word_count < 3 and not has_history:
+            print(f"[DOMAIN] Forward cuma {word_count} kata, no history — minta diperjelas")
+            api_rate_limit[cid]["last_active"] = time.time()
+            return {"jawaban": responses.get("min_words_warning").format(min_words=3), "skor": 0}
+
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = await async_encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics

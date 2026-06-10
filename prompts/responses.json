@@ -28,5 +28,6 @@
   "stop_confirm": "{end_msg}\n\nSilakan kirim /start untuk memulai lagi.",
   "session_ended_fallback": "Sesi diskusi telah diakhiri.",
   "stop_command": "{end_msg}\n\nSilakan kirim pesan atau tap Mulai untuk memulai lagi.",
-  "help_text_wa": "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya dari database mengenai {topics_line}."
+  "help_text_wa": "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya dari database mengenai {topics_line}.",
+  "min_words_warning": "⚠️ Pertanyaan harus minimal {min_words} kata."
 }

@@ -32,6 +32,9 @@ whatsapp-bridge/auth/
 whatsapp-bridge/node_modules/
 whatsapp-bridge/.npm/
 
+# === Plan files ===
+PLAN-BOT-BARU.md
+
 # === OS ===
 .DS_Store
 Thumbs.db
