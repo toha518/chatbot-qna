@@ -243,6 +243,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
 
     # ===================== LIMIT KEY: bedain session (chat_id) vs limit (user_id) =====================
     _limit_key = req.user_id if req.user_id else cid  # untuk spam & daily limit
+    print(f"[GROUP DEBUG] /chat cid={cid} limit_key={_limit_key} source={req.source} pertanyaan='{_display_query[:60]}'")
 
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
     if req.image_path:
