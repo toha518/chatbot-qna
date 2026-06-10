@@ -183,28 +183,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = ""
 
     if is_group:
-        # Cek mention — case insensitive
+        # Cek mention atau reply ke bot — pake teks langsung, case insensitive
         bot_username = context.bot.username
-        bot_mention_lower = f"@{bot_username}".lower() if bot_username else ""
         is_mentioned = False
-        if update.message.entities and bot_mention_lower:
-            for entity in update.message.entities:
-                if entity.type == "mention":
-                    mention_text = update.message.text[entity.offset:entity.offset+entity.length]
-                    if bot_mention_lower in mention_text.lower():
-                        is_mentioned = True
-                        # Hapus mention dari teks (case insensitive)
-                        text = re.sub(re.escape(f"@{bot_username}"), "", text, flags=re.IGNORECASE).strip()
-                        break
-                elif entity.type == "text_mention":
-                    if entity.user.id == context.bot.id:
-                        is_mentioned = True
-                        # Hapus mention
-                        mention_start = entity.offset
-                        mention_end = entity.offset + entity.length
-                        text = text[:mention_start] + text[mention_end:]
-                        text = text.strip()
-                        break
+        if bot_username:
+            mention_text = f"@{bot_username}"
+            if mention_text.lower() in text.lower():
+                is_mentioned = True
+                # Hapus mention dari teks
+                text = re.sub(re.escape(mention_text), "", text, flags=re.IGNORECASE).strip()
 
         # Cek reply ke bot
         is_reply_to_bot = False
@@ -391,19 +378,11 @@ def main():
 
         if is_group:
             bot_username = context.bot.username
-            bot_mention_lower = f"@{bot_username}".lower() if bot_username else ""
             is_mentioned = False
-            if update.message.entities and bot_mention_lower:
-                for entity in update.message.entities:
-                    if entity.type == "mention":
-                        mention_text = update.message.text[entity.offset:entity.offset+entity.length]
-                        if bot_mention_lower in mention_text.lower():
-                            is_mentioned = True
-                            break
-                    elif entity.type == "text_mention":
-                        if entity.user.id == context.bot.id:
-                            is_mentioned = True
-                            break
+            if bot_username:
+                mention_text = f"@{bot_username}"
+                if mention_text.lower() in update.effective_message.text.lower():
+                    is_mentioned = True
 
             is_reply_to_bot = False
             if update.message.reply_to_message and update.message.reply_to_message.from_user:
