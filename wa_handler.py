@@ -62,6 +62,8 @@ def _strip_markdown(text: str) -> str:
 # ===================== OCR ENGINE (EasyOCR) =====================
 _ocr_reader = None
 
+_ocr_lock = threading.Lock()
+
 def get_ocr_reader():
     global _ocr_reader
     if _ocr_reader is None:
@@ -70,6 +72,13 @@ def get_ocr_reader():
         _ocr_reader = easyocr.Reader(['id', 'en'], gpu=False)
         print("[OCR] Ready!")
     return _ocr_reader
+
+def ocr_readtext(image_path: str) -> str:
+    """Thread-safe OCR: baca teks dari gambar, 1 proses per waktu."""
+    with _ocr_lock:
+        reader = get_ocr_reader()
+        result = reader.readtext(image_path)
+        return ' '.join([item[1] for item in result if item[2] > 0.3])
 
 # ===================== KONFIGURASI =====================
 load_dotenv()
@@ -121,10 +130,8 @@ def wa_message():
                     tmp.write(image_bytes)
                     tmp_path = tmp.name
 
-                result = reader.readtext(tmp_path)
+                ocr_text = ocr_readtext(tmp_path)
                 os.unlink(tmp_path)
-
-                ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
                 if caption and ocr_text:
                     pertanyaan = f"{caption}\n\n[Gambar: {ocr_text}]"
                 elif ocr_text:

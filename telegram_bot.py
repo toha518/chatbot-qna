@@ -52,6 +52,8 @@ def _tg_format(text: str) -> str:
 # Support bahasa Indonesia + Inggris
 _ocr_reader = None
 
+_ocr_lock = threading.Lock()
+
 def get_ocr_reader():
     global _ocr_reader
     if _ocr_reader is None:
@@ -60,6 +62,13 @@ def get_ocr_reader():
         _ocr_reader = easyocr.Reader(['id', 'en'], gpu=False)
         print("[OCR] Ready!")
     return _ocr_reader
+
+def ocr_readtext(image_path: str) -> str:
+    """Thread-safe OCR: baca teks dari gambar, 1 proses per waktu."""
+    with _ocr_lock:
+        reader = get_ocr_reader()
+        result = reader.readtext(image_path)
+        return ' '.join([item[1] for item in result if item[2] > 0.3])
 
 # ===================== KONFIGURASI =====================
 load_dotenv()  # baca .env (kalo ada)
@@ -372,14 +381,10 @@ def main():
                 tmp_path = tmp.name
 
             def _do_ocr(path):
-                rdr = get_ocr_reader()
-                return rdr.readtext(path)
+                return ocr_readtext(path)
 
-            result = await asyncio.to_thread(_do_ocr, tmp_path)
+            ocr_text = await asyncio.to_thread(_do_ocr, tmp_path)
             os.unlink(tmp_path)
-
-            # Ambil teks dengan confidence > 0.3
-            ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
 
             # Gabung caption (kalo ada) + OCR
             caption = update.message.caption or ''

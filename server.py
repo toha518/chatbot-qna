@@ -253,13 +253,16 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                 return {"jawaban": responses.get("image_rate_limit", "⏳ Mohon tunggu 1 menit sebelum kirim gambar lagi."), "skor": 0}
         try:
             import sys
-            # Lazy load EasyOCR khusus pas ada gambar (mirip telegram_bot.py)
+            # Lazy load EasyOCR + thread-safe lock
             if '_ocr_reader' not in globals() or globals()['_ocr_reader'] is None:
                 print("[OCR] Loading EasyOCR model (~500MB)...")
                 import easyocr
+                import threading
+                globals()['_ocr_lock'] = threading.Lock()
                 globals()['_ocr_reader'] = easyocr.Reader(['id', 'en'], gpu=False)
                 print("[OCR] Ready!")
-            result = globals()['_ocr_reader'].readtext(req.image_path)
+            with globals()['_ocr_lock']:
+                result = globals()['_ocr_reader'].readtext(req.image_path)
             ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
             caption = req.pertanyaan if req.pertanyaan != "[Gambar]" else ""
             if caption and ocr_text:
