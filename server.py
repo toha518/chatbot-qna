@@ -459,24 +459,37 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[_limit_key]["last_active"] = time.time()
 
-    # ── CASCADE: concat prev query kalo BM25 < 5 ──
+    # ── CASCADE: concat prev query ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     cascade_used = False
     _cascade_query = None
-    if bm25_top < 5.0 and prev_queries:
+    
+    # Short follow-up: < 3 kata + ada history → langsung cascade tanpa BM25 gate
+    _short_followup = False
+    if ft_domain == "forward":
+        _wc = len(req.pertanyaan.split())
+        _hh = bool(history and any(m["role"] == "user" for m in history))
+        if _wc < 3 and _hh:
+            _short_followup = True
+    
+    if (_short_followup or bm25_top < 5.0) and prev_queries:
         for depth in range(1, min(4, len(prev_queries) + 1)):
             context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
             enhanced_query = " — ".join(context_parts)
             bm25_cascade = get_bm25_score(enhanced_query)
             print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
             if bm25_cascade >= 5.0:
-                # E5 similarity guard: pattern sama kayak multi-part split
-                _prev_vec = await async_encode_query(prev_queries[0])
-                _curr_vec = query_vec
-                if _prev_vec.ndim == 1: _prev_vec = _prev_vec.reshape(1, -1)
-                if _curr_vec.ndim == 1: _curr_vec = _curr_vec.reshape(1, -1)
-                _e5_sim = float(cosine_similarity(_prev_vec, _curr_vec).flatten()[0])
-                _e5_threshold = 0.78  # sama kayak multi-part merge
+                # E5 similarity guard — SKIP buat short follow-up
+                _skip_e5 = _short_followup
+                if not _skip_e5:
+                    _prev_vec = await async_encode_query(prev_queries[0])
+                    _curr_vec = query_vec
+                    if _prev_vec.ndim == 1: _prev_vec = _prev_vec.reshape(1, -1)
+                    if _curr_vec.ndim == 1: _curr_vec = _curr_vec.reshape(1, -1)
+                    _e5_sim = float(cosine_similarity(_prev_vec, _curr_vec).flatten()[0])
+                else:
+                    _e5_sim = 1.0  # skip E5 guard
+                _e5_threshold = 0.78
                 if _e5_sim >= _e5_threshold:
                     bm25_top = bm25_cascade
                     _cascade_query = enhanced_query
@@ -486,8 +499,13 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                     break
                 else:
                     print(f"[QUERY] Cascade depth={depth} E5 sim terlalu rendah ({_e5_sim:.2f}) — topic drift, skip cascade")
-        if not cascade_used:
+        if not cascade_used and not _short_followup:
             print(f"[QUERY] Cascade gagal di semua depth — BM25 max {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
+        
+        # Short follow-up: cascade gagal pun jangan OOC — kasih borderline/no_answer
+        if not cascade_used and _short_followup and bm25_top < 3.0:
+            print(f"[DOMAIN] Short follow-up cascade gagal — borderline fallback")
+            bm25_top = 3.0  # set ke borderline biar gak kena OOC"}]}
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
