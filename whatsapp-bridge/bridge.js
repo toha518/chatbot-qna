@@ -225,10 +225,8 @@ client.on('message', async (msg) => {
 
             // Simpan polling message reference + konteks grup biar bisa dihapus nanti
             if (!global._pollMap) global._pollMap = new Map();
-            // Gunakan user_id sebagai key (voter di vote_update juga pake user_id)
-            const _key = (msg.from.endsWith('@g.us') ? _author : sender).split('@')[0];
-            global._pollMap.set(_key, {
-                pollId: pollMsg.id._serialized,
+            // Key = poll message ID — unik per poll, FCFS: siapa pun klik pertama dilayani
+            global._pollMap.set(pollMsg.id._serialized, {
                 sender: msg.from.endsWith('@g.us') ? msg.from : sender,
                 author: msg.from.endsWith('@g.us') ? _author : ''
             });
@@ -265,9 +263,9 @@ client.on('vote_update', async (vote) => {
         const optionName = selected[0].name;
         const pollMsg = vote.parentMessage;
 
-        // Cek apakah ini poll feedback punya kita (dari _pollMap)
-        const _key = voter.split('@')[0];
-        const pollEntry = global._pollMap && global._pollMap.get(_key);
+        // Cek apakah ini poll feedback punya kita (dari _pollMap) — key = poll ID, FCFS
+        const pollKey = pollMsg.id._serialized;
+        const pollEntry = global._pollMap && global._pollMap.get(pollKey);
         if (pollEntry) {
             // Hapus poll dari chat
             try {
@@ -275,7 +273,7 @@ client.on('vote_update', async (vote) => {
             } catch (delErr) {
                 console.log(`[POLL] Gagal hapus: ${delErr.message}`);
             }
-            global._pollMap.delete(_key);
+            global._pollMap.delete(pollKey);
 
             // Kirim feedback ke server dengan konteks grup
             const isPositive = optionName.includes('✅');
