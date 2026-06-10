@@ -90,7 +90,7 @@ client.on('message', async (msg) => {
         if (msg.from.endsWith('@g.us')) {
             // Cek mention: apakah bot di-mention?
             const botNumber = client.info.wid.user;
-            const isMentioned = msg.mentionedIds && msg.mentionedIds.includes(botNumber);
+            const isMentioned = msg.mentionedIds && msg.mentionedIds.some(id => id === botNumber || id.split('@')[0] === botNumber);
 
             // Cek reply ke bot
             let isReplyToBot = false;
