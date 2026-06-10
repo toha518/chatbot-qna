@@ -30,6 +30,16 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
+# ── DEBUG LOG (group chat debugging) ──
+import datetime
+_DEBUG_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_group.log")
+def _debug(msg: str):
+    try:
+        with open(_DEBUG_LOG, "a", encoding="utf-8") as f:
+            f.write(f"[{datetime.datetime.now():%H:%M:%S}] {msg}\n")
+    except Exception:
+        pass
+
 # ── Shared httpx client (connection pooling) ──
 _tg_client: httpx.AsyncClient | None = None
 
@@ -173,6 +183,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = str(update.effective_chat.id)  # ID unik percakapan
     text = update.message.text.strip()
+    chat_type = str(update.effective_chat.type)
+    _debug(f"MSG chat_type={chat_type} chat_id={chat_id} user={update.effective_user.id if update.effective_user else '?'} text={text[:80]}")
 
     if not text:
         return
@@ -200,6 +212,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 is_reply_to_bot = True
 
         if not is_mentioned and not is_reply_to_bot:
+            _debug(f"SKIP GRUP — not mentioned/reply. chat_id={chat_id} text={text[:60]}")
             return  # skip — bot not targeted
 
         user_id = str(update.effective_user.id)
@@ -515,7 +528,8 @@ def main():
     except Exception as e:
         print(f"Gagal register commands: {e}")
 
-    print("Bot started!")
+    print("Bot started! (debug log: " + _DEBUG_LOG + ")")
+    _debug("BOT STARTED — listening for messages")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
