@@ -379,17 +379,14 @@ def main():
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # ── Ambil username bot di startup ──
+    # ── Ambil username bot via post_init (pake event loop yang sama) ──
     global BOT_USERNAME
-    loop = asyncio.new_event_loop()
-    try:
-        me = loop.run_until_complete(app.bot.get_me())
+    async def _post_init(app):
+        global BOT_USERNAME
+        me = await app.bot.get_me()
         BOT_USERNAME = me.username
         print(f"[BOOT] Bot username: @{BOT_USERNAME}")
-    except Exception as e:
-        print(f"[BOOT] Gagal ambil username bot: {e}")
-    finally:
-        loop.close()
+    app.post_init = _post_init
 
     # Daftarin handler
     app.add_handler(CommandHandler("start", start))
