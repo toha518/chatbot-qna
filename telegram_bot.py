@@ -30,19 +30,6 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboard
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
-# ── DEBUG LOG (group chat debugging) ──
-import datetime
-_DEBUG_LOG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_group.log")
-def _debug(msg: str):
-    try:
-        with open(_DEBUG_LOG, "a", encoding="utf-8") as f:
-            f.write(f"[{datetime.datetime.now():%H:%M:%S}] {msg}\n")
-    except Exception:
-        pass
-
-# ── BOT USERNAME (fallback untuk group mention) ──
-BOT_USERNAME: str | None = None
-
 # ── Shared httpx client (connection pooling) ──
 _tg_client: httpx.AsyncClient | None = None
 
@@ -56,7 +43,6 @@ async def _get_tg_client(timeout: int = 120):
         print(f"[TELEGRAM] Shared httpx client initialized (pool: max_connections=10)")
     return _tg_client
 
-
 def _tg_format(text: str) -> str:
     """Convert **bold** ke <b>bold</b> buat Telegram HTML mode"""
     return re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
@@ -65,7 +51,6 @@ def _tg_format(text: str) -> str:
 # Model ~500MB, di-load pas pertama kali ada gambar masuk
 # Support bahasa Indonesia + Inggris
 _ocr_reader = None
-
 
 def get_ocr_reader():
     global _ocr_reader
@@ -89,9 +74,6 @@ def normalize(text):
     text = re.sub(r'[^\w\s]', '', text)  # hapus tanda baca
     text = re.sub(r'\s+', ' ', text)     # normalize spasi
     return text
-
-
-
 
 # ===================== MENU KEYBOARD =====================
 # Tombol permanen di bawah chat — biar user gak perlu hafal command
@@ -135,7 +117,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=MENU_MARKUP
     )
 
-
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /help"""
     chat_id = str(update.effective_chat.id)
@@ -144,7 +125,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _RESPONSES.get("help_text").format(topics_line=topics_line),
         reply_markup=MENU_MARKUP
     )
-
 
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /topics — daftar topik"""
@@ -155,7 +135,6 @@ async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _RESPONSES.get("topics_text").format(topics_text=topics_text),
         reply_markup=MENU_MARKUP
     )
-
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler /stop — akhiri sesi diskusi"""
@@ -178,7 +157,6 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=MENU_MARKUP
     )
 
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler utama — semua pesan teks masuk sini"""
     if not update.message or not update.message.text:
@@ -187,45 +165,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)  # ID unik percakapan
     text = update.message.text.strip()
     chat_type = str(update.effective_chat.type)
-    _debug(f"MSG chat_type={chat_type} chat_id={chat_id} user={update.effective_user.id if update.effective_user else '?'} text={text[:80]}")
 
     if not text:
         return
-
-    # ── GROUP CHAT: cek mention atau reply ke bot ──
-    chat_type = update.effective_chat.type
-    is_group = chat_type in ('group', 'supergroup')
-    user_id = ""
-
-    if is_group:
-        # Cek mention atau reply ke bot — pake teks langsung, case insensitive
-        bot_username = context.bot.username or BOT_USERNAME
-        if not bot_username:
-            try:
-                me = await context.bot.get_me()
-                bot_username = me.username
-            except Exception:
-                pass
-        is_mentioned = False
-        if bot_username:
-            mention_text = f"@{bot_username}"
-            if mention_text.lower() in text.lower():
-                is_mentioned = True
-                # Hapus mention dari teks
-                text = re.sub(re.escape(mention_text), "", text, flags=re.IGNORECASE).strip()
-
-        # Cek reply ke bot
-        is_reply_to_bot = False
-        if update.message.reply_to_message and update.message.reply_to_message.from_user:
-            if update.message.reply_to_message.from_user.id == context.bot.id:
-                is_reply_to_bot = True
-
-        if not is_mentioned and not is_reply_to_bot:
-            _debug(f"SKIP GRUP — not mentioned/reply. chat_id={chat_id} text={text[:60]}")
-            return  # skip — bot not targeted
-
-        user_id = str(update.effective_user.id)
-        chat_id = str(update.effective_chat.id)  # tetap group_id
 
     # ===================== INPUT SANITASI =====================
     # Hapus karakter kontrol (kecuali newline)
@@ -277,7 +219,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         client = await _get_tg_client(120)
         resp = await client.post(
             CHATBOT_URL,
-            json={"pertanyaan": text, "chat_id": chat_id, "user_id": user_id, "source": "telegram"}
+            json={"pertanyaan": text, "chat_id": chat_id, "source": "telegram"}
         )
         data = resp.json()
         jawaban = data.get("jawaban", "Error: tidak ada jawaban")
@@ -311,14 +253,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _typing_task.cancel()
         await update.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
 
-
 async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler untuk tombol feedback ✅ Sudah / ❌ Belum"""
     query = update.callback_query
     await query.answer()
     chat_id = str(update.effective_chat.id)
-    chat_type = update.effective_chat.type
-    user_id = str(update.effective_user.id) if chat_type in ('group', 'supergroup') else ""
 
     if query.data == "fb_yes":
         # Kirim positive_feedback ke server — server akan stop session
@@ -326,7 +265,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             client = await _get_tg_client(30)
             resp = await client.post(
                 CHATBOT_URL,
-                json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "user_id": user_id, "source": "telegram"}
+                json={"pertanyaan": "feedback_yes", "chat_id": chat_id, "source": "telegram"}
             )
             data = resp.json()
             jawaban = data.get("jawaban", "")
@@ -341,7 +280,7 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             client = await _get_tg_client(30)
             resp = await client.post(
                 CHATBOT_URL,
-                json={"pertanyaan": "feedback_no", "chat_id": chat_id, "user_id": user_id, "source": "telegram"}
+                json={"pertanyaan": "feedback_no", "chat_id": chat_id, "source": "telegram"}
             )
             data = resp.json()
             jawaban = data.get("jawaban", "")
@@ -349,7 +288,6 @@ async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.message.reply_text(_tg_format(jawaban), reply_markup=MENU_MARKUP, parse_mode=ParseMode.HTML)
         except Exception as e:
             await query.message.reply_text(f"{_RESPONSES.get('error_llm', '')} {str(e)}", reply_markup=MENU_MARKUP)
-
 
 # ===================== MAIN =====================
 
@@ -370,7 +308,6 @@ def start_health_server():
     print(f"[HEALTH] Health endpoint on http://localhost:{HEALTH_PORT}")
     server.serve_forever()
 
-
 def main():
     """Set up bot dan mulai polling"""
     # Start health endpoint di background thread
@@ -378,15 +315,6 @@ def main():
     t.start()
 
     app = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # ── Ambil username bot via post_init (pake event loop yang sama) ──
-    global BOT_USERNAME
-    async def _post_init(app):
-        global BOT_USERNAME
-        me = await app.bot.get_me()
-        BOT_USERNAME = me.username
-        print(f"[BOOT] Bot username: @{BOT_USERNAME}")
-    app.post_init = _post_init
 
     # Daftarin handler
     app.add_handler(CommandHandler("start", start))
@@ -400,40 +328,8 @@ def main():
         """Handler gambar: download → OCR → gabung caption → kirim ke server"""
         from security.rate_limiter import check_image_rate_limit
         chat_id = str(update.effective_chat.id)
-
-        # ── GROUP CHAT: cek mention atau reply ke bot ──
-        chat_type = update.effective_chat.type
-        is_group = chat_type in ('group', 'supergroup')
-        user_id = ""
-        _limit_key = chat_id
-
-        if is_group:
-            bot_username = context.bot.username or BOT_USERNAME
-            if not bot_username:
-                try:
-                    me = await context.bot.get_me()
-                    bot_username = me.username
-                except Exception:
-                    pass
-            is_mentioned = False
-            if bot_username:
-                mention_text = f"@{bot_username}"
-                if mention_text.lower() in update.effective_message.text.lower():
-                    is_mentioned = True
-
-            is_reply_to_bot = False
-            if update.message.reply_to_message and update.message.reply_to_message.from_user:
-                if update.message.reply_to_message.from_user.id == context.bot.id:
-                    is_reply_to_bot = True
-
-            if not is_mentioned and not is_reply_to_bot:
-                return
-
-            user_id = str(update.effective_user.id)
-            _limit_key = user_id
-
         # Image rate limit: 1 gambar per 1 menit per user
-        if not check_image_rate_limit(_limit_key):
+        if not check_image_rate_limit(chat_id):
             await update.message.reply_text(_RESPONSES.get("image_rate_limit"))
             return
 
@@ -503,7 +399,7 @@ def main():
             client = await _get_tg_client(120)
             resp = await client.post(
                 CHATBOT_URL,
-                json={"pertanyaan": combined, "chat_id": chat_id, "user_id": user_id, "is_ocr": True, "source": "telegram"}
+                json={"pertanyaan": combined, "chat_id": chat_id, "is_ocr": True, "source": "telegram"}
             )
             data = resp.json()
             jawaban = data.get("jawaban", "Error: tidak ada jawaban")
@@ -521,7 +417,6 @@ def main():
             except Exception:
                 await update.message.reply_text(jawaban, reply_markup=MENU_MARKUP)
 
-
         except Exception as e:
             _typing_img_task.cancel()
             try:
@@ -532,7 +427,7 @@ def main():
             print(f"[IMAGE ERROR] {e}")
 
     # Handler untuk foto, gambar, dokumen gambar (private & group)
-    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_image))
+    app.add_handler(MessageHandler((filters.PHOTO | filters.Document.IMAGE) & filters.ChatType.PRIVATE, handle_image))
     # Handler untuk media lain (sticker, voice, video) — tetap ditolak
     async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(_RESPONSES.get("text_only"))
@@ -552,10 +447,8 @@ def main():
     except Exception as e:
         print(f"Gagal register commands: {e}")
 
-    print("Bot started! (debug log: " + _DEBUG_LOG + ")")
-    _debug("BOT STARTED — listening for messages")
+    print("Bot started!")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
 
 if __name__ == "__main__":
     main()
