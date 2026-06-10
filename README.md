@@ -1615,6 +1615,44 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.10.0 — 2026-06-10
+
+**Group Chat (WhatsApp) + Rejection Revision + Bug Fixes**
+
+**WhatsApp Group Chat — Mention & Reply Detection**
+- **`whatsapp-bridge/bridge.js`** — Group messages (`@g.us`) tidak lagi di-skip. Bot merespon hanya jika di-mention (`@Nara`) atau reply ke pesan bot.
+- Deteksi mention tiga lapis: `msg.getMentions()` (primary), `msg.mentionedIds` (fallback), teks `@nomor` (fallback 2). Case insensitive.
+- **`wa_handler.py`** — Menerima `author` dari bridge. Rate limit & daily limit menggunakan `author` (per-user). Session menggunakan `sender` (group_id = per-group).
+- **`server.py`** — `user_id` di `ChatRequest`. `_limit_key = user_id` (untuk spam/daily limit). Session tetap pake `chat_id` (group_id).
+
+**WhatsApp Group — Poll Feedback FCFS**
+- **`whatsapp-bridge/bridge.js`** — Poll feedback di grup: first-come-first-serve. Siapa pun yang klik pertama diproses, poll langsung dihapus dari chat. Key lookup menggunakan `pollMsg.id._serialized` — unik per poll, bukan per user.
+- Respons feedback dikirim ke **grup** (bukan private chat user).
+- Private chat feedback tetap normal.
+
+**WhatsApp — Watchdog Session**
+- Notifikasi session expired untuk grup WA dikirim ke grup via bridge `/send`.
+- Notifikasi session expired untuk private WA dikirim ke user.
+
+**Rejection & Feedback Template — 1 Kalimat**
+- **`prompts/responses.json`** — `rejection_no_answer` dan `negative_feedback` diubah:
+  - Lama: 3 poin terpisah (aplikasi, kendala, error) + "Coba ceritakan ulang"
+  - Baru: "Harap sebutkan nama aplikasi dan kendalanya dalam 1 kalimat."
+  - Juga dihapus `**bold**` untuk aplikasi/kendala/error — cukup satu kalimat langsung.
+
+**Telegram — Dihapus: Fitur Group Chat**
+- Fitur group chat Telegram (mention detection, user_id, post_init) dihapus. Bot kembali private-only untuk Telegram karena kendala event loop dan deteksi mention yang tidak stabil.
+- File `telegram_bot.py` dikembalikan ke handler private-only (`& filters.ChatType.PRIVATE` untuk image handler).
+
+**Bug Fixes**
+- **`whatsapp-bridge/bridge.js`** — Fix: `msg.mentionedIds.includes(botNumber)` tidak cocok karena `mentionedIds` berisi `"628xxx@c.us"` sementara `botNumber` tanpa `@c.us`. Diubah ke `.some(id.split('@')[0] === botNumber)`.
+- **`telegram_bot.py`** — Fix: `RuntimeError: Event loop is closed` karena manual event loop untuk `get_me()`. Diganti ke `app.post_init`.
+- **`telegram_bot.py`** — Fix: Deteksi mention case insensitive (sebelum dihapus).
+
+**Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
 #### v2.8.0 — 2026-06-07
 
 **BM25 Append Kategori + Dashboard Fix Top FAQ**
