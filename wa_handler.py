@@ -89,17 +89,23 @@ def wa_message():
         return jsonify({"error": "no data"}), 400
 
     sender = data.get("sender", "default")
+    author = data.get("author", "")  # untuk group: user_id yg mention
     # Normalisasi format WA sender: @lid@c.us → @lid (biar trusted ID match)
     if sender.endswith('@lid@c.us'):
         sender = sender.replace('@lid@c.us', '@lid')
+    if author.endswith('@lid@c.us'):
+        author = author.replace('@lid@c.us', '@lid')
     message = data.get("message", "")
     is_image = data.get("is_image", False)
+
+    # Use author for limits if present (group chat)
+    _limit_id = author if author else sender
 
     # ===================== PROSES GAMBAR =====================
     if is_image:
         from security.rate_limiter import check_image_rate_limit
         # Image rate limit: 1 gambar per 1 menit per user
-        if not check_image_rate_limit(sender):
+        if not check_image_rate_limit(_limit_id):
             return jsonify({"jawaban": _RESPONSES.get("image_rate_limit")})
 
         try:
@@ -141,7 +147,7 @@ def wa_message():
 
     # Feedback button dari WhatsApp (user pencet tombol ✅ Sudah / ❌ Belum / balas emoji)
     if cmd in ['✅ sudah', 'sudah', '👍']:
-        payload = {"pertanyaan": "feedback_yes", "chat_id": sender, "source": "wa"}
+        payload = {"pertanyaan": "feedback_yes", "chat_id": sender, "user_id": author, "source": "wa"}
         try:
             api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
             resp = _get_session().post(api_url, json=payload, timeout=30)
@@ -151,7 +157,7 @@ def wa_message():
             print(f"[WA FB] Error: {e}")
 
     if cmd in ['❌ belum', 'belum', '👎']:
-        payload = {"pertanyaan": "feedback_no", "chat_id": sender, "source": "wa"}
+        payload = {"pertanyaan": "feedback_no", "chat_id": sender, "user_id": author, "source": "wa"}
         try:
             api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
             resp = _get_session().post(api_url, json=payload, timeout=30)
@@ -215,7 +221,7 @@ def wa_message():
     try:
         # CHATBOT_URL udah include /chat, jadi jangan ditambahin lagi
         api_url = SERVER_URL if SERVER_URL.endswith('/chat') else f"{SERVER_URL}/chat"
-        payload = {"pertanyaan": pertanyaan, "chat_id": sender, "source": "wa"}
+        payload = {"pertanyaan": pertanyaan, "chat_id": sender, "user_id": author, "source": "wa"}
         if is_image:
             payload["is_ocr"] = True
         resp = _get_session().post(

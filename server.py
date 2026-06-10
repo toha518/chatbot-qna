@@ -74,6 +74,7 @@ def check_daily_limit(cid: str) -> bool:
 class ChatRequest(BaseModel):
     pertanyaan: str
     chat_id: str = "default"
+    user_id: str = ""     # untuk group: ID user yg mention (limit tracking)
     image_path: str = ""  # path file gambar buat OCR (dari WA bridge)
     is_ocr: bool = False   # flag kalo teks berasal dari OCR (Telegram)
     source: str = "api"   # "wa" | "telegram" | "api" — diisi oleh handler masing-masing
@@ -239,11 +240,15 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             req.pertanyaan = req.pertanyaan.replace(em, '')
     if len(req.pertanyaan.strip()) == 0:
         return {"jawaban": responses.get("question_empty"), "skor": 0}
+
+    # ===================== LIMIT KEY: bedain session (chat_id) vs limit (user_id) =====================
+    _limit_key = req.user_id if req.user_id else cid  # untuk spam & daily limit
+
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
     if req.image_path:
         # Image rate limit: 1 gambar per 1 menit per user
-        if cid not in TRUSTED_IDS:
-            if not check_image_rate_limit(cid):
+        if _limit_key not in TRUSTED_IDS:
+            if not check_image_rate_limit(_limit_key):
                 return {"jawaban": responses.get("image_rate_limit", "⏳ Mohon tunggu 1 menit sebelum kirim gambar lagi."), "skor": 0}
         try:
             import sys
@@ -270,20 +275,20 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         if len(req.pertanyaan) > 500:
             return {"jawaban": responses.get("question_too_long").format(max_length=500), "skor": 0}
     # ===================== ANTI-SPAM =====================
-    init_rate_limit_entry(cid)
-    if cid not in TRUSTED_IDS:
-        allowed, msg = check_api_rate_limit(cid)
+    init_rate_limit_entry(_limit_key)
+    if _limit_key not in TRUSTED_IDS:
+        allowed, msg = check_api_rate_limit(_limit_key)
         if not allowed:
             if msg == "__SILENT_BLOCK__":
                 return {"jawaban": "", "skor": 0}
             return {"jawaban": msg, "skor": 0}
-        api_rate_limit[cid]["last_active"] = time.time()
+        api_rate_limit[_limit_key]["last_active"] = time.time()
     # ===================== DAILY CHAT LIMIT =====================
-    if cid not in TRUSTED_IDS:
-        if not check_daily_limit(cid):
+    if _limit_key not in TRUSTED_IDS:
+        if not check_daily_limit(_limit_key):
             # Notif sekali, lalu silent
             today = datetime.now(timezone(timedelta(hours=7))).strftime("%Y-%m-%d")
-            clean_cid = cid.split('@')[0] if cid and '@' in cid else cid
+            clean_cid = _limit_key.split('@')[0] if _limit_key and '@' in _limit_key else _limit_key
             last_notified = daily_limit_notified.get(clean_cid)
             if last_notified != today:
                 daily_limit_notified[clean_cid] = today
@@ -340,7 +345,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
             if not jawaban:
                 jawaban = responses.get("error_llm")
-            api_rate_limit[cid]["last_active"] = time.time()
+            api_rate_limit[_limit_key]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
@@ -370,7 +375,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                 role=identity['role'],
                 topics_list=topics_list
             )
-            api_rate_limit[cid]["last_active"] = time.time()
+            api_rate_limit[_limit_key]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
@@ -393,7 +398,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             sessions.pop(cid, None)
             session_activity.pop(cid, None)
             session_has_forward.pop(cid, None)
-            api_rate_limit[cid]["last_active"] = time.time()
+            api_rate_limit[_limit_key]["last_active"] = time.time()
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -423,7 +428,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             # Ada interaksi sebelumnya → balas feedback
             update_feedback_status(cid, "negative")
             jawaban = responses.get("negative_feedback")
-            api_rate_limit[cid]["last_active"] = time.time()
+            api_rate_limit[_limit_key]["last_active"] = time.time()
             log_query(_display_query, cid, source=req.source,
                       centroid_sim=centroid_sim,
                       clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
@@ -443,7 +448,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         has_history = bool(history and any(m["role"] == "user" for m in history))
         if word_count < 3 and not has_history:
             print(f"[DOMAIN] Forward cuma {word_count} kata, no history — minta diperjelas")
-            api_rate_limit[cid]["last_active"] = time.time()
+            api_rate_limit[_limit_key]["last_active"] = time.time()
             return {"jawaban": responses.get("min_words_warning").format(min_words=3), "skor": 0}
 
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
@@ -451,7 +456,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     centroid_sim = check_domain(query_vec)  # logged for analytics
     bm25_top = get_bm25_score(req.pertanyaan)
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
-    api_rate_limit[cid]["last_active"] = time.time()
+    api_rate_limit[_limit_key]["last_active"] = time.time()
 
     # ── CASCADE: concat prev query kalo BM25 < 5 ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]

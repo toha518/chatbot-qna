@@ -60,8 +60,8 @@ client.on('disconnected', (reason) => {
 // ===================== PESAN MASUK =====================
 client.on('message', async (msg) => {
     try {
-        // Abaikan status, group chat, dan pesan dari bot sendiri
-        if (msg.isStatus || msg.from.endsWith('@g.us')) return;
+        // Abaikan status dan pesan dari bot sendiri
+        if (msg.isStatus) return;
         if (msg.from === client.info.wid.user + '@c.us') return;
 
         const sender = msg.from;
@@ -82,6 +82,41 @@ client.on('message', async (msg) => {
             } catch (e) {
                 console.log(`[LID MAP] Gagal resolve ${sender}: ${e.message}`);
             }
+        }
+
+        // ── GROUP CHAT: cek mention atau reply ke bot ──
+        let _author = sender;  // default: sender = user (private)
+
+        if (msg.from.endsWith('@g.us')) {
+            // Cek mention: apakah bot di-mention?
+            const botNumber = client.info.wid.user;
+            const isMentioned = msg.mentionedIds && msg.mentionedIds.includes(botNumber);
+
+            // Cek reply ke bot
+            let isReplyToBot = false;
+            if (msg.hasQuotedMsg) {
+                try {
+                    const quoted = await msg.getQuotedMessage();
+                    if (quoted && quoted.fromMe) {
+                        isReplyToBot = true;
+                    }
+                } catch (e) {
+                    // quoted may be unavailable
+                }
+            }
+
+            // Fallback: cek @nomor di teks kalo mentionedIds gak work
+            const mentionFallback = !isMentioned && !isReplyToBot && msg.body &&
+                msg.body.includes(`@${botNumber}`);
+
+            if (!isMentioned && !isReplyToBot && !mentionFallback) {
+                console.log(`[WA GROUP] Skip — bot not targeted in ${msg.from}`);
+                return;
+            }
+
+            // Gunakan author untuk limit, sender (group_id) untuk session
+            _author = msg.author || msg.from;  // msg.author = individual user in group
+            // _author tetap dikirim sebagai author, sender = group_id
         }
 
         // ── Filter: hanya terima teks & gambar ──
@@ -139,11 +174,13 @@ client.on('message', async (msg) => {
         }
 
         // ===================== KIRIM KE FLASK HANDLER =====================
-        const resp = await axios.post(`${FLASK_URL}/wa-message`, {
+        const payload = {
             sender: sender,
+            author: msg.from.endsWith('@g.us') ? _author : '',
             message: pertanyaan,
             is_image: is_image
-        }, { timeout: 120000 });
+        };
+        const resp = await axios.post(`${FLASK_URL}/wa-message`, payload, { timeout: 120000 });
 
         const reply = resp.data?.jawaban || resp.data?.message || '';
         // Hentikan typing loop — response udah dapet
@@ -176,10 +213,14 @@ client.on('message', async (msg) => {
             ], { allowMultipleAnswers: false });
             const pollMsg = await chat.sendMessage(pollBody);
 
-            // Simpan polling message reference biar bisa dihapus nanti
+            // Simpan polling message reference + konteks grup biar bisa dihapus nanti
             if (!global._pollMap) global._pollMap = new Map();
             const _key = sender.split('@')[0];
-            global._pollMap.set(_key, pollMsg.id._serialized);
+            global._pollMap.set(_key, {
+                pollId: pollMsg.id._serialized,
+                sender: msg.from.endsWith('@g.us') ? msg.from : sender,
+                author: msg.from.endsWith('@g.us') ? _author : ''
+            });
         } else {
             await client.sendMessage(sender, reply);
         }
@@ -215,7 +256,8 @@ client.on('vote_update', async (vote) => {
 
         // Cek apakah ini poll feedback punya kita (dari _pollMap)
         const _key = voter.split('@')[0];
-        if (global._pollMap && global._pollMap.get(_key)) {
+        const pollEntry = global._pollMap && global._pollMap.get(_key);
+        if (pollEntry) {
             // Hapus poll dari chat
             try {
                 await pollMsg.delete(true);
@@ -224,12 +266,13 @@ client.on('vote_update', async (vote) => {
             }
             global._pollMap.delete(_key);
 
-            // Kirim feedback ke server
+            // Kirim feedback ke server dengan konteks grup
             const isPositive = optionName.includes('✅');
             const feedbackQuery = isPositive ? 'feedback_yes' : 'feedback_no';
 
             const resp = await axios.post(`${FLASK_URL}/wa-message`, {
-                sender: voter,
+                sender: pollEntry.sender || voter,
+                author: pollEntry.author || '',
                 message: feedbackQuery,
                 is_image: false
             }, { timeout: 30000 });
