@@ -212,7 +212,7 @@ def _get_encode_executor():
 def _init_encode_semaphore():
     global _encode_semaphore
     if _encode_semaphore is None:
-        _encode_semaphore = asyncio.Semaphore(3)
+        _encode_semaphore = asyncio.Semaphore(2)
 
 
 # ── Batch encoding accumulator ──
