@@ -1657,61 +1657,6 @@ sudo lsof -i :8000              # Linux
 
 ---
 
-#### v2.9.0 — 2026-06-07
-
-**Concurrency Increase + Typing Loop + Proteksi Media**
-
-**Performance — MAX_CONCURRENT_CHATS 4 → 12**
-- **`server.py`** — Global Semaphore dinaikkan dari 4 ke 12. Setelah optimasi E5 async + ThreadPool(6) + batch encoding + ONNX + `asyncio.to_thread()`, E5 encode punya Semaphore(3) sendiri — Semaphore di server gak perlu sekonservatif 4. LLM call murni I/O wait (CPU idle).
-- **Aman:** 100 user chat bareng → user paling lambat ~25 detik (bukan 35+). Server gak crash, gak ada request ilang — cuma antri di event loop.
-
-**UX — Typing Indicator Loop**
-- **`telegram_bot.py`** — `handle_message()` dan `handle_image()` spawn `asyncio.create_task()` yang kirim typing indicator tiap 4 detik. Cancel otomatis pas response datang atau error.
-- **`whatsapp-bridge/bridge.js`** — `setInterval()` kirim `sendStateTyping()` tiap 4 detik. `clearInterval()` pas response/error.
-- **Fix:** OCR EasyOCR dibungkus `asyncio.to_thread()` biar gak blocking event loop — typing loop tetap jalan pas proses gambar (~3-8 detik).
-
-**Security — Image Rate Limit (1 gambar/menit)**
-- **`security/rate_limiter.py`** — Fungsi `check_image_rate_limit(chat_id)`: tracking timestamp gambar terakhir per user. Cooldown 60 detik. Module singleton — shared state antar semua handler.
-- **`telegram_bot.py`** — `handle_image()` cek sebelum proses OCR.
-- **`wa_handler.py`** — `wa-message` cek sebelum OCR untuk `is_image`.
-- **`server.py`** — cek sebelum proses `image_path` (API langsung).
-- **`prompts/responses.json`** — Template `image_rate_limit`.
-
-**Security — Filter Media (WA)**
-- **`whatsapp-bridge/bridge.js`** — Cek `msg.type` sebelum proses: tolak voice note, video, sticker, document non-image. Hanya teks (`chat`) dan gambar (`image`/`document image`) yang diproses. Respon: `"⚠️ Hanya menerima teks dan gambar."`
-- **Telegram** sudah ada sebelumnya via `handle_media` handler.
-
-**Files changed:** `server.py`, `security/rate_limiter.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
-
----
-
-#### v2.9.1 — 2026-06-10
-
-**Word Count Gate + Greeting Revision**
-
-**Minimum Word Count — Forward Pipeline**
-- **`server.py`** — Filter baru sebelum BM25 Gate untuk CLF `forward`: jika word count < 3 **dan** tidak ada riwayat chat, langsung return warning tanpa BM25/hybrid/LLM.
-- **Tidak ada efek pada cascade** — user dengan riwayat forward sebelumnya tetap bisa follow-up pendek (`"tetep gabisa"`) karena `has_history = True` → skip filter, cascade concat prev query jalan normal.
-- **Tidak ada efek pada greeting/capability/feedback** — keempat intent return early sebelum mencapai filter ini. History session hanya berisi forward yang pernah dijawab, jadi cascade otomatis cuma concat pesan forward.
-- **`prompts/responses.json`** — Key baru `min_words_warning`: `"⚠️ Pertanyaan harus minimal {min_words} kata."`
-- **BM25 3-Tier Gate tetap utuh** — untuk forward ≥ 3 kata, gate BM25 < 3.0 (OOC) / 3.0-4.9 (borderline) / ≥ 5.0 (hybrid) berjalan normal.
-
-| Skenario | Word Count | History? | Hasil |
-|----------|:----------:|:--------:|:-----|
-| `"error"` (new user) | 1 | ❌ | ⚠️ Warning minimal 3 kata |
-| `"FASIH error"` (new user) | 2 | ❌ | ⚠️ Warning minimal 3 kata |
-| `"tetep gabisa"` (lanjutan) | 2 | ✅ | Cascade concat prev → BM25 → hybrid |
-| `"FASIH login error"` | 3+ | — | BM25 Gate normal |
-
-**Greeting — Tidak Minta Pilih Topik**
-- **`prompts/greeting.md`** — Prompt greeting diubah: tetap menyebutkan topik yang dikuasai secara singkat dalam 1 kalimat, tapi langsung mendorong user untuk menceritakan kendalanya, bukan memilih topik.
-- **Efek:** Output greeting tidak lagi menampilkan 6 bullet point topik + "Silakan beri tahu saya topik mana yang ingin Anda bahas". Sebaliknya langsung: *"Ada kendala dengan aplikasi BPS? Coba ceritakan detailnya, saya bantu cari solusi!"*
-- **Capability tetap daftar topik** — handler `"kamu bisa apa?"` via `responses.json → capability` tidak berubah.
-
-**Files changed:** `server.py`, `prompts/greeting.md`, `prompts/responses.json`, `README.md`, `VERSION`
-
----
-
 #### v2.10.2 — 2026-06-11
 
 **Failover Cepat — Error Classification + Per-Provider Timeout**
@@ -1783,6 +1728,61 @@ sudo lsof -i :8000              # Linux
 - **`telegram_bot.py`**, **`wa_handler.py`**, **`server.py`** — OCR thread-safe: tambah `threading.Lock` + wrapper `ocr_readtext()`. EasyOCR `readtext()` gak thread-safe — 2 user kirim gambar bareng bisa race condition. Sekarang antri 1 per 1 via lock.
 
 **Files changed:** `server.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `core/embedder.py`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
+#### v2.9.1 — 2026-06-10
+
+**Word Count Gate + Greeting Revision**
+
+**Minimum Word Count — Forward Pipeline**
+- **`server.py`** — Filter baru sebelum BM25 Gate untuk CLF `forward`: jika word count < 3 **dan** tidak ada riwayat chat, langsung return warning tanpa BM25/hybrid/LLM.
+- **Tidak ada efek pada cascade** — user dengan riwayat forward sebelumnya tetap bisa follow-up pendek (`"tetep gabisa"`) karena `has_history = True` → skip filter, cascade concat prev query jalan normal.
+- **Tidak ada efek pada greeting/capability/feedback** — keempat intent return early sebelum mencapai filter ini. History session hanya berisi forward yang pernah dijawab, jadi cascade otomatis cuma concat pesan forward.
+- **`prompts/responses.json`** — Key baru `min_words_warning`: `"⚠️ Pertanyaan harus minimal {min_words} kata."`
+- **BM25 3-Tier Gate tetap utuh** — untuk forward ≥ 3 kata, gate BM25 < 3.0 (OOC) / 3.0-4.9 (borderline) / ≥ 5.0 (hybrid) berjalan normal.
+
+| Skenario | Word Count | History? | Hasil |
+|----------|:----------:|:--------:|:-----|
+| `"error"` (new user) | 1 | ❌ | ⚠️ Warning minimal 3 kata |
+| `"FASIH error"` (new user) | 2 | ❌ | ⚠️ Warning minimal 3 kata |
+| `"tetep gabisa"` (lanjutan) | 2 | ✅ | Cascade concat prev → BM25 → hybrid |
+| `"FASIH login error"` | 3+ | — | BM25 Gate normal |
+
+**Greeting — Tidak Minta Pilih Topik**
+- **`prompts/greeting.md`** — Prompt greeting diubah: tetap menyebutkan topik yang dikuasai secara singkat dalam 1 kalimat, tapi langsung mendorong user untuk menceritakan kendalanya, bukan memilih topik.
+- **Efek:** Output greeting tidak lagi menampilkan 6 bullet point topik + "Silakan beri tahu saya topik mana yang ingin Anda bahas". Sebaliknya langsung: *"Ada kendala dengan aplikasi BPS? Coba ceritakan detailnya, saya bantu cari solusi!"*
+- **Capability tetap daftar topik** — handler `"kamu bisa apa?"` via `responses.json → capability` tidak berubah.
+
+**Files changed:** `server.py`, `prompts/greeting.md`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
+#### v2.9.0 — 2026-06-07
+
+**Concurrency Increase + Typing Loop + Proteksi Media**
+
+**Performance — MAX_CONCURRENT_CHATS 4 → 12**
+- **`server.py`** — Global Semaphore dinaikkan dari 4 ke 12. Setelah optimasi E5 async + ThreadPool(6) + batch encoding + ONNX + `asyncio.to_thread()`, E5 encode punya Semaphore(3) sendiri — Semaphore di server gak perlu sekonservatif 4. LLM call murni I/O wait (CPU idle).
+- **Aman:** 100 user chat bareng → user paling lambat ~25 detik (bukan 35+). Server gak crash, gak ada request ilang — cuma antri di event loop.
+
+**UX — Typing Indicator Loop**
+- **`telegram_bot.py`** — `handle_message()` dan `handle_image()` spawn `asyncio.create_task()` yang kirim typing indicator tiap 4 detik. Cancel otomatis pas response datang atau error.
+- **`whatsapp-bridge/bridge.js`** — `setInterval()` kirim `sendStateTyping()` tiap 4 detik. `clearInterval()` pas response/error.
+- **Fix:** OCR EasyOCR dibungkus `asyncio.to_thread()` biar gak blocking event loop — typing loop tetap jalan pas proses gambar (~3-8 detik).
+
+**Security — Image Rate Limit (1 gambar/menit)**
+- **`security/rate_limiter.py`** — Fungsi `check_image_rate_limit(chat_id)`: tracking timestamp gambar terakhir per user. Cooldown 60 detik. Module singleton — shared state antar semua handler.
+- **`telegram_bot.py`** — `handle_image()` cek sebelum proses OCR.
+- **`wa_handler.py`** — `wa-message` cek sebelum OCR untuk `is_image`.
+- **`server.py`** — cek sebelum proses `image_path` (API langsung).
+- **`prompts/responses.json`** — Template `image_rate_limit`.
+
+**Security — Filter Media (WA)**
+- **`whatsapp-bridge/bridge.js`** — Cek `msg.type` sebelum proses: tolak voice note, video, sticker, document non-image. Hanya teks (`chat`) dan gambar (`image`/`document image`) yang diproses. Respon: `"⚠️ Hanya menerima teks dan gambar."`
+- **Telegram** sudah ada sebelumnya via `handle_media` handler.
+
+**Files changed:** `server.py`, `security/rate_limiter.py`, `telegram_bot.py`, `wa_handler.py`, `whatsapp-bridge/bridge.js`, `prompts/responses.json`, `README.md`, `VERSION`
 
 ---
 
