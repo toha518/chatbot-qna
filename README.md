@@ -877,7 +877,7 @@ Dashboard web untuk monitoring, debugging, dan manajemen Nara. Buka di browser: 
 
 ## ⚡ Optimasi Performa
 
-Nara dirancang untuk berjalan di **PC 8GB RAM tanpa GPU** dan menangani banyak user secara bersamaan. Bottleneck utama ada di **E5 encode** (~250ms per query di CPU ONNX) dan **LLM call** (network ke cloud). Semua lapisan optimasi di bawah ini bekerja secara berurutan—dari murah sampai mahal.
+Nara dirancang untuk berjalan di **PC 8GB RAM tanpa GPU** dan menangani banyak user secara bersamaan. Bottleneck utama ada di **E5 encode** (~250ms per query di CPU ONNX). **LLM call** (network ke cloud) tidak jadi masalah karena provider (DeepSeek) punya limit 2500 concurrent — sangat longgar untuk skala Nara. Semua lapisan optimasi di bawah ini bekerja secara berurutan—dari murah sampai mahal.
 
 ---
 
@@ -1068,15 +1068,15 @@ Request Q:  ─→ [antri di event loop, non-blocking] ─→ ...
 
 | Skenario | Response Tercepat | Response Terlambat | Keterangan |
 |----------|:-----------------:|:------------------:|------------|
-| 1 user | ~2-3 detik | — | Normal: BM25 gate + E5 + LLM |
-| 4 user bareng | ~2.5 detik | ~3 detik | Normal, semua langsung diproses |
-| 16 user bareng | ~2.5 detik | ~5 detik | Semaphore(16) penuh, E5 batch encode optimal (8 query bareng) |
-| 20 user bareng | ~2.5 detik | ~10 detik | LLM serial jadi bottleneck — CPU masih longgar |
-| 50 user bareng | ~2.5 detik | ~25 detik | ⚠️ Pastikan LLM timeout ≥60s |
+| 1 user | ~2-3 detik | — | Pipeline lengkap: BM25 → E5 → RRF → LLM |
+| 4 user bareng | ~2.5 detik | ~3.5 detik | E5 batch encode 4 jadi 1, LLM 4× concurrent |
+| 16 user bareng | ~3 detik | ~5 detik | E5 batch 8×2 optimal, LLM 16× concurrent ke provider |
+| 20 user bareng | ~3 detik | ~6 detik | 16 langsung proses + 4 antri Global Semaphore |
+| 50 user bareng | ~3 detik | ~10 detik | 34 antri Global Semaphore, bergiliran masuk pipeline |
 
 > **RAM idle:** ~1.2GB (dari 8GB). Spike per request ~100-200MB sementara (OCR gambar bisa +500MB tapi lazy load).
-> **CPU:** Component berat cuma E5 encode (~250ms) dan OCR gambar (~3-8 detik). LLM cloud—CPU ringan.
-> **Bottleneck utama:** Serial LLM call. Setiap user nunggu LLM selesai dulu. Cache LLM (TTL 5 menit) bisa hemat 30-50% call.
+> **CPU:** Component berat cuma E5 encode (~250ms) dan OCR gambar (~3-8 detik). LLM cloud — CPU ringan.
+> **Bottleneck: provider response variance.** Semua request start LLM concurrent, selisih waktu tergantung seberapa cepat provider balik — bukan antrian di server. DeepSeek limit 2500 concurrent, sangat longgar untuk skala ini.
 
 ---
 
