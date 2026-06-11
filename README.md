@@ -936,14 +936,16 @@ Cache query embedding di memory (128 entry). Skip encode untuk query yang persis
 
 ---
 
-### 5. 🛑 Global Semaphore Concurrent Request (FastAPI Depends)
+### 5. 🛑 Global Semaphore Concurrent Request + E5 Semaphore
 
 **Masalah:** Kalo 20 user nge-chat bersamaan, semuanya masuk pipeline — E5 + LLM berebut resource.
 
-**Solusi:** Semaphore(4) global via FastAPI `Depends()` — maksimal 4 request `/chat` diproses simultan. Sisanya antri di event loop (non-blocking).
+**Solusi — 2 lapis semaphore:**
+
+**Layer 1 — Global Chat Semaphore(16):** Maksimal 16 request `/chat` diproses simultan via FastAPI `Depends()`. Sisanya antri di event loop (non-blocking).
 
 ```python
-MAX_CONCURRENT_CHATS = 4
+MAX_CONCURRENT_CHATS = 16
 _concurrent_chat_sem = asyncio.Semaphore(MAX_CONCURRENT_CHATS)
 
 async def _concurrent_chat_limit():
@@ -955,7 +957,13 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     ...
 ```
 
-**Dampak:** Server gak overload meskipun banyak user request bareng. Request ke-5+ antri rapih tanpa blocking CPU. Sementara itu endpoint lain (`/health`, `/log-stats`, dashboard) tetap responsif.
+**Layer 2 — E5 Encode Semaphore(2):** E5 encoding (ONNX CPU) di-limit ke 2 batch paralel. Karena batch accumulator ngumpulin sampai 8 query per batch, 2 batch × 8 query = 16 query bareng optimal tanpa overload CPU.
+
+```python
+_encode_semaphore = asyncio.Semaphore(2)
+```
+
+**Dampak:** Server gak overload meskipun banyak user request bareng. Request ke-17+ antri rapih tanpa blocking CPU. E5 encoding tetap stabil karena Semaphore(2) mencegah antrean encode numpuk. Sementara itu endpoint lain (`/health`, `/log-stats`, dashboard) tetap responsif.
 
 ---
 
@@ -1019,14 +1027,23 @@ context, scores, best_q, top5_all = await asyncio.to_thread(
 
 ```
 Request A:  ─→ sanitasi → CLF → ┐
-Request B:  ─→ sanitasi → CLF → ┤   Semaphore(4)
-Request C:  ─→ sanitasi → CLF → ┤   (maks 4 bareng)
-Request D:  ─→ sanitasi → CLF → ┘
-Request E:  ─→ [antri di event loop, non-blocking] ─→ ...
+Request B:  ─→ sanitasi → CLF → ┤   Global Semaphore(16)
+Request C:  ─→ sanitasi → CLF → ┤   (maks 16 bareng)
+...         ─→ ...              ┘
+Request Q:  ─→ [antri di event loop, non-blocking] ─→ ...
                                     │
                                     ▼
                             Batch Accumulator (40ms)
+                                    │
+                                    ▼
+                            ┌─ E5 Semaphore(2) ─┐
+                            │  (maks 2 batch     │
+                            │   paralel)         │
+                            └────────────────────┘
+                                    │
+                                    ▼
                             ThreadPool(4+) encode
+                            (batch up to 8 query)
                                     │
                                     ▼
                             hybrid_search() via to_thread()
@@ -1040,9 +1057,10 @@ Request E:  ─→ [antri di event loop, non-blocking] ─→ ...
 2. **Daily Limit** — 25 chat/hari/user — batasi total konsumsi
 3. **Intent Classifier** — 4/5 kelas skip E5+LLM (sapaan/feedback/capability)
 4. **BM25 3-Tier Gate** — <3.0 tolak, 3.0-4.9 borderline → skip E5+LLM
-5. **Global Semaphore(16)** — batasi concurrent chat (dinaikkan dari 4 setelah optimasi E5 async + ThreadPool + batch — LLM I/O wait gak bebanin CPU, E5 encoding udah di-limit terpisah via Semaphore(2))
-6. **ThreadPool(4+) + Batch** — optimasi E5 encode parallel
-7. **Connection Pooling** — reuse HTTP koneksi semua layer
+5. **Global Semaphore(16)** — batasi concurrent chat, LLM I/O wait gak bebanin CPU
+6. **E5 Semaphore(2)** — batasi paralel E5 encoding, mencegah overload CPU
+7. **ThreadPool(4+) + Batch (max 8)** — optimasi E5 encode parallel
+8. **Connection Pooling** — reuse HTTP koneksi semua layer
 
 ---
 
