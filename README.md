@@ -1023,6 +1023,49 @@ context, scores, best_q, top5_all = await asyncio.to_thread(
 
 ---
 
+### 8. 🧠 Failover Cepat — Error Classification + Per-Provider Timeout
+
+**Masalah:** Provider 1 down (503), tetap nunggu 30 detik timeout sebelum failover ke provider berikutnya.
+
+**Solusi — Error Classification:** Tiap error HTTP diklasifikasi, skip cepat tanpa retry:
+
+| Kode Error | Arti | Action |
+|:----------:|------|:-----:|
+| 401 / 403 | API key salah | ⛔ **Skip permanent** — break, gak usah coba lagi |
+| 429 | Rate limit | ⏭ **Skip cepat** — continue ke provider berikutnya |
+| 502 / 503 / 504 | Service down | ⏭ **Skip cepat** — continue ke provider berikutnya |
+| Timeout / ConnectError | Jaringan | ⏭ **Skip cepat** — continue ke provider berikutnya |
+| 200 + choices ✅ | Sukses | ✅ **Return jawaban** |
+
+**Solusi — Per-Provider Timeout:** Provider cloud cepat skip, provider lokal lebih longgar:
+
+| Provider | Timeout | Alasan |
+|:---------|:-------:|:-------|
+| 1 — OpenCode Go | **8 detik** | Cloud, kalo lambat langsung skip |
+| 2 — DeepSeek langsung | **12 detik** | Limit 2500 concurrent, reliable |
+| 3 — Ollama lokal | **30 detik** | CPU lokal, wajar lambat |
+
+**Dampak:**
+- Provider 1 down (503) → skip dalam **< 1 detik** (dari sebelumnya 30 detik)
+- Provider 1 timeout → skip dalam **8 detik** (dari 30 detik)
+- Provider 1 429 → langsung skip, Provider 2 langsung dicoba
+
+```python
+# core/llm.py — Per-provider timeout list
+_TIMEOUTS = [8, 12, 30]
+
+async def call_llm(messages, timeout=30):
+    for i in range(len(LLM_APIS)):
+        p_timeout = _TIMEOUTS[i] if i < len(_TIMEOUTS) else timeout
+        ...
+        if resp.status_code in (401, 403):
+            break          # skip permanent
+        if resp.status_code in (502, 503, 504):
+            continue       # skip cepat
+```
+
+---
+
 ### 🧠 Pipeline Flow Concurrent
 
 ```
@@ -1666,6 +1709,31 @@ sudo lsof -i :8000              # Linux
 - **Capability tetap daftar topik** — handler `"kamu bisa apa?"` via `responses.json → capability` tidak berubah.
 
 **Files changed:** `server.py`, `prompts/greeting.md`, `prompts/responses.json`, `README.md`, `VERSION`
+
+---
+
+#### v2.10.2 — 2026-06-11
+
+**Failover Cepat — Error Classification + Per-Provider Timeout**
+
+**Failover Skip Cepat — No Retry**
+- **`core/llm.py`** — Error classification di `call_llm()`: 401/403 → skip permanent, 429 → skip cepat, 502/503/504 → skip cepat, TimeoutException → skip cepat, ConnectError → skip cepat.
+- Sebelumnya: semua error ditangkap `except Exception` — 503 pun nunggu 30 detik timeout baru failover.
+- Sekarang: 503/504 langsung continue ke provider berikutnya dalam < 1 detik.
+
+**Per-Provider Timeout**
+- **`core/llm.py`** — Tiap provider punya timeout sendiri:
+  - Provider 1 (OpenCode Go): **8 detik** — skip cepat kalo lambat
+  - Provider 2 (DeepSeek langsung): **12 detik** — lebih longgar
+  - Provider 3 (Ollama lokal): **30 detik** — wajar CPU local
+
+**Ollama Async — Non-blocking**
+- **`core/llm.py`** — `response = chat(...)` dijalankan via `asyncio.to_thread()` agar tidak blocking event loop.
+
+**Perbaikan Lain**
+- **`core/llm.py`** — Shared httpx client `_get_llm_client()` tidak lagi menerima `timeout` parameter yang berubah-ubah. Timeout dikirim langsung via `client.post(timeout=...)` per request.
+
+**Files changed:** `core/llm.py`, `VERSION`, `README.md`
 
 ---
 

@@ -2,6 +2,7 @@
 
 import os
 import json
+import asyncio
 import time as _time
 import httpx
 
@@ -10,14 +11,20 @@ LLM_APIS: list[str] = []
 LLM_KEYS: list[str] = []
 LLM_MODELS: list[str] = []
 
+# Per-provider timeout (detik) — urutan sesuai LLM_APIS.
+# Provider 1 (OpenCode): skip cepat kalo lambat.
+# Provider 2 (DeepSeek): lebih longgar.
+# Provider 3 (Ollama): lokal, timeout besar.
+_TIMEOUTS = [8, 12, 30]
+
 # ── Shared httpx client dengan connection pooling ──
 _llm_client: httpx.AsyncClient | None = None
 
-async def _get_llm_client(timeout: int = 30):
+async def _get_llm_client():
     global _llm_client
     if _llm_client is None:
         _llm_client = httpx.AsyncClient(
-            timeout=httpx.Timeout(timeout, connect=10.0),
+            timeout=httpx.Timeout(30.0, connect=10.0),
             limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
             headers={"Content-Type": "application/json"}
         )
@@ -126,26 +133,30 @@ def build_system_prompt(system_template: str, identity: dict, acronyms: str = ""
 
 async def call_llm(messages: list[dict], timeout: int = 30):
     """
-    Panggil LLM dengan failover chain.
+    Panggil LLM dengan failover chain — skip cepat tanpa retry.
+    - Per-provider timeout: Provider 1 = 8s, Provider 2 = 12s, Provider 3+ = 30s
+    - Error classification: 401/403 skip, 429/502/503/504 skip cepat
+    - Ollama lokal via asyncio.to_thread (non-blocking)
     Returns tuple (jawaban, model_name, provider_name, time_ms).
     """
     for i in range(len(LLM_APIS)):
+        p_timeout = _TIMEOUTS[i] if i < len(_TIMEOUTS) else timeout
         try:
             api = LLM_APIS[i]
             key = LLM_KEYS[i]
             model = LLM_MODELS[i]
             t0 = _time.time()
 
-            # Pakai library ollama langsung kalo lokal
+            # ── Ollama lokal — async via thread ──
             if "localhost:11434" in api or "127.0.0.1:11434" in api:
                 from ollama import chat
-                response = chat(model=model, messages=messages)
+                response = await asyncio.to_thread(chat, model=model, messages=messages)
                 elapsed = int((_time.time() - t0) * 1000)
                 print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal) [{elapsed}ms]")
                 return response.message.content, model, f"ollama:{i+1}", elapsed
 
-            # API eksternal — pake shared httpx client
-            client = await _get_llm_client(timeout)
+            # ── API eksternal ──
+            client = await _get_llm_client()
             payload = {
                 "model": model,
                 "messages": messages,
@@ -160,16 +171,39 @@ async def call_llm(messages: list[dict], timeout: int = 30):
             if key and key != "***":
                 headers["Authorization"] = f"Bearer {key}"
 
-            resp = await client.post(api, json=payload, headers=headers, timeout=timeout)
+            resp = await client.post(api, json=payload, headers=headers, timeout=p_timeout)
+
+            # ── Error Classification — skip cepat ──
+            if resp.status_code in (401, 403):
+                print(f"[LLM] ❌ Provider {i+1} — {model} — API key error ({resp.status_code}), skip permanent")
+                break
+
+            if resp.status_code in (502, 503, 504):
+                print(f"[LLM] ❌ Provider {i+1} — {model} — Service down ({resp.status_code}), skip cepat")
+                continue
+
+            if resp.status_code == 429:
+                print(f"[LLM] ❌ Provider {i+1} — {model} — Rate limited (429), skip ke provider berikutnya")
+                continue
+
             result = resp.json()
 
             if "choices" not in result or not result["choices"]:
                 err_msg = result.get("error", {}).get("message", str(result))
-                raise Exception(f"API {resp.status_code}: {err_msg}")
+                print(f"[LLM] ❌ Provider {i+1} — {model} — No choices: {err_msg}")
+                continue
 
             elapsed = int((_time.time() - t0) * 1000)
             print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
             return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
+
+        except httpx.TimeoutException:
+            print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} — Timeout ({p_timeout}s), skip cepat")
+            continue
+
+        except httpx.ConnectError:
+            print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} — Connection error, skip cepat")
+            continue
 
         except Exception as e:
             print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")
