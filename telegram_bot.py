@@ -173,7 +173,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_id = str(update.effective_chat.id)  # ID unik percakapan
     text = update.message.text.strip()
-    chat_type = str(update.effective_chat.type)
 
     if not text:
         return
