@@ -197,9 +197,24 @@ USER CHAT
 │                           lewat form 🙏"            │
 │                     TIDAK → treat sebagai forward ↓ │
 │  forward         → Set session_has_forward = True   │
-│                    Lanjut ke step 5 ↓              │
+│                    Lanjut ke step 4a ↓            │
 └───────────────────────────────────────────────────┘
   │ (forward / negative_feedback tanpa konteks)
+  ▼
+┌─ 4a. WORD COUNT CHECK ────────────────────────────┐
+│  Forward query dicek jumlah kata:                 │
+│                                                     │
+│  ── Tanpa history ──                               │
+│  • < 3 kata  → ❌ Tolak, minta diperjelas           │
+│  • ≥ 3 kata  → ✅ Lanjut ke step 5 ↓              │
+│                                                     │
+│  ── Ada history (min 1 chat sebelumnya) ──         │
+│  • < 3 kata  → Short follow-up flag ON            │
+│                 Skip BM25 gate & E5 guard           │
+│                 Langsung cascade depth 1-3 → step 6 │
+│  • ≥ 3 kata  → ✅ Lanjut ke step 5 ↓              │
+└───────────────────────────────────────────────────┘
+  │ (forward ≥ 3 kata tanpa history / forward ≥ 3 kata dgn history)
   ▼
 ┌─ 5. MULTI-PART SPLIT (E5 Semantic Boundary) ─────┐
 │  Split raw query: konjungsi (dan/serta/sedangkan/  │
@@ -213,11 +228,20 @@ USER CHAT
 ┌─ 6. DOMAIN GATE: CASCADE + BM25 3-TIER ──────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
 │                                                     │
-│  ── CASCADE (BM25 < 5 + ada history) ──            │
+│  ── MODE A: SHORT FOLLOW-UP (< 3 kata + history) ──│
+│  Dari step 4a, short follow-up flag ON:            │
+│  ├─ Skip BM25 gate & E5 similarity guard            │
+│  ├─ Langsung cascade depth 1-3, hitung BM25 ulang  │
+│  ├─ Cascade BM25 ≥ 5.0 → ✅ hybrid search ↓        │
+│  └─ Cascade BM25 < 5.0 → set ke borderline (3.0),  │
+│                           bukan OOC                 │
+│                                                     │
+│  ── MODE B: CASCADE NORMAL (≥ 3 kata / BM25 < 5) ──│
 │  ├─ Concat prev query depth 1-3, hitung BM25 ulang │
 │  ├─ Cascade BM25 ≥ 5 + E5 sim ≥ 0.78 → sukses ↓   │
 │  └─ E5 sim < 0.78 → topic drift → skip cascade     │
 │                                                     │
+│  ── BM25 3-TIER GATE ──                             │
 │  • BM25 < 3.0     → ❌ OOC_BM25 (tolak)             │
 │  • BM25 3.0-4.9   → ❌ BM25_BORDERLINE (QNA link)   │
 │  • BM25 ≥ 5.0     → ✅ lanjut hybrid search ↓       │
@@ -296,7 +320,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **multi-part split** (E5 merge) → **BM25 3-tier gate + cascade** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
+> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **word count check** (min 3 kata tanpa history, short follow-up < 3 kata dgn history) → **multi-part split** (E5 merge) → **BM25 3-tier gate + cascade (2 mode: short follow-up skip BM25 gate & E5 guard / cascade normal dgn E5 guard)** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
 
 ---
 
