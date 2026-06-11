@@ -2,7 +2,6 @@
 
 import os
 import json
-import asyncio
 import time as _time
 import httpx
 
@@ -13,9 +12,6 @@ LLM_MODELS: list[str] = []
 
 # ── Shared httpx client dengan connection pooling ──
 _llm_client: httpx.AsyncClient | None = None
-
-# ── LLM Semaphore: batasi concurrent call ke provider ──
-_llm_semaphore = asyncio.Semaphore(4)
 
 async def _get_llm_client(timeout: int = 30):
     global _llm_client
@@ -131,54 +127,52 @@ def build_system_prompt(system_template: str, identity: dict, acronyms: str = ""
 async def call_llm(messages: list[dict], timeout: int = 30):
     """
     Panggil LLM dengan failover chain.
-    Maksimal 4 concurrent call ke provider (cegah timeout).
     Returns tuple (jawaban, model_name, provider_name, time_ms).
     """
-    async with _llm_semaphore:
-        for i in range(len(LLM_APIS)):
-            try:
-                api = LLM_APIS[i]
-                key = LLM_KEYS[i]
-                model = LLM_MODELS[i]
-                t0 = _time.time()
+    for i in range(len(LLM_APIS)):
+        try:
+            api = LLM_APIS[i]
+            key = LLM_KEYS[i]
+            model = LLM_MODELS[i]
+            t0 = _time.time()
 
-                # Pakai library ollama langsung kalo lokal
-                if "localhost:11434" in api or "127.0.0.1:11434" in api:
-                    from ollama import chat
-                    response = chat(model=model, messages=messages)
-                    elapsed = int((_time.time() - t0) * 1000)
-                    print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal) [{elapsed}ms]")
-                    return response.message.content, model, f"ollama:{i+1}", elapsed
-
-                # API eksternal — pake shared httpx client
-                client = await _get_llm_client(timeout)
-                payload = {
-                    "model": model,
-                    "messages": messages,
-                    "max_tokens": 2000,
-                    "temperature": 0.1
-                }
-
-                if "deepseek" in model.lower():
-                    payload["thinking"] = {"type": "disabled"}
-
-                headers = {}
-                if key and key != "***":
-                    headers["Authorization"] = f"Bearer {key}"
-
-                resp = await client.post(api, json=payload, headers=headers, timeout=timeout)
-                result = resp.json()
-
-                if "choices" not in result or not result["choices"]:
-                    err_msg = result.get("error", {}).get("message", str(result))
-                    raise Exception(f"API {resp.status_code}: {err_msg}")
-
+            # Pakai library ollama langsung kalo lokal
+            if "localhost:11434" in api or "127.0.0.1:11434" in api:
+                from ollama import chat
+                response = chat(model=model, messages=messages)
                 elapsed = int((_time.time() - t0) * 1000)
-                print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
-                return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
+                print(f"[LLM] ✅ Provider {i+1} — {model} (Ollama lokal) [{elapsed}ms]")
+                return response.message.content, model, f"ollama:{i+1}", elapsed
 
-            except Exception as e:
-                print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")
-                continue
+            # API eksternal — pake shared httpx client
+            client = await _get_llm_client(timeout)
+            payload = {
+                "model": model,
+                "messages": messages,
+                "max_tokens": 2000,
+                "temperature": 0.1
+            }
 
-        return None, "", "", 0
+            if "deepseek" in model.lower():
+                payload["thinking"] = {"type": "disabled"}
+
+            headers = {}
+            if key and key != "***":
+                headers["Authorization"] = f"Bearer {key}"
+
+            resp = await client.post(api, json=payload, headers=headers, timeout=timeout)
+            result = resp.json()
+
+            if "choices" not in result or not result["choices"]:
+                err_msg = result.get("error", {}).get("message", str(result))
+                raise Exception(f"API {resp.status_code}: {err_msg}")
+
+            elapsed = int((_time.time() - t0) * 1000)
+            print(f"[LLM] ✅ Provider {i+1} — {model} [{elapsed}ms]")
+            return result["choices"][0]["message"]["content"], model, f"provider:{i+1}", elapsed
+
+        except Exception as e:
+            print(f"[LLM] ❌ Provider {i+1} — {LLM_MODELS[i]} gagal: {e}")
+            continue
+
+    return None, "", "", 0
