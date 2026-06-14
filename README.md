@@ -1679,6 +1679,23 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.11.1 — 2026-06-14
+
+**Auto-Retry + Bridge Reliability**
+
+**Fixed — Auto-Reload Google Sheets Tanpa Retry**
+- **`server.py`** — Auto-reload 12 jam sebelumnya langsung error → nunggu 12 jam lagi. Sekarang exponential backoff 3x: 10s → 20s → gagal.
+
+**Fixed — WA Bridge Auto-Restart**
+- **`whatsapp-bridge/bridge.js`** — Disconnected sebelumnya cuma log. Sekarang exit dalam 10 detik. Batch/PM2 restart otomatis, user gak perlu restart manual.
+
+**Fixed — WA Bridge Typing Interval Scope**
+- **`whatsapp-bridge/bridge.js`** — `const typingInterval` di dalam `try` block gak bisa diakses `catch` (JS block scope). Typing loop gak pernah mati pas error. Pindah ke `let` di fungsi scope.
+
+**Files changed:** `server.py`, `whatsapp-bridge/bridge.js`, `VERSION`, `README.md`
+
+---
+
 #### v2.10.2 — 2026-06-11
 
 **Failover Cepat — Error Classification + Per-Provider Timeout**
