@@ -455,6 +455,11 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             api_rate_limit[_limit_key]["last_active"] = time.time()
             return {"jawaban": responses.get("min_words_warning").format(min_words=3), "skor": 0}
 
+    # Init default variables for downstream paths (eliminate dir() checks)
+    llm_model = ""
+    llm_provider = ""
+    llm_time = 0
+
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = await async_encode_query(req.pertanyaan)
     centroid_sim = check_domain(query_vec)  # logged for analytics
@@ -464,8 +469,6 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
 
     # ── CASCADE: concat prev query ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
-    cascade_used = False
-    _cascade_query = None
     
     # Short follow-up: < 3 kata + ada history → langsung cascade tanpa BM25 gate
     _short_followup = False
@@ -475,40 +478,21 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         if _wc < 3 and _hh:
             _short_followup = True
     
+    cascade_used = False
+    _cascade_query = None
     if (_short_followup or bm25_top < 5.0) and prev_queries:
-        for depth in range(1, min(4, len(prev_queries) + 1)):
-            context_parts = list(reversed(prev_queries[:depth])) + [req.pertanyaan]
-            enhanced_query = " — ".join(context_parts)
-            bm25_cascade = get_bm25_score(enhanced_query)
-            print(f"[QUERY] Cascade depth={depth}: BM25 {bm25_top:.1f} → {bm25_cascade:.1f}")
-            if bm25_cascade >= 5.0:
-                # E5 similarity guard — SKIP buat short follow-up
-                _skip_e5 = _short_followup
-                if not _skip_e5:
-                    _prev_vec = await async_encode_query(prev_queries[0])
-                    _curr_vec = query_vec
-                    if _prev_vec.ndim == 1: _prev_vec = _prev_vec.reshape(1, -1)
-                    if _curr_vec.ndim == 1: _curr_vec = _curr_vec.reshape(1, -1)
-                    _e5_sim = float(cosine_similarity(_prev_vec, _curr_vec).flatten()[0])
-                else:
-                    _e5_sim = 1.0  # skip E5 guard
-                _e5_threshold = 0.78
-                if _e5_sim >= _e5_threshold:
-                    bm25_top = bm25_cascade
-                    _cascade_query = enhanced_query
-                    _display_query += f" [cascade depth={depth}]"
-                    cascade_used = True
-                    print(f"[QUERY] Cascade depth={depth} berhasil! BM25={bm25_cascade:.1f}, E5 sim={_e5_sim:.2f}")
-                    break
-                else:
-                    print(f"[QUERY] Cascade depth={depth} E5 sim terlalu rendah ({_e5_sim:.2f}) — topic drift, skip cascade")
-        if not cascade_used and not _short_followup:
-            print(f"[QUERY] Cascade gagal di semua depth — BM25 max {bm25_cascade if 'bm25_cascade' in dir() else bm25_top:.1f}")
-        
-        # Short follow-up: cascade gagal pun jangan OOC — kasih borderline/no_answer
-        if not cascade_used and _short_followup and bm25_top < 3.0:
-            print(f"[DOMAIN] Short follow-up cascade gagal — borderline fallback")
-            bm25_top = 3.0  # set ke borderline biar gak kena OOC"}]}
+        from pipeline.cascade import handle_cascade
+        bm25_top, _cascade_query, cascade_used = await handle_cascade(
+            query=req.pertanyaan,
+            prev_queries=prev_queries,
+            query_vec=query_vec,
+            encode_fn=async_encode_query,
+            bm25_score_fn=get_bm25_score,
+            is_short_followup=_short_followup,
+            original_bm25=bm25_top,
+        )
+        if cascade_used:
+            _display_query += " [cascade]"
 
     if not cascade_used and bm25_top < 3.0:
         # Tier 1: out-of-domain — tolak total
@@ -548,55 +532,24 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
     print(f"[QUERY] RRF={top_rrf:.4f} (hybrid E5+BM25 — ranking only)")
 
-    # ── COMPARISON GUARD: skip split kalo pola perbandingan ──
-    # Cegah false positive: "Bedanya peran LP dan MK" (1 pertanyaan) jangan kena split
-    _COMPARISON_GUARD = re.compile(
-        r'(?:perbedaan|bedanya?|apa\s+bedanya?|perbandingan|bandingkan|peran|tugas|fungsi)'
-        r'\s+.+?(?:dan|dengan)\s+',
-        re.IGNORECASE
-    )
-    if _COMPARISON_GUARD.search(_raw_query):
+    # ── MULTI-PART SPLIT (E5 Semantic Boundary) ──
+    from pipeline.multi_part import is_comparison_query, heuristic_split, semantic_merge, clf_filter_parts
+
+    if is_comparison_query(_raw_query):
         print(f"[SPLIT] Comparison detected — skip multi-part, pake query asli")
         parts = [req.pertanyaan]
     else:
-        # ── MULTI-PART SPLIT (E5 Semantic Boundary) ──
-        _SPLIT_PATTERN = re.compile(
-        r'\s+(?:dan|serta|sedangkan|namun|tetapi|tapi)\s+'
-        r'|(?<=\?)\s+(?=[A-Za-z])'
-        r'|\.\s+'
-        r'|,\s*'
-    )
-        parts = _SPLIT_PATTERN.split(_raw_query.strip())
-        parts = [re.sub(r'\s+', ' ', p.replace(',', ' ').replace(';', ' ')).strip().rstrip('?.').strip() for p in parts if p.strip()]
+        parts = heuristic_split(_raw_query)
 
-    if len(parts) > 1:
-        _SEMANTIC_MERGE_THRESHOLD = 0.78
-        merged_parts = [parts[0]]
-        for i in range(1, len(parts)):
-            prev_vec = await async_encode_query(merged_parts[-1])
-            curr_vec = await async_encode_query(parts[i])
-            if prev_vec.ndim == 1: prev_vec = prev_vec.reshape(1, -1)
-            if curr_vec.ndim == 1: curr_vec = curr_vec.reshape(1, -1)
-            sim = float(cosine_similarity(prev_vec, curr_vec).flatten()[0])
-            if sim >= _SEMANTIC_MERGE_THRESHOLD:
-                merged_parts[-1] = merged_parts[-1] + " " + parts[i]
-                print(f"[MERGE] Part {i-1}+{i}: sim={sim:.3f} -> '{merged_parts[-1][:60]}'")
-            else:
-                merged_parts.append(parts[i])
-                print(f"[SPLIT] Part {i-1} vs {i}: sim={sim:.3f} -> separate intents")
-        parts = merged_parts
+    if parts and len(parts) > 1:
+        parts = await semantic_merge(parts, async_encode_query)
 
-    # Cek: kalo cuma 0-1 part substantif (bukan greeting/capability/fb),
-    # skip multi-part — biar diproses sebagai single query biasa
-    if len(parts) > 1:
-        _clf_hits = 0
-        for p in parts:
-            p_clf, _ = ft_classify(p)
-            if p_clf in ("greeting", "capability", "positive_feedback", "negative_feedback"):
-                _clf_hits += 1
-        if _clf_hits >= len(parts) - 1:
-            print(f"[SPLIT] {_clf_hits}/{len(parts)} part non-substantif — skip multi-part, pake query asli")
+    if parts and len(parts) > 1:
+        filtered = clf_filter_parts(parts, ft_classify)
+        if filtered is None:
             parts = [req.pertanyaan]
+        else:
+            parts = filtered
 
     if len(parts) > 1:
         relevant_answers = []
@@ -683,9 +636,9 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
               gate=gate_label, dijawab=_dijawab, jawaban=jawaban,
               bm25_gate=bm25_top,
               multi_part=bool(len(parts) > 1), session_baru=session_baru,
-              llm_model=llm_model if 'llm_model' in dir() else "",
-              llm_provider=llm_provider if 'llm_provider' in dir() else "",
-              llm_time_ms=llm_time if 'llm_time' in dir() else 0)
+              llm_model=llm_model,
+              llm_provider=llm_provider,
+              llm_time_ms=llm_time)
     if session_baru and _dijawab:
         wib = timezone(timedelta(hours=7))
         now = datetime.now(wib).strftime("%H:%M")
