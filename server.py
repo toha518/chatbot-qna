@@ -92,15 +92,21 @@ async def auto_reload_gsheet():
     await asyncio.sleep(60)
     while True:
         await asyncio.sleep(43200)  # 12 jam
-        try:
-            prev = len(questions)
-            total = await asyncio.to_thread(load_from_gsheet, GSHEET_CSV_URL)
-            if total != prev:
-                print(f"[AUTO-RELOAD] Database: {prev} → {total} Q&A")
-            else:
-                print(f"[AUTO-RELOAD] Checked: {total} Q&A (no change)")
-        except Exception as e:
-            print(f"[AUTO-RELOAD] Error: {e}")
+        for attempt in range(3):
+            try:
+                prev = len(questions)
+                total = await asyncio.to_thread(load_from_gsheet, GSHEET_CSV_URL)
+                if total != prev:
+                    print(f"[AUTO-RELOAD] Database: {prev} → {total} Q&A")
+                else:
+                    print(f"[AUTO-RELOAD] Checked: {total} Q&A (no change)")
+                break  # sukses, keluar dari retry loop
+            except Exception as e:
+                print(f"[AUTO-RELOAD] Error (attempt {attempt+1}/3): {e}")
+                if attempt < 2:
+                    wait_time = 10 * (2 ** attempt)  # 10s, 20s
+                    print(f"[AUTO-RELOAD] Retry dalam {wait_time}s...")
+                    await asyncio.sleep(wait_time)
 # ===================== API ENDPOINTS =====================
 @app.get("/health")
 def health():

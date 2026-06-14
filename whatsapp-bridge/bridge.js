@@ -52,13 +52,17 @@ client.on('authenticated', () => {
 });
 
 // ===================== DISCONNECTED =====================
-client.on('disconnected', (reason) => {
+client.on('disconnected', async (reason) => {
     console.log(`[DISCONNECT] WhatsApp terputus: ${reason}`);
-    console.log('[DISCONNECT] Restart bridge untuk reconnect...');
+    console.log('[DISCONNECT] Restart dalam 10 detik...');
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    console.log('[DISCONNECT] Restarting...');
+    process.exit(1);
 });
 
 // ===================== PESAN MASUK =====================
 client.on('message', async (msg) => {
+    let typingInterval;
     try {
         // Abaikan status dan pesan dari bot sendiri
         if (msg.isStatus) return;
@@ -141,7 +145,7 @@ client.on('message', async (msg) => {
         const chat = await msg.getChat();
 
         // ── Keep typing alive selama proses ──
-        const typingInterval = setInterval(async () => {
+        typingInterval = setInterval(async () => {
             try {
                 await chat.sendStateTyping();
             } catch (e) {
@@ -238,7 +242,7 @@ client.on('message', async (msg) => {
 
     } catch (err) {
         // Pastiin typing loop mati walau error
-        if (typeof typingInterval !== 'undefined') {
+        if (typingInterval) {
             clearInterval(typingInterval);
             try { await chat.clearState(); } catch (e) {}
         }
