@@ -1657,6 +1657,28 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.11.0 — 2026-06-14
+
+**Pipeline Refactor + Bug Fixes**
+
+**Refactor — Pipeline Modular**
+- **`pipeline/cascade.py`** — Ekstrak cascade logic dari `server.py` ke `handle_cascade()`. Pure async function, E5 similarity guard + short follow-up mode.
+- **`pipeline/multi_part.py`** — Ekstrak multi-part split dari `server.py` ke 4 pure functions: `is_comparison_query()`, `heuristic_split()`, `semantic_merge()`, `clf_filter_parts()`.
+- **`server.py`** — -81 baris dari 2 blok inline yang diekstrak.
+
+**Fixed — `dir()` Variable Check**
+- **`server.py`** — Hapus 3 conditional `if 'x' in dir()` (fragile, silent bug jika variable rename). Ganti dengan initialisasi default values di awal function.
+
+**Fixed — Cascade Log Misleading**
+- **`server.py`** — Log sebelumnya menampilkan `bm25_top` asli (tidak berubah) di setiap depth iteration. Sekarang menampilkan actual cascade BM25 score.
+
+**Fixed — Syntax Error Pre-existing**
+- **`server.py`** — Trailing garbage `"}]}`` di baris `bm25_top = 3.0` (borderline fallback). Potensi SyntaxError saat kode dijalankan.
+
+**Files changed:** `server.py`, `pipeline/__init__.py`, `pipeline/cascade.py`, `pipeline/multi_part.py`, `VERSION`, `README.md`
+
+---
+
 #### v2.10.2 — 2026-06-11
 
 **Failover Cepat — Error Classification + Per-Provider Timeout**
