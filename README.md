@@ -87,7 +87,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | Fitur | Detail |
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
-| 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up pendek (best practice: NVIDIA 3-5 turns, Chatnexus sliding window 3). **Zero LLM cost untuk out-of-context & borderline.** |
+| 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
 | 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata — dari v2.8.0 di-append ke BM25 doc text biar keyword kategori ngaruh ke ranking. top_k=5. Centroid di-log untuk analytics. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
@@ -97,7 +97,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 12 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
-| 🔄 **Cascade Fallback (E5 similarity + Short Follow-up)** | Jika BM25 < 5 + ada history → concat prev query depth 1-3. Query < 3 kata (**short follow-up**: `"tetep"`, `"gimana"`) **skip BM25 gate & E5 guard** — langsung cascade. Jika cascade BM25 ≥ 5 → hybrid search. Jika < 5 → borderline fallback (bukan OOC). Query ≥ 3 kata tetap pake E5 similarity guard (≥ 0.78). Cegah query non-BPS numpang keyword. |
+| 🔄 **Cascade Fallback (E5 guard + Short Follow-up)** | Selalu coba cascade kalo ada history (tanpa BM25 gate). Query < 3 kata (**short follow-up**: `"tetep"`, `"gimana"`) **skip E5 guard**. Cascade sukses kalo BM25 ≥ 5.0 — pakai enhanced query (concat prev). Gagal → fallback ke BM25 3-tier normal. E5 guard (≥ 0.78) cegah topic drift. |
 | 🎯 **Tombol Feedback** | Setiap jawaban CLF forward diberi footer "💡 Apakah jawaban ini sudah membantu?". **Telegram**: inline keyboard [✅ Sudah] [❌ Belum] — tap langsung kirim, keyboard otomatis ilang. **WhatsApp**: native Poll ✅ Sudah / ❌ Belum — vote otomatis hapus (delete for everyone). **Fallback manual**: reply 👍/👎 atau balas "sudah"/"belum". **Context-aware**: positive_feedback + konteks → stop session; negative_feedback + konteks → minta detail app+error. **Tracking otomatis** — semua feedback (tombol & chat) tercatat di `feedback_status` query log |
 | 🧹 **Input Sanitasi** | Karakter kontrol dibuang, emoji dibatasi maks 5, teks biasa maks 500 karakter (kecuali OCR). |
 | 📝 **Markdown di Telegram** | Kirim **bold** dan *italic* via `ParseMode.MARKDOWN`. WhatsApp otomatis strip formatting. |
@@ -241,23 +241,27 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 6. DOMAIN GATE: CASCADE + BM25 3-TIER ──────────┐
+┌─ 6. CASCADE + BM25 3-TIER GATE ──────────────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
 │                                                     │
-│  ── MODE A: SHORT FOLLOW-UP (< 3 kata + history) ──│
-│  Dari step 4a, short follow-up flag ON:            │
-│  ├─ Skip BM25 gate & E5 similarity guard            │
-│  ├─ Langsung cascade depth 1-3, hitung BM25 ulang  │
+│  ── CASCADE (selalu coba kalo ada history) ────────│
+│  Selalu concat prev query depth 1-3 (tanpa BM25    │
+│  gate). Dua sub-mode:                              │
+│                                                     │
+│  MODE A: SHORT FOLLOW-UP (< 3 kata + history)      │
+│  ├─ Skip E5 similarity guard                        │
+│  ├─ Langsung cascade depth 1-3                     │
 │  ├─ Cascade BM25 ≥ 5.0 → ✅ hybrid search ↓        │
-│  └─ Cascade BM25 < 5.0 → set ke borderline (3.0),  │
-│                           bukan OOC                 │
+│  └─ BM25 < 5.0 → set ke borderline (3.0),          │
+│                     bukan OOC                       │
 │                                                     │
-│  ── MODE B: CASCADE NORMAL (≥ 3 kata / BM25 < 5) ──│
-│  ├─ Concat prev query depth 1-3, hitung BM25 ulang │
-│  ├─ Cascade BM25 ≥ 5 + E5 sim ≥ 0.78 → sukses ↓   │
-│  └─ E5 sim < 0.78 → topic drift → skip cascade     │
+│  MODE B: NORMAL (≥ 3 kata, ada history)            │
+│  ├─ Cascade depth 1-3 + E5 sim guard (≥ 0.78)      │
+│  ├─ BM25 ≥ 5 + E5 sim ≥ 0.78 → sukses ↓           │
+│  └─ BM25 < 5 ATAU E5 sim < 0.78 → cascade skip,   │
+│       fallback ke BM25 3-tier gate di bawah         │
 │                                                     │
-│  ── BM25 3-TIER GATE ──                             │
+│  ── BM25 3-TIER GATE (hanya kalo cascade skip) ────│
 │  • BM25 < 3.0     → ❌ OOC_BM25 (tolak)             │
 │  • BM25 3.0-4.9   → ❌ BM25_BORDERLINE (QNA link)   │
 │  • BM25 ≥ 5.0     → ✅ lanjut hybrid search ↓       │
@@ -336,7 +340,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
 ```
 
-> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **word count check** (min 3 kata tanpa history, short follow-up < 3 kata dgn history) → **multi-part split** (E5 merge) → **BM25 3-tier gate + cascade (2 mode: short follow-up skip BM25 gate & E5 guard / cascade normal dgn E5 guard)** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
+> **Ringkasan:** User chat → sanitasi → anti-spam → session → **intent classifier** (greeting/capability/feedback/forward) → **word count check** (min 3 kata tanpa history, short follow-up < 3 kata dgn history) → **multi-part split** (E5 merge) → **cascade (selalu kalo ada history, 2 mode: short follow-up skip E5 guard / normal dgn E5 guard) + BM25 3-tier gate (fallback kalo cascade skip)** → **hybrid search** (E5+BM25 RRF) → LLM → save + log → **response + feedback (Telegram inline keyboard / WhatsApp native Poll)**
 
 ---
 
@@ -371,7 +375,7 @@ BM25(doc, query) = sum over query terms [ IDF(term) × TF(term, doc) / (TF(term,
 |-------|--------|-----------|--------|
 | 🔗 **Hybrid Leg** | `core/embedder.py` | Per-doc, di-RRF | `get_bm25_scores_all()` return skor BM25 untuk semua FAQ, digabung dengan ranking E5 via RRF |
 
-> **Catatan:** BM25 punya dua peran: (1) **Gate 3-tier** — `get_bm25_score()` ambil max dari semua FAQ, putuskan OOC/BM25_BORDERLINE/lanjut. Juga sebagai **cascade trigger** — concat prev query depth 1-3 kalo BM25 < 5. Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25.. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 di-log untuk analytics (bukan gate).
+> **Catatan:** BM25 punya dua peran: (1) **Gate 3-tier** — `get_bm25_score()` ambil max dari semua FAQ, putuskan OOC/BM25_BORDERLINE/lanjut. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). Cascade lolos ke **hybrid search** (E5+BM25 RRF), bukan cuma BM25. (2) **Hybrid leg** — `get_bm25_scores_all()` return per-doc untuk RRF fusion. Kedua nilai di-log terpisah: `bm25_gate` (gate) dan `bm25_raw` (BM25 FAQ pemenang RRF). Centroid E5 di-log untuk analytics (bukan gate).
 >
 > **v2.8.0+ — Category-Aware BM25:** Setiap FAQ digabung dengan nama kategorinya (`"{pertanyaan} {kategori}"`) saat BM25 index di-build. Query yang menyebut nama kategori mendapat BM25 score lebih tinggi untuk FAQ di kategori tersebut. Tidak ada perubahan untuk query tanpa kategori. Lihat riwayat versi untuk detail.
 
@@ -628,28 +632,24 @@ CLF:    [greeting,       forward]
 
 ## 🧠 Cascade Fallback (BM25 + E5 Guard)
 
-Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep gabisa" setelah "verifikasi NIK gimana"), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
-
----
-
-Ketika user memberi **follow-up pendek** yang kurang keyword (misal "tetep" atau "gimana" setelah pertanyaan sebelumnya), BM25 original bisa turun drastis. Cascade menyelamatkan ini dengan concat prev query.
+Cascade now berjalan **setiap ada history** (tanpa BM25 gate). Dua mode tergantung jumlah kata:
 
 **Cara kerja — Dua Mode Cascade:**
 
-### Mode 1: Short Follow-up (< 3 kata + ada history)
+### Mode A: Short Follow-up (< 3 kata + ada history)
 Query user < 3 kata dengan history sebelumnya:
-1. **Short follow-up flag ON** — skip BM25 gate, langsung cascade depth 1-3
-2. **BM25 cascade ≥ 5.0** — ✅ langsung pakai, **E5 similarity guard di-skip**
+1. **Short follow-up flag ON** — skip E5 similarity guard, langsung cascade depth 1-3
+2. **BM25 cascade ≥ 5.0** — ✅ langsung hybrid search
 3. **BM25 cascade < 5.0** — set `bm25_top = 3.0` (borderline) bukan OOC, user dikasih saran
 
-### Mode 2: Cascade Normal (≥ 3 kata / BM25 < 5)
-Untuk query ≥ 3 kata yang BM25 < 5:
-1. **BM25 original < 5** + ada history — concat prev query depth 1-3
+### Mode B: Cascade Normal (≥ 3 kata, ada history)
+Untuk query ≥ 3 kata dengan history:
+1. **Concat prev query depth 1-3**, hitung BM25 ulang
 2. **BM25 cascade ≥ 5** — cek **E5 cosine similarity** (≥ 0.78)
 3. **E5 sim ≥ 0.78** — ✅ satu topik → hybrid search → LLM
-4. **E5 sim < 0.78** — topic drift → cascade skip → 3-tier BM25 gate
+4. **BM25 cascade < 5 ATAU E5 sim < 0.78** — cascade skip → fallback ke BM25 3-tier gate
 
-> 🔑 Short follow-up skip E5 guard — nol biaya tambahan.
+> 🔑 Short follow-up skip E5 guard — biar query pendek kayak "tetep" gak kena topic drift.
 
 | Skenario | BM25 ori | BM25 cascade | E5 sim | Short? | Hasil |
 |----------|:---:|:---:|:---:|:---:|:--:|
@@ -657,8 +657,9 @@ Untuk query ≥ 3 kata yang BM25 < 5:
 | Short: "error" setelah "aktivasi FASIH" | 0.0 | 7.5 | — (skip) | ✅ | Langsung hybrid |
 | Short: "gimana" setelah "cara daftar" | 0.0 | 4.2 | — (skip) | ✅ | Borderline fallback |
 | Normal: "tetep gabisa" setelah "verifikasi NIK" | 0.0 | 9.2 | 0.89 ✅ | ❌ | LLM jawab |
-| Drift: "BPS bukan satu-satunya" setelah NIK | 2.1 | 5.2 | 0.55 ❌ | ❌ | Cascade skip |
-| Non-BPS: "siapa presiden" setelah FASIH | 0.0 | 5.8 | 0.34 ❌ | ❌ | Cascade skip |
+| Drift: "BPS bukan satu-satunya" setelah NIK | 2.1 | 5.2 | 0.55 ❌ | ❌ | Cascade skip → BM25 gate |
+| Non-BPS: "siapa presiden" setelah FASIH | 0.0 | 5.8 | 0.34 ❌ | ❌ | Cascade skip → BM25 gate |
+| BM25 tinggi: "cara daftar SOBAT" setelah FASIH | 7.2 | 8.5 | 0.65 ❌ | ❌ | Cascade skip → hybrid langsung |
 
 ---
 
@@ -723,7 +724,7 @@ Bot ini punya **6 lapis proteksi**:
 | 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%. Keyword fallback sbg safety net |
-| 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade BM25 depth 3 untuk follow-up. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
+| 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
 | 6 | 👑 **Trusted User** | `security/rate_limiter.py` | User di `TRUSTED_CHAT_IDS` **skip anti-spam & daily limit** |
 
 ### Detail Pipeline Domain Filter (BM25 Threshold)
@@ -1692,6 +1693,21 @@ sudo lsof -i :8000              # Linux
 - **`server.py`** — Trailing garbage `"}]}`` di baris `bm25_top = 3.0` (borderline fallback). Potensi SyntaxError saat kode dijalankan.
 
 **Files changed:** `server.py`, `pipeline/__init__.py`, `pipeline/cascade.py`, `pipeline/multi_part.py`, `VERSION`, `README.md`
+
+---
+
+#### v2.12.0 — 2026-06-15
+
+**Cascade Tanpa BM25 Gate — Selalu Coba Kalo Ada History**
+
+**Changed — Cascade Trigger**
+- **`server.py`** — Hapus outer BM25 &lt; 5 gate dari kondisi cascade. Sekarang cascade selalu jalan kalo ada history (`if prev_queries:`), tanpa syarat BM25. Short follow-up tetap skip E5 guard.
+- **`pipeline/cascade.py`** — Inner BM25 check (≥ 5.0) tetap sebagai syarat cascade sukses. E5 guard (≥ 0.78) tetap sebagai anti-topic-drift.
+
+**Docs**
+- **`README.md`** — Update cascade section, pipeline flow, ringkasan, dan catatan BM25. Hapus referensi "BM25 &lt; 5 sebagai cascade trigger".
+
+**Files changed:** `server.py`, `VERSION`, `README.md`
 
 ---
 

@@ -473,10 +473,10 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     print(f"[DOMAIN] BM25={bm25_top:.1f} (gate: ≥5=lolos, 3-4.9=QNA, <3=tolak, centroid={centroid_sim:.4f})")
     api_rate_limit[_limit_key]["last_active"] = time.time()
 
-    # ── CASCADE: concat prev query ──
+    # ── CASCADE: selalu coba concat prev query kalo ada history ──
     prev_queries = [msg["content"] for msg in reversed(history) if msg["role"] == "user"]
     
-    # Short follow-up: < 3 kata + ada history → langsung cascade tanpa BM25 gate
+    # Short follow-up: < 3 kata + ada history → skip E5 guard
     _short_followup = False
     if ft_domain == "forward":
         _wc = len(req.pertanyaan.split())
@@ -486,7 +486,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     
     cascade_used = False
     _cascade_query = None
-    if (_short_followup or bm25_top < 5.0) and prev_queries:
+    if prev_queries:
         from pipeline.cascade import handle_cascade
         bm25_top, _cascade_query, cascade_used = await handle_cascade(
             query=req.pertanyaan,
