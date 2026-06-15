@@ -116,6 +116,10 @@ chatbot-qna/
 ├── wa_handler.py             ← Layer WhatsApp (Flask, terima dari bridge)
 ├── dashboard.py              ← Dashboard monitoring (port 8001)
 ├── start-all.bat             ← 1 klik buka 5 terminal + dashboard
+├── VERSION                   ← Versi terbaru (integer)
+├── requirements.txt          ← Dependency Python
+├── .env / .env.example       ← Konfigurasi (token, API key, dll)
+├── .gitignore
 │
 ├── core/                     ← 🔧 Mesin utama
 │   ├── database.py           ←   SQLite: session chat history, daily limit
@@ -127,6 +131,12 @@ chatbot-qna/
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
 │   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
 │
+├── pipeline/                 ← ⚙️ Pipeline khusus (v2.10.0+)
+│   ├── cascade.py            ←   Cascade fallback: concat prev query depth 1-3 + BM25 re-score
+│   │                           + E5 similarity guard (short follow-up skip)
+│   └── multi_part.py         ←   Multi-Part Split: heuristic split + E5 semantic merge
+│                               + CLF guard (3 layer), skip non-substantif part
+│
 ├── security/                 ← 🔒 Lapisan pengaman
 │   ├── rate_limiter.py       ←   Anti-spam (5/menit), trusted user, daily limit
 │   └── session.py            ←   Session: timeout 30 menit, watchdog
@@ -135,14 +145,20 @@ chatbot-qna/
 │   ├── identity.json         ←   Nama, role, topik (ubah ini saja untuk bot berbeda)
 │   ├── system.md             ←   System prompt — aturan main LLM
 │   ├── greeting.md           ←   Template sapaan pertama
+│   ├── acronyms.md           ←   Daftar akronim/istilah teknis BPS (disisipkan ke system prompt)
 │   └── responses.json        ←   Semua user-facing text (tolak, error, dll)
 │
 ├── templates/                ← 🎨 HTML Template
-│   └── dashboard.html        ←   Dashboard UI (1447 baris vanilla HTML/CSS/JS)
+│   ├── dashboard.html        ←   Dashboard UI (1447 baris vanilla HTML/CSS/JS)
+│   └── favicon.svg           ←   Ikon dashboard
 │
 ├── whatsapp-bridge/          ← 📱 Bridge WhatsApp
 │   ├── bridge.js             ←   whatsapp-web.js client (QR scan, typing, image)
 │   └── package.json          ←   Node.js dependencies
+│
+├── screenshots/              ← 🖼️ Screenshot bot
+│   ├── wa-chat.jpg
+│   └── tg-chat.jpg
 │
 ├── faq_categories.json       ← 📊 Auto-generated kategori FAQ (dipake dashboard)
 └── query_log.jsonl           ← 📊 Log evaluasi query (auto-generated)
