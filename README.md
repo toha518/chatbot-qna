@@ -14,7 +14,7 @@
 [![Dashboard](https://img.shields.io/badge/Dashboard-Web%20UI-%230070d1)](http://localhost:8001)
 [![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
-Asisten chatbot SE2026 dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap membantu pertanyaan seputar Sensus Ekonomi 2026 via Telegram & WhatsApp.
+Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Telegram & WhatsApp.
 
 > **Stack:** FastAPI + Hybrid E5+BM25 (RRF fusion) + Multi-LLM failover + SQLite + EasyOCR + PlayStation Dashboard
 
