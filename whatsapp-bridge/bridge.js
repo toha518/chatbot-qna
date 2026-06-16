@@ -13,10 +13,6 @@ const qrcode = require('qrcode-terminal');
 // Cache: mapping LID (@lid@c.us) ke nomor @c.us — diisi pas ada pesan masuk
 const lidToCus = new Map();
 
-// Set chat_id yang pernah interaksi valid (kirim teks/gambar)
-// Digunakan buat silent warning 'hanya menerima teks dan gambar' untuk user baru
-const _knownWa = new Set();
-
 // ===================== KONFIGURASI =====================
 const FLASK_URL = process.env.FLASK_URL || 'http://localhost:3001';
 const PORT = process.env.PORT || 3000;
@@ -137,21 +133,20 @@ client.on('message', async (msg) => {
             // _author tetap dikirim sebagai author, sender = group_id
         }
 
+        // ── Filter: drop system notification WA (biar gak kepancing warning duluan) ──
+        const _systemTypes = ['notification', 'call_log', 'e2e_notification', 'protocol'];
+        if (_systemTypes.includes(msg.type)) {
+            console.log(`[WA FILTER] Skip system event: ${msg.type}`);
+            return;
+        }
+
         // ── Filter: hanya terima teks & gambar ──
         const _isText = msg.type === 'chat' || msg.type === 'buttons_response';
         const _isImage = msg.type === 'image' || (msg.type === 'document' && msg.mimetype && msg.mimetype.startsWith('image/'));
         if (!_isText && !_isImage) {
-            // User baru (belum pernah kirim teks/gambar valid) — jangan kirim warning, biar first impression bersih
-            if (!_knownWa.has(sender)) {
-                console.log(`[WA FILTER] User baru ${sender} kirim tipe ${msg.type} — silent (first impression)`);
-                return;
-            }
             await client.sendMessage(sender, '⚠️ Hanya menerima teks dan gambar. Silakan ketik pertanyaan Anda.');
             return;
         }
-
-        // Tandai user ini pernah interaksi valid
-        _knownWa.add(sender);
 
         // Dapetin chat reference
         const chat = await msg.getChat();
