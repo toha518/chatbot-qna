@@ -374,7 +374,7 @@ def search(query: str, top_k: int = 3):
     return context, scores[best_idx], questions[best_idx[0]] if len(best_idx) > 0 else ""
 
 
-def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
+def hybrid_search(query: str, top_k: int = 7, query_vec: np.ndarray = None):
     """
     Hybrid search: E5 (semantic) + BM25 (keyword) via RRF fusion.
     
@@ -429,7 +429,7 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
     context = ""
     seen_answers = set()
     # ── Format konteks dengan peringkat ──
-    rank_labels = ["⭐️ PERINGKAT 1 (JAWABAN UTAMA)", "PERINGKAT 2", "PERINGKAT 3", "PERINGKAT 4", "PERINGKAT 5"]
+    rank_labels = ["⭐️ PERINGKAT 1 (JAWABAN UTAMA)", "PERINGKAT 2", "PERINGKAT 3", "PERINGKAT 4", "PERINGKAT 5", "PERINGKAT 6", "PERINGKAT 7"]
     rank_idx = 0
     for idx in best_idx:
         if rrf_scores[idx] < 0.001:
@@ -464,10 +464,10 @@ def hybrid_search(query: str, top_k: int = 5, query_vec: np.ndarray = None):
             context = (f"PERTANYAAN: {questions[idx0]}\n"
                        f"JAWABAN: {answers[idx0]}\n\n")
 
-    # ── Return: scores array [E5, BM25, RRF] + top-5 FAQ list ──
+    # ── Return: scores array [E5, BM25, RRF] + top-7 FAQ list ──
     best_q = questions[best_idx[0]] if len(best_idx) > 0 else ""
-    top5 = [f"#{i+1} {questions[idx]}" for i, idx in enumerate(best_idx[:5])]  # semua 5 FAQ dengan ranking
+    top7 = [f"#{i+1} {questions[idx]}" for i, idx in enumerate(best_idx[:7])]  # semua 7 FAQ dengan ranking
     top_e5 = float(e5_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_bm25 = float(bm25_scores[best_idx[0]]) if len(best_idx) > 0 else 0
     top_rrf = float(rrf_scores[best_idx[0]]) if len(best_idx) > 0 else 0
-    return context, np.array([top_e5, top_bm25, top_rrf]), best_q, top5
+    return context, np.array([top_e5, top_bm25, top_rrf]), best_q, top7

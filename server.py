@@ -531,8 +531,8 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     # Tier 3: BM25 ≥ 5.0 — keyword BPS jelas → hybrid search → LLM
     # ── HYBRID SEARCH (pake _cascade_query kalo ada, original req.pertanyaan kalo tidak) ──
     _search_query = _cascade_query if _cascade_query is not None else req.pertanyaan
-    context, scores, best_q, top5_all = await asyncio.to_thread(
-        hybrid_search, _search_query, 5,
+    context, scores, best_q, top7_all = await asyncio.to_thread(
+        hybrid_search, _search_query, 7,
         query_vec if _cascade_query is None else None
     )
     top_rrf = float(scores[2]) if len(scores) > 2 else 0
@@ -570,7 +570,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                     borderline_parts.append(part)
                 print(f"[SPLIT] Skip part (BM25={p_bm25:.1f}): '{part[:60]}'")
                 continue
-            p_ctx, p_scores, _, p_top5 = await asyncio.to_thread(hybrid_search, part, 5)
+            p_ctx, p_scores, _, p_top7 = await asyncio.to_thread(hybrid_search, part, 7)
             _system = build_system_prompt(system_template, identity, acronyms)
             _msgs = [{"role": "system", "content": _system}]
             _msgs.append({"role": "system", "content": f"📚 Data Referensi (diurutkan dari paling relevan):\n\n{p_ctx}"})
@@ -638,7 +638,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
               clf_domain=ft_domain, clf_confidence=ft_conf, clf_mode=_clf_mode,
               rrf_score=top_rrf, e5_top=float(scores[0]) if len(scores) > 0 else 0,
               bm25_raw=float(scores[1]) if len(scores) > 1 else 0,
-              top5_faq=top5_all,
+              top5_faq=top7_all,
               gate=gate_label, dijawab=_dijawab, jawaban=jawaban,
               bm25_gate=bm25_top,
               multi_part=bool(len(parts) > 1), session_baru=session_baru,
