@@ -70,6 +70,11 @@ def ocr_readtext(image_path: str) -> str:
         result = reader.readtext(image_path)
         return ' '.join([item[1] for item in result if item[2] > 0.3])
 
+# ===================== CHAT TRACKING =====================
+# Set buat tracking chat_id yang pernah kirim teks/gambar valid
+# Digunakan handle_media: kalo user baru (belum pernah interaksi), skip warning
+_known_chats: set[str] = set()
+
 # ===================== KONFIGURASI =====================
 load_dotenv()  # baca .env (kalo ada)
 
@@ -168,10 +173,12 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler utama — semua pesan teks masuk sini"""
+    global _known_chats
     if not update.message or not update.message.text:
         return
 
     chat_id = str(update.effective_chat.id)  # ID unik percakapan
+    _known_chats.add(chat_id)  # tandai user ini pernah interaksi
     text = update.message.text.strip()
 
     if not text:
@@ -334,8 +341,10 @@ def main():
     # Tolak sticker, gambar, voice dll
     async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler gambar: download → OCR → gabung caption → kirim ke server"""
+        global _known_chats
         from security.rate_limiter import check_image_rate_limit
         chat_id = str(update.effective_chat.id)
+        _known_chats.add(chat_id)  # tandai user ini pernah interaksi
         # Image rate limit: 1 gambar per 1 menit per user
         if not check_image_rate_limit(chat_id):
             await update.message.reply_text(_RESPONSES.get("image_rate_limit"))
@@ -432,8 +441,13 @@ def main():
 
     # Handler untuk foto, gambar, dokumen gambar (private & group)
     app.add_handler(MessageHandler((filters.PHOTO | filters.Document.IMAGE) & filters.ChatType.PRIVATE, handle_image))
-    # Handler untuk media lain (sticker, voice, video) — tetap ditolak
+    # Handler untuk media lain (sticker, voice, video) — silent kalo user baru
     async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = str(update.effective_chat.id)
+        # User baru (belum pernah kirim teks/gambar) — jangan kirim warning, biar first impression bersih
+        if chat_id not in _known_chats:
+            print(f"[MEDIA] User baru {chat_id} kirim media — silent (first impression)")
+            return
         await update.message.reply_text(_RESPONSES.get("text_only"))
     app.add_handler(MessageHandler(~filters.TEXT & ~filters.PHOTO & ~filters.Document.IMAGE & filters.ChatType.PRIVATE, handle_media))
 
