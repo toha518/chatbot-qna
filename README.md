@@ -68,7 +68,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
-| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-5 FAQ |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
@@ -88,7 +88,7 @@ Asisten permasalahan IT dari **BPS Provinsi Kepulauan Bangka Belitung**. Siap me
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata — dari v2.8.0 di-append ke BM25 doc text biar keyword kategori ngaruh ke ranking. top_k=5. Centroid di-log untuk analytics. |
+| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata — dari v2.8.0 di-append ke BM25 doc text biar keyword kategori ngaruh ke ranking. top_k=7. Centroid di-log untuk analytics. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -272,7 +272,7 @@ USER CHAT
 │  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=30      │
-│  Top-5 FAQ (RRF ranking, untuk konteks LLM)       │
+│  Top-7 FAQ (RRF ranking, untuk konteks LLM)       │
 └───────────────────────────────────────────────────┘
   │
   ▼
@@ -443,7 +443,7 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
      RRF_score(d) = 1/(K+rank_E5(d))  ← skip BM25, hindari ranking noise
    ```
    **K = 30** — konstanta smoothing RRF, diturunkan dari default 60 untuk top_k kecil + BM25 presisi.
-4. Ambil **top-5** FAQ berdasarkan RRF_score tertinggi
+4. Ambil **top-7** FAQ berdasarkan RRF_score tertinggi
 
 **Visual sederhana (2 FAQ):**
 | FAQ | rank_E5 | rank_BM25 | RRF dengan K=30 |
@@ -673,7 +673,7 @@ BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja bera
 | User nanya "aktivasi FASIH" | ✅ Skor tinggi (exact match "FASIH") | ✅ Skor tinggi (paham konteks aktivasi) | ✅ Keduanya setuju → aman |
 | User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
 | User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
-| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-5 masih include yang bener |
+| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-7 masih include yang bener |
 | User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih (BM25 < 3.0, tolak sebelum retrieval) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
 | User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih (BM25 < 3.0) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
 
@@ -1696,6 +1696,24 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.13.0 — 2026-06-17
+
+**top_k FAQ: 5 → 7, Update Prompts Identitas NARA**
+
+**Changed — Hybrid Search**
+- **`core/embedder.py`** — Default `top_k=5` → `7`. Rank labels tambah PERINGKAT 6 & 7. Return `top7` (7 FAQ) bukan `top5`.
+- **`server.py`** — Panggil `hybrid_search` dengan 7, variable `top5_all` → `top7_all`. Multi-part split juga pakai 7.
+
+**Changed — Identitas NARA**
+- **`prompts/identity.json`** — Role "asisten permasalahan IT" → "asisten chatbot". Topics dari 6 aplikasi BPS (SOBAT, FASIH, GOJAGS) → "Sensus Ekonomi 2026". Personality disesuaikan.
+- **`prompts/greeting.md`** — Hapus baris larangan minta pilih topik.
+- **`prompts/system.md`** — Hapus aturan multi-kategori (SOBAT/FASIH/GOJAGS). Aturan emoji geser #5 → #4.
+- **`prompts/responses.json`** — `negative_feedback` & `rejection_no_answer` lebih generik, hapus instruksi detail aplikasi+kendala.
+
+**Files changed:** `core/embedder.py`, `server.py`, `prompts/identity.json`, `prompts/greeting.md`, `prompts/system.md`, `prompts/responses.json`, `VERSION`, `README.md`
+
+---
+
 #### v2.12.0 — 2026-06-15
 
 **Cascade Tanpa BM25 Gate — Selalu Coba Kalo Ada History**
@@ -1879,7 +1897,7 @@ sudo lsof -i :8000              # Linux
 **RRF K: 60 → 30 — Optimalisasi Hybrid Search untuk 500+ FAQ**
 
 **Rasional** — Berdasarkan riset eksternal (Mehrotra 2025, glaforge.dev 2026, drittich, avchauzov, spice.ai):
-- **top_k=5** + BM25 presisi (FAQ teknis) + corpus terstruktur → lower K lebih optimal
+- **top_k=7** + BM25 presisi (FAQ teknis) + corpus terstruktur → lower K lebih optimal
 - K=30 bikin rank #1 vs #5 dari beda 6% (K=60) jadi 13% — FAQ paling relevan lebih jelas menonjol
 - Zero RAM tambahan, zero latency tambahan
 
