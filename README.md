@@ -93,7 +93,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
 | ✈️ **Telegram Bot** | Reply keyboard, typing indicator, "⏳ Memproses gambar..." (auto-hapus setelah jawaban) |
-| 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). |
+| 🗣️ **OCR Gambar** | Screenshot error dibaca otomatis via EasyOCR. Support Indo + Inggris. **Bebas limit 500 karakter** (khusus OCR). Format eksplisit: `📝 PERTANYAAN USER:` + `📸 SCREENSHOT (OCR):` biar LLM bedain caption vs hasil OCR. |
 | 🔄 **Auto-Reload FAQ** | Download ulang dari Google Sheets tiap 12 jam. Bisa reload manual via `/reload` atau tombol Reload FAQ di dashboard |
 | 📜 **Chat History** | Semua percakapan tersimpan di SQLite — kolom chat_id, pertanyaan, jawaban, source (API/WA/Telegram), BM25, RRF, gate status |
 | 📊 **Dashboard** | Monitoring real-time: Live Terminal, RRF chart, Queries/Hour, Top FAQ, LLM response time, Daily users. **Feedback stats cards** (✅/❌/⏺), **Feedback filter** di Query Log. Sidebar collapsible (desktop + mobile). |
@@ -1693,6 +1693,24 @@ sudo lsof -i :8000              # Linux
 - **`server.py`** — Trailing garbage `"}]}`` di baris `bm25_top = 3.0` (borderline fallback). Potensi SyntaxError saat kode dijalankan.
 
 **Files changed:** `server.py`, `pipeline/__init__.py`, `pipeline/cascade.py`, `pipeline/multi_part.py`, `VERSION`, `README.md`
+
+---
+
+#### v2.14.0 — 2026-06-17
+
+**Format OCR Eksplisit: PERTANYAAN USER vs SCREENSHOT**
+
+**Changed — Format OCR**
+- **`telegram_bot.py`** — Format `[Gambar: ...]` diubah jadi `📝 PERTANYAAN USER:\n{caption}\n\n📸 SCREENSHOT (OCR):\n{ocr_text}` kalo ada caption.
+- **`wa_handler.py`** — Sama, format OCR eksplisit.
+- **`server.py`** — Sama untuk path WA via API.
+- **`prompts/system.md`** — Tambah aturan #4: cara handle format screenshot/OCR. LLM tau kapan harus jawab pertanyaan spesifik vs analisis seluruh screenshot.
+
+**Behavior:**
+- User kirim gambar + caption → `📝 PERTANYAAN USER:` + `📸 SCREENSHOT (OCR):` → LLM jawab sesuai caption, OCR sebagai konteks
+- User kirim gambar doang → `📸 SCREENSHOT (OCR):` → LLM analisis screenshot
+
+**Files changed:** `telegram_bot.py`, `wa_handler.py`, `server.py`, `prompts/system.md`, `VERSION`, `README.md`
 
 ---
 

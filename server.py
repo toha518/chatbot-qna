@@ -272,9 +272,9 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             ocr_text = ' '.join([item[1] for item in result if item[2] > 0.3])
             caption = req.pertanyaan if req.pertanyaan != "[Gambar]" else ""
             if caption and ocr_text:
-                req.pertanyaan = f"{caption}\n\n[Gambar: {ocr_text}]"
+                req.pertanyaan = f"📝 PERTANYAAN USER:\n{caption}\n\n📸 SCREENSHOT (OCR):\n{ocr_text}"
             elif ocr_text:
-                req.pertanyaan = f"[Gambar: {ocr_text}]"
+                req.pertanyaan = f"📸 SCREENSHOT (OCR):\n{ocr_text}"
             # kalo gak ada ocr_text, pertanyaan tetap caption
             print(f"[OCR] Image processed: {len(ocr_text)} chars extracted")
         except Exception as e:

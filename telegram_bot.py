@@ -385,12 +385,12 @@ def main():
             ocr_text = await asyncio.to_thread(_do_ocr, tmp_path)
             os.unlink(tmp_path)
 
-            # Gabung caption (kalo ada) + OCR
+            # Gabung caption (kalo ada) + OCR — format eksplisit
             caption = update.message.caption or ''
             if caption and ocr_text:
-                combined = f"{caption}\n\n[Gambar: {ocr_text}]"
+                combined = f"📝 PERTANYAAN USER:\n{caption}\n\n📸 SCREENSHOT (OCR):\n{ocr_text}"
             elif ocr_text:
-                combined = f"[Gambar: {ocr_text}]"
+                combined = f"📸 SCREENSHOT (OCR):\n{ocr_text}"
             else:
                 combined = caption
 

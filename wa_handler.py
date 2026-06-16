@@ -134,9 +134,9 @@ def wa_message():
                 ocr_text = ocr_readtext(tmp_path)
                 os.unlink(tmp_path)
                 if caption and ocr_text:
-                    pertanyaan = f"{caption}\n\n[Gambar: {ocr_text}]"
+                    pertanyaan = f"📝 PERTANYAAN USER:\n{caption}\n\n📸 SCREENSHOT (OCR):\n{ocr_text}"
                 elif ocr_text:
-                    pertanyaan = f"[Gambar: {ocr_text}]"
+                    pertanyaan = f"📸 SCREENSHOT (OCR):\n{ocr_text}"
                 else:
                     pertanyaan = caption
 
