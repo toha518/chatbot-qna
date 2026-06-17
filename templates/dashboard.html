@@ -419,7 +419,6 @@
         justify-content: center;
         font-size: 10px;
         color: #fff;
-        margin-bottom: 8px;
     }
     .chat-msg-wrap.user .msg-avatar { background: #667781; }
     .chat-msg-wrap.bot .msg-avatar { background: #00a884; }
@@ -2318,31 +2317,28 @@
             // User message bubble
             let userHtml = '';
             if (m.pertanyaan) {
-                userHtml = `
-                ${dateDivider}
-                <div class="chat-msg-wrap user">
-                    <div class="msg-avatar">👤</div>
-                    <div class="chat-msg">
-                        ${escHtml(m.pertanyaan)}
-                        <div class="msg-time">${msgTime}</div>
-                    </div>
-                </div>`;
+                userHtml = `${dateDivider}
+<div class="chat-msg-wrap user">
+    <div class="msg-avatar">👤</div>
+    <div class="chat-msg">${escHtml(m.pertanyaan)}
+        <div class="msg-time">${msgTime}</div>
+    </div>
+</div>`;
             }
 
             // Bot answer bubble
             let botHtml = '';
             if (m.jawaban) {
                 botHtml = `
-                <div class="chat-msg-wrap bot">
-                    <div class="msg-avatar">🤖</div>
-                    <div class="chat-msg">
-                        ${formatBotMessage(m.jawaban)}
-                        <div class="msg-time">
-                            ${msgTime}
-                            ${m.gate ? '<span class="msg-gate">' + escHtml(m.gate) + '</span>' : ''}
-                        </div>
-                    </div>
-                </div>`;
+<div class="chat-msg-wrap bot">
+    <div class="msg-avatar">🤖</div>
+    <div class="chat-msg">${formatBotMessage(m.jawaban)}
+        <div class="msg-time">
+            ${msgTime}
+            ${m.gate ? '<span class="msg-gate">' + escHtml(m.gate) + '</span>' : ''}
+        </div>
+    </div>
+</div>`;
             }
 
             return userHtml + botHtml;
