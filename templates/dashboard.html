@@ -450,14 +450,20 @@
     .chat-msg .msg-time {
         font: 400 9px/1 'Inter', sans-serif;
         color: #667781;
-        margin-top: 1px;
-        text-align: right;
+        position: absolute;
+        bottom: 3px;
+        right: 5px;
         display: flex;
         align-items: center;
-        justify-content: flex-end;
         gap: 2px;
-        flex-shrink: 0;
+        padding: 1px 3px;
+        border-radius: 3px;
     }
+    .chat-msg-wrap.user .chat-msg .msg-time { background: #ffffff; }
+    .chat-msg-wrap.bot .chat-msg .msg-time { background: #d9fdd3; }
+    [data-theme="dark"] .chat-msg-wrap.user .chat-msg .msg-time { background: #1f2c33; }
+    [data-theme="dark"] .chat-msg-wrap.bot .chat-msg .msg-time { background: #005c4b; }
+    [data-theme="dark"] .chat-msg .msg-time { color: rgba(233,237,239,0.5); }
     [data-theme="dark"] .chat-msg .msg-time {
         color: rgba(233,237,239,0.5);
     }
