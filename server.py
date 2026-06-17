@@ -252,6 +252,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     print(f"[GROUP DEBUG] /chat cid={cid} limit_key={_limit_key} source={req.source} pertanyaan='{_display_query[:60]}'")
 
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
+    _skip_multi_part = False
     if req.image_path:
         # Image rate limit: 1 gambar per 1 menit per user
         if _limit_key not in TRUSTED_IDS:
@@ -273,10 +274,12 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             caption = req.pertanyaan if req.pertanyaan != "[Gambar]" else ""
             if caption and ocr_text:
                 req.pertanyaan = f"📝 PERTANYAAN USER:\n{caption}\n\n📸 SCREENSHOT (OCR):\n{ocr_text}"
+                _skip_multi_part = True
             elif ocr_text:
                 req.pertanyaan = f"📸 SCREENSHOT (OCR):\n{ocr_text}"
+                _skip_multi_part = True
             # kalo gak ada ocr_text, pertanyaan tetap caption
-            print(f"[OCR] Image processed: {len(ocr_text)} chars extracted")
+            print(f"[OCR] Image processed: {len(ocr_text)} chars")
         except Exception as e:
             print(f"[OCR] Error processing image: {e}")
             # Fallback — proceed with original question
@@ -556,6 +559,11 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             parts = [req.pertanyaan]
         else:
             parts = filtered
+
+    # Skip multi-part kalo ada OCR — teks screenshot gak boleh dipecah
+    if _skip_multi_part and len(parts) > 1:
+        print(f"[SPLIT] Skip multi-part — OCR context detected, pake query asli")
+        parts = [req.pertanyaan]
 
     if len(parts) > 1:
         relevant_answers = []
