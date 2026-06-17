@@ -212,6 +212,225 @@
       min-height: 100vh;
     }
 
+    /* ── Chat Monitor ── */
+    .chat-monitor {
+        display: flex;
+        height: calc(100vh - 120px);
+        border: 1px solid var(--divider-color);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        background: var(--ps-canvas);
+    }
+    .chat-user-list {
+        width: 320px;
+        min-width: 260px;
+        border-right: 1px solid var(--divider-color);
+        display: flex;
+        flex-direction: column;
+        background: var(--ps-surface-soft);
+    }
+    .chat-user-search {
+        padding: 12px;
+        border-bottom: 1px solid var(--divider-color);
+    }
+    .chat-user-search input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--divider-color);
+        border-radius: var(--radius-full);
+        background: var(--ps-canvas);
+        color: var(--ps-ink);
+        font: var(--font-body);
+        outline: none;
+    }
+    .chat-user-search input:focus {
+        border-color: var(--ps-blue);
+    }
+    .chat-user-items {
+        flex: 1;
+        overflow-y: auto;
+    }
+    .chat-user-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        gap: 12px;
+        cursor: pointer;
+        transition: background .1s;
+        border-bottom: 1px solid var(--divider-color);
+    }
+    .chat-user-item:hover,
+    .chat-user-item.active {
+        background: var(--stat-blue-bg);
+    }
+    .chat-user-item .avatar {
+        width: 44px; height: 44px;
+        border-radius: 50%;
+        background: var(--ps-blue);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 600 18px/1 'Inter', sans-serif;
+        flex-shrink: 0;
+    }
+    .chat-user-item .user-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .chat-user-item .user-info .user-name {
+        font: 500 14px/1.3 'Inter', sans-serif;
+        color: var(--ps-ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .chat-user-item .user-info .user-preview {
+        font: 400 12px/1.4 'Inter', sans-serif;
+        color: var(--ps-mute);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 2px;
+    }
+    .chat-user-item .user-meta {
+        text-align: right;
+        flex-shrink: 0;
+    }
+    .chat-user-item .user-meta .user-time {
+        font: 400 11px/1 'Inter', sans-serif;
+        color: var(--ps-mute);
+    }
+    .chat-user-item .user-meta .user-count {
+        font: 500 11px/1 'Inter', sans-serif;
+        color: var(--ps-body);
+        background: var(--stat-blue-bg);
+        padding: 2px 7px;
+        border-radius: var(--radius-full);
+        margin-top: 4px;
+        display: inline-block;
+    }
+    .chat-view {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: var(--ps-canvas);
+    }
+    .chat-view-header {
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--ps-surface-soft);
+        font: 600 16px/1 'Inter', sans-serif;
+        color: var(--ps-ink);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .chat-view-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .chat-msg {
+        max-width: 80%;
+        padding: 8px 14px;
+        border-radius: var(--radius-md);
+        font: 400 14px/1.5 'Inter', sans-serif;
+        position: relative;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    .chat-msg.user {
+        align-self: flex-start;
+        background: var(--ps-surface-soft);
+        color: var(--ps-ink);
+        border-bottom-left-radius: 4px;
+    }
+    .chat-msg.bot {
+        align-self: flex-end;
+        background: var(--stat-blue-bg);
+        color: var(--ps-ink);
+        border-bottom-right-radius: 4px;
+    }
+    .chat-msg .msg-time {
+        font: 400 10px/1 'Inter', sans-serif;
+        color: var(--ps-mute);
+        margin-top: 4px;
+        text-align: right;
+    }
+    .chat-msg .msg-label {
+        font: 500 10px/1 'Inter', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        opacity: 0.7;
+    }
+    .chat-msg.user .msg-label { color: var(--ps-blue); }
+    .chat-msg.bot .msg-label { color: var(--ps-commerce); }
+    .chat-view-empty {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ps-mute);
+        font: var(--font-body);
+        flex-direction: column;
+        gap: 8px;
+    }
+    .chat-view-empty i {
+        font-size: 48px;
+        opacity: 0.3;
+    }
+    .chat-source-icon {
+        font-size: 12px;
+        margin-left: auto;
+        opacity: 0.6;
+    }
+    .chat-refresh-btn {
+        margin-left: auto;
+        font: var(--font-button);
+        padding: 6px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--divider-color);
+        background: var(--ps-canvas);
+        color: var(--ps-ink);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .chat-refresh-btn:hover {
+        background: var(--stat-blue-bg);
+    }
+    .chat-refresh-btn.spinning i {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .chat-msg-divider {
+        text-align: center;
+        font: 400 11px/1 'Inter', sans-serif;
+        color: var(--ps-mute);
+        margin: 8px 0;
+        position: relative;
+    }
+    .chat-msg-divider::before,
+    .chat-msg-divider::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        width: 35%;
+        height: 1px;
+        background: var(--divider-color);
+    }
+    .chat-msg-divider::before { left: 0; }
+    .chat-msg-divider::after { right: 0; }
+
     /* ── Sidebar Toggle ── */
     .sidebar-toggle {
       position: fixed;
@@ -825,6 +1044,7 @@
       <a class="nav-link" href="#" data-page="analytics"><i class="bi bi-graph-up"></i> Analytics</a>
       <a class="nav-link" href="#" data-page="system"><i class="bi bi-hdd-rack"></i> System Health</a>
       <a class="nav-link" href="#" data-page="topfaq"><i class="bi bi-list-ol"></i> Top FAQ</a>
+      <a class="nav-link" href="#" data-page="chat"><i class="bi bi-chat-dots"></i> Chat Monitor</a>
 
       <div class="mt-2 mb-1 px-3"><hr class="my-2"></div>
       <a class="nav-link" href="https://s.bps.go.id/database-chatbot" target="_blank" rel="noopener"><i class="bi bi-database"></i> Database FAQ <i class="bi bi-box-arrow-up-right small"></i></a>
@@ -1130,6 +1350,25 @@
         </table>
       </div></div>
     </div>
+
+    <!-- ===== CHAT MONITOR PAGE ===== -->
+    <div id="page-chat" style="display:none">
+      <h2 class="section-title" style="margin-bottom:16px">💬 Chat Monitor</h2>
+      <div class="chat-monitor">
+        <div class="chat-user-list">
+          <div class="chat-user-search">
+            <input type="text" id="chatSearch" placeholder="🔍 Cari user..." oninput="filterChatUsers()">
+          </div>
+          <div class="chat-user-items" id="chatUserItems"></div>
+        </div>
+        <div class="chat-view" id="chatView">
+          <div class="chat-view-empty">
+            <i class="bi bi-chat-dots"></i>
+            <span>Pilih user untuk melihat percakapan</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -1169,11 +1408,13 @@
         // Stop timers when switching pages
         stopSystemPoll();
         stopTerminal();
+        stopChatPoll();
         if (this.dataset.page === 'terminal') loadTerminal();
         if (this.dataset.page === 'logs') loadLogs();
         if (this.dataset.page === 'analytics') loadAnalytics();
         if (this.dataset.page === 'system') startSystemPoll();
         if (this.dataset.page === 'topfaq') loadTopFAQ();
+        if (this.dataset.page === 'chat') { loadChatUsers(); startChatPoll(); }
         // Close sidebar on mobile after navigation
         const sb = document.getElementById('sidebar');
         if (sb.classList.contains('open')) {
@@ -1787,6 +2028,209 @@
     }
     loadVersion();
     loadStats();
+
+    // ── Chat Monitor ──
+    let _chatUsers = [];
+    let _chatPollTimer = null;
+    let _selectedChat = null;
+
+    async function loadChatUsers() {
+        try {
+            const resp = await fetch(`${API}/chats?days=${getDays()}`);
+            _chatUsers = await resp.json();
+            renderChatUsers();
+        } catch (e) {
+            console.error('Chat load error:', e);
+        }
+    }
+
+    function getDays() {
+        const sel = document.getElementById('timeRange');
+        return sel ? sel.value : 30;
+    }
+
+    function getSourceIcon(source) {
+        switch((source || '').toLowerCase()) {
+            case 'wa': return '📱';
+            case 'telegram': return '✈️';
+            case 'api': return '🔗';
+            default: return '💬';
+        }
+    }
+
+    function getChatLabel(chatId) {
+        if (!chatId) return 'Unknown';
+        if (chatId.includes('@lid')) {
+            const num = chatId.split('@')[0];
+            if (num.length > 8) return num.slice(0, 4) + '...' + num.slice(-4);
+            return num;
+        }
+        if (/^\d+$/.test(chatId)) return chatId.slice(-6);
+        if (chatId.includes('@g.us')) return 'Group ' + chatId.slice(0, 6);
+        return chatId.slice(0, 16);
+    }
+
+    function formatChatTime(timeStr) {
+        if (!timeStr) return '';
+        const d = new Date(timeStr);
+        const now = new Date();
+        const isToday = d.toDateString() === now.toDateString();
+        if (isToday) return d.toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'});
+        const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+        if (d.toDateString() === yesterday.toDateString()) return 'Kemarin';
+        return d.toLocaleDateString('id-ID', {day:'numeric', month:'short'});
+    }
+
+    function renderChatUsers() {
+        const container = document.getElementById('chatUserItems');
+        const query = (document.getElementById('chatSearch').value || '').toLowerCase();
+
+        const filtered = _chatUsers.filter(u =>
+            u.chat_id.toLowerCase().includes(query) ||
+            (u.last_question || '').toLowerCase().includes(query)
+        );
+
+        container.innerHTML = filtered.map(u => `
+            <div class="chat-user-item${_selectedChat === u.chat_id ? ' active' : ''}" onclick="selectChat('${escHtmlAttr(u.chat_id)}')">
+                <div class="avatar">${getSourceIcon(u.source || '')}</div>
+                <div class="user-info">
+                    <div class="user-name">${escHtml(getChatLabel(u.chat_id))} <span class="chat-source-icon">${getSourceIcon(u.source)}</span></div>
+                    <div class="user-preview">${escHtml(u.last_question ? u.last_question.substring(0, 60) : '(kosong)')}</div>
+                </div>
+                <div class="user-meta">
+                    <div class="user-time">${formatChatTime(u.last_time)}</div>
+                    <div class="user-count">${u.total}</div>
+                </div>
+            </div>
+        `).join('');
+
+        if (_selectedChat && filtered.some(u => u.chat_id === _selectedChat)) {
+            // keep selection
+        } else if (filtered.length > 0) {
+            selectChat(filtered[0].chat_id);
+        } else {
+            showEmptyChat();
+        }
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function escHtmlAttr(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    async function selectChat(chatId) {
+        _selectedChat = chatId;
+        renderChatUsers();
+        const view = document.getElementById('chatView');
+        view.innerHTML = '<div class="chat-view-messages" id="chatMessages"><div class="chat-view-empty"><i class="bi bi-hourglass-split"></i><span>Memuat...</span></div></div>';
+
+        const header = document.createElement('div');
+        header.className = 'chat-view-header';
+        header.id = 'chatViewHeader';
+        header.innerHTML = `${getSourceIcon(getSourceForChat(chatId))} ${escHtml(getChatLabel(chatId))} <button class="chat-refresh-btn" onclick="refreshChat()" id="chatRefreshBtn"><i class="bi bi-arrow-clockwise"></i> Refresh</button>`;
+        view.prepend(header);
+
+        try {
+            const resp = await fetch(`${API}/chats/${encodeURIComponent(chatId)}`);
+            const messages = await resp.json();
+            renderMessages(messages);
+        } catch (e) {
+            document.getElementById('chatMessages').innerHTML = `<div class="chat-view-empty"><i class="bi bi-exclamation-triangle"></i><span>Gagal memuat: ${e.message}</span></div>`;
+        }
+    }
+
+    function getSourceForChat(chatId) {
+        const user = _chatUsers.find(u => u.chat_id === chatId);
+        return user ? (user.source || '') : '';
+    }
+
+    function renderMessages(messages) {
+        const container = document.getElementById('chatMessages');
+        if (!messages || messages.length === 0) {
+            container.innerHTML = '<div class="chat-view-empty"><i class="bi bi-chat-dots"></i><span>Belum ada percakapan</span></div>';
+            return;
+        }
+
+        let lastDate = '';
+        container.innerHTML = messages.map(m => {
+            const msgDate = m.waktu ? new Date(m.waktu).toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'}) : '';
+            let dateDivider = '';
+            if (msgDate && msgDate !== lastDate) {
+                dateDivider = `<div class="chat-msg-divider">${msgDate}</div>`;
+                lastDate = msgDate;
+            }
+
+            const msgTime = m.waktu ? new Date(m.waktu).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'}) : '';
+
+            const userMsg = m.pertanyaan ? `
+                ${dateDivider}
+                <div class="chat-msg user">
+                    <div class="msg-label">👤 User</div>
+                    ${escHtml(m.pertanyaan)}
+                    <div class="msg-time">${msgTime}</div>
+                </div>
+            ` : dateDivider;
+
+            const botMsg = m.jawaban ? `
+                <div class="chat-msg bot">
+                    <div class="msg-label">🤖 NARA</div>
+                    ${formatBotMessage(m.jawaban)}
+                    <div class="msg-time">${msgTime} ${m.gate ? '· ' + m.gate : ''}</div>
+                </div>
+            ` : '';
+
+            return userMsg + botMsg;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function formatBotMessage(text) {
+        if (!text) return '';
+        let s = text;
+        s = s.replace(/\|([^|]+)\|/g, (m) => m.replace(/\|/g, ' ').trim());
+        s = s.replace(/[-]{2,}/g, '');
+        return escHtml(s).replace(/\n/g, '<br>');
+    }
+
+    function showEmptyChat() {
+        const view = document.getElementById('chatView');
+        view.innerHTML = '<div class="chat-view-empty"><i class="bi bi-chat-dots"></i><span>Pilih user untuk melihat percakapan</span></div>';
+    }
+
+    function filterChatUsers() {
+        renderChatUsers();
+    }
+
+    function refreshChat() {
+        if (_selectedChat) {
+            const btn = document.getElementById('chatRefreshBtn');
+            if (btn) btn.classList.add('spinning');
+            selectChat(_selectedChat).then(() => {
+                if (btn) btn.classList.remove('spinning');
+            });
+        }
+    }
+
+    function startChatPoll() {
+        stopChatPoll();
+        loadChatUsers();
+        _chatPollTimer = setInterval(loadChatUsers, 15000);
+    }
+
+    function stopChatPoll() {
+        if (_chatPollTimer) {
+            clearInterval(_chatPollTimer);
+            _chatPollTimer = null;
+        }
+    }
   </script>
 </body>
 </html>

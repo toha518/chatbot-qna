@@ -619,6 +619,59 @@ def api_top_faq(days: int = 7, limit: int = 20):
     return {"faqs": faqs}
 
 
+# ── Chat Monitor ──
+
+
+@app.get("/api/chats")
+def get_chats(days: int = Query(30)):
+    """Return list of unique chat_ids with latest message + total count"""
+    try:
+        db = sqlite3.connect(str(DB))
+        db.row_factory = sqlite3.Row
+        rows = db.execute("""
+            SELECT chat_id, source, COUNT(*) as total,
+                   MAX(waktu) as last_time,
+                   (SELECT pertanyaan FROM logs l2 WHERE l2.chat_id = logs.chat_id ORDER BY waktu DESC LIMIT 1) as last_question,
+                   (SELECT jawaban FROM logs l2 WHERE l2.chat_id = logs.chat_id ORDER BY waktu DESC LIMIT 1) as last_answer
+            FROM logs
+            WHERE waktu >= datetime('now', 'localtime', ? || ' days')
+            GROUP BY chat_id
+            ORDER BY MAX(waktu) DESC
+            LIMIT 200
+        """, (f'-{days}',))
+        result = [dict(r) for r in rows]
+        db.close()
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
+@app.get("/api/chats/{chat_id:path}")
+def get_chat_history(chat_id: str):
+    """Return full conversation for a chat_id"""
+    try:
+        db = sqlite3.connect(str(DB))
+        db.row_factory = sqlite3.Row
+        # Normalize: remove @lid@c.us suffix if present (WA format)
+        clean_id = chat_id.replace('@lid@c.us', '@lid')
+        rows = db.execute("""
+            SELECT waktu, pertanyaan, jawaban, gate, clf_domain, source, feedback_status
+            FROM logs
+            WHERE chat_id = ? OR chat_id = ?
+            ORDER BY waktu ASC
+            LIMIT 500
+        """, (chat_id, clean_id))
+        result = [dict(r) for r in rows]
+        db.close()
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     print("[DASHBOARD] NARA Dashboard")
     print("[DASHBOARD] http://localhost:8001")
