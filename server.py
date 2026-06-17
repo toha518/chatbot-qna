@@ -237,6 +237,11 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     req.pertanyaan = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', req.pertanyaan)
     # Simpan query dengan koma untuk multi-part detection
     _raw_query = req.pertanyaan
+    _skip_multi_part = False
+    # Detek kalo query udah dalam format caption+OCR (dari WhatsApp handler)
+    # Skip multi-part biar formatnya gak dipecah
+    if "📸 SCREENSHOT (OCR):" in _raw_query:
+        _skip_multi_part = True
     # Normalisasi untuk consistency: koma → spasi (biar E5 embedding stabil)
     req.pertanyaan = req.pertanyaan.replace(',', ' ').replace(';', ' ')
     req.pertanyaan = re.sub(r'\s+', ' ', req.pertanyaan).strip()
@@ -252,7 +257,6 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     print(f"[GROUP DEBUG] /chat cid={cid} limit_key={_limit_key} source={req.source} pertanyaan='{_display_query[:60]}'")
 
     # ===================== OCR GAMBAR (dari WA bridge / eksternal) =====================
-    _skip_multi_part = False
     if req.image_path:
         # Image rate limit: 1 gambar per 1 menit per user
         if _limit_key not in TRUSTED_IDS:
