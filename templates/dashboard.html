@@ -423,7 +423,7 @@
     .chat-msg-wrap.user .msg-avatar { background: #667781; }
     .chat-msg-wrap.bot .msg-avatar { background: #00a884; }
     .chat-msg {
-        padding: 4px 7px;
+        padding: 6px 8px 16px;
         border-radius: 6px;
         font: 400 14px/1.35 'Inter', sans-serif;
         position: relative;
@@ -448,14 +448,14 @@
         color: #e9edef;
     }
     .chat-msg .msg-time {
-        font: 400 10px/1 'Inter', sans-serif;
+        font: 400 9px/1 'Inter', sans-serif;
         color: #667781;
-        margin-top: 2px;
-        text-align: right;
+        position: absolute;
+        bottom: 4px;
+        right: 6px;
         display: flex;
         align-items: center;
-        justify-content: flex-end;
-        gap: 3px;
+        gap: 2px;
     }
     [data-theme="dark"] .chat-msg .msg-time {
         color: rgba(233,237,239,0.5);
