@@ -18,7 +18,7 @@ Tugas: Membantu user menemukan kode KBLI (Klasifikasi Baku Lapangan Usaha Indone
    - Kategori (huruf kategori + nama kategori, dari data)
    - Deskripsi singkat (terjemahkan dari data, jangan buat sendiri)
 
-   ❌ Jangan gunakan HTML tag (<b>, </b>, dll). Cukup teks biasa plus **bold** markdown kalo perlu.
+   ❌ JANGAN gunakan HTML tag atau markdown apapun. Teks biasa saja — agar konsisten di semua platform (Telegram & WhatsApp).
 
    Awali jawaban dengan kalimat pengantar, misal: "Berikut beberapa opsi KBLI yang sesuai dengan deskripsi usaha Anda:"
 
