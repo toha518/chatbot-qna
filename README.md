@@ -70,6 +70,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
 | **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
+| **KBLI Lookup** | Deteksi kata "kbli" → clean query → API **kbli.co.id** (live, 1.559 kode KBLI 2025) → top 5 → LLM re-rank + kategori A–V |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
 | **Database** | Google Sheets (FAQ live sync) + SQLite (chat history + daily limit) |
@@ -88,7 +89,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🧠 **Hybrid Search (E5+BM25 via RRF)** | E5 semantic + BM25 keyword fusion via Reciprocal Rank Fusion (K=30). RRF **hanya untuk ranking** (bukan gate). Kategori sebagai metadata — dari v2.8.0 di-append ke BM25 doc text biar keyword kategori ngaruh ke ranking. top_k=7. Centroid di-log untuk analytics. |
+| 🔍 **KBLI Lookup (kbli.co.id API)** | Deteksi kata "kbli" → clean query → API kbli.co.id → top 5 → LLM jelasin tiap opsi (kode, nama, kategori, deskripsi). Re-rank otomatis deskripsi user. Disclaimer sumber. Kategori A–V sesuai KBLI 2025. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -129,6 +130,8 @@ chatbot-qna/
 │   ├── classifier_train.txt  ←   Training data (845 sampel, 5 kelas)
 │   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
+│   ├── kbli_handler.py       ←   KBLI lookup: deteksi, clean query, panggil API, format context
+│   ├── kbli_sectors.py       ←   Mapping 2-digit KBLI → 22 kategori A–V (KBLI 2025)
 │   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
 │
 ├── pipeline/                 ← ⚙️ Pipeline khusus (v2.10.0+)
@@ -145,6 +148,7 @@ chatbot-qna/
 │   ├── identity.json         ←   Nama, role, topik (ubah ini saja untuk bot berbeda)
 │   ├── system.md             ←   System prompt — aturan main LLM
 │   ├── greeting.md           ←   Template sapaan pertama
+│   ├── kbli.md               ←   System prompt KBLI lookup — aturan re-rank + kategori
 │   ├── acronyms.md           ←   Daftar akronim/istilah teknis BPS (disisipkan ke system prompt)
 │   └── responses.json        ←   Semua user-facing text (tolak, error, dll)
 │
@@ -1671,6 +1675,30 @@ sudo lsof -i :8000              # Linux
 
 
 ---
+
+#### v2.15.0 — 2026-06-18
+
+**KBLI Lookup — API kbli.co.id + LLM Re-rank**
+
+**New — KBLI Lookup Feature**
+- **`core/kbli_handler.py`** — Deteksi kata "kbli" (case insensitive) → clean query (strip noise) → API kbli.co.id search → top 5 hasil. Sebelum classifier (bypass intent + retrieval).
+- **`core/kbli_sectors.py`** — Mapping 2 digit pertama kode KBLI → 22 kategori A-V (KBLI 2025, sesuai Peraturan BPS No.7/2025 + ISIC Rev.5).
+- **`prompts/kbli.md`** — System prompt khusus KBLI: LLM re-rank 5 opsi sesuai deskripsi user, wajib cantumkan kode, nama, kategori, deskripsi. Disclaimer sumber.
+- **`core/llm.py`** — + `load_kbli_template()`, `build_kbli_prompt()`.
+- **`server.py`** — KBLI check BEFORE intent classifier (bypass greeting/capability/feedback). Fallback redirect ke kbli.co.id kalo API kosong.
+
+**Changed — Chat Monitoring**
+- **`templates/dashboard.html`** — Fix page name typo `'chat'` -> `'chatmonitoring'`. Timestamp WhatsApp-style: flex-flow (bukan `position: absolute`). User count badge di sidebar + title. Polling 15s refresh badge.
+
+**Changed — Greeting**
+- **`prompts/greeting.md`** — LLM cuma balas sapaan (jangan sebut nama/role/topik).
+- **`server.py`** — `greeting_intro` template fixed dari `responses.json`, di-append dengan sapaan LLM. Anti-ngarang.
+
+**Changed — System Prompt**
+- **`prompts/system.md`** — Tambah aturan #6: larang pakai pengetahuan umum model, wajib dari data referensi.
+
+**Files changed:** `core/kbli_handler.py`, `core/kbli_sectors.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/greeting.md`, `prompts/system.md`, `server.py`, `templates/dashboard.html`, `VERSION`, `README.md`
+
 
 ---
 
