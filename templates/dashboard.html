@@ -1546,7 +1546,7 @@
         if (this.dataset.page === 'analytics') loadAnalytics();
         if (this.dataset.page === 'system') startSystemPoll();
         if (this.dataset.page === 'topfaq') loadTopFAQ();
-        if (this.dataset.page === 'chat') { loadChatUsers(); startChatPoll(); }
+        if (this.dataset.page === 'chatmonitoring') { loadChatUsers(); startChatPoll(); }
         // Close sidebar on mobile after navigation
         const sb = document.getElementById('sidebar');
         if (sb.classList.contains('open')) {
