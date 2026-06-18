@@ -423,13 +423,21 @@
     .chat-msg-wrap.user .msg-avatar { background: #667781; }
     .chat-msg-wrap.bot .msg-avatar { background: #00a884; }
     .chat-msg {
-        padding: 6px 8px 18px;
+        padding: 6px 8px;
         border-radius: 6px;
         font: 400 14px/1.35 'Inter', sans-serif;
-        position: relative;
+        box-shadow: 0 1px 0.5px rgba(11,20,26,0.08);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: flex-end;
+        gap: 2px 4px;
+    }
+    .chat-msg .msg-text {
+        flex: 0 1 auto;
         word-wrap: break-word;
         white-space: pre-wrap;
-        box-shadow: 0 1px 0.5px rgba(11,20,26,0.08);
+        max-width: 100%;
     }
     .chat-msg-wrap.user .chat-msg {
         background: #ffffff;
@@ -450,20 +458,14 @@
     .chat-msg .msg-time {
         font: 400 9px/1 'Inter', sans-serif;
         color: #667781;
-        position: absolute;
-        bottom: 4px;
-        right: 6px;
+        flex: 0 0 auto;
+        white-space: nowrap;
         display: flex;
         align-items: center;
         gap: 2px;
-        padding: 1px 3px;
-        border-radius: 3px;
+        padding: 1px 0 0 2px;
+        align-self: flex-end;
     }
-    .chat-msg-wrap.user .chat-msg .msg-time { background: #ffffff; }
-    .chat-msg-wrap.bot .chat-msg .msg-time { background: #d9fdd3; }
-    [data-theme="dark"] .chat-msg-wrap.user .chat-msg .msg-time { background: #1f2c33; }
-    [data-theme="dark"] .chat-msg-wrap.bot .chat-msg .msg-time { background: #005c4b; }
-    [data-theme="dark"] .chat-msg .msg-time { color: rgba(233,237,239,0.5); }
     [data-theme="dark"] .chat-msg .msg-time {
         color: rgba(233,237,239,0.5);
     }
@@ -2343,8 +2345,9 @@
                 userHtml = `${dateDivider}
 <div class="chat-msg-wrap user">
     <div class="msg-avatar">👤</div>
-    <div class="chat-msg">${escHtml(m.pertanyaan)}
-        <div class="msg-time">${msgTime}</div>
+    <div class="chat-msg">
+        <span class="msg-text">${escHtml(m.pertanyaan)}</span>
+        <span class="msg-time">${msgTime}</span>
     </div>
 </div>`;
             }
@@ -2355,11 +2358,12 @@
                 botHtml = `
 <div class="chat-msg-wrap bot">
     <div class="msg-avatar">🤖</div>
-    <div class="chat-msg">${formatBotMessage(m.jawaban)}
-        <div class="msg-time">
+    <div class="chat-msg">
+        <span class="msg-text">${formatBotMessage(m.jawaban)}</span>
+        <span class="msg-time">
             ${msgTime}
             ${m.gate ? '<span class="msg-gate">' + escHtml(m.gate) + '</span>' : ''}
-        </div>
+        </span>
     </div>
 </div>`;
             }
