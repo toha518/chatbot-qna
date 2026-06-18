@@ -345,6 +345,43 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             # Treat sebagai forward
             pass
 
+    # ── KBLI CHECK: deteksi keyword kbli, bypass classifier + retrieval ──
+    if kbli_template and is_kbli_query(req.pertanyaan):
+        clean_query = clean_kbli_query(req.pertanyaan)
+        if not clean_query:
+            from core.kbli_handler import extract_kbli_code
+            code = extract_kbli_code(req.pertanyaan)
+            if code:
+                clean_query = code
+        print(f"[KBLI] Detected: '{_display_query[:60]}' -> clean: '{clean_query}'")
+
+        kbli_results = await search_kbli_api(clean_query) if clean_query else []
+
+        if kbli_results:
+            context = format_kbli_context(kbli_results)
+            messages = build_kbli_prompt(kbli_template, identity, _display_query, context)
+            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            if not jawaban:
+                jawaban = "Maaf, terjadi error saat mencari KBLI. Coba lagi ya."
+        else:
+            jawaban = (
+                "Data KBLI yang paling mendekati untuk deskripsi Anda:\n\n"
+                "<b>1. KBLI — <i>(tidak ada data spesifik)</i></b>\n"
+                "ℹ️ Silakan coba kata kunci yang lebih spesifik atau cek langsung di:\n"
+                "🔗 kbli.co.id — https://kbli.co.id/id"
+            )
+
+        api_rate_limit[_limit_key]["last_active"] = time.time()
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
+        log_query(_display_query, cid, source=req.source,
+                  centroid_sim=0, clf_domain="kbli", clf_confidence=0, clf_mode="api",
+                  gate="KBLI", dijawab=True, jawaban=jawaban,
+                  session_baru=session_baru, llm_model="", llm_provider="kbli.co.id", llm_time_ms=0)
+        return {"jawaban": jawaban, "skor": 1.0}
+
     # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
     ft_domain, ft_conf = ft_classify(req.pertanyaan)
     centroid_sim = 0.0  # di-update pas domain check
@@ -487,43 +524,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     llm_provider = ""
     llm_time = 0
 
-    # ── KBLI CHECK: panggil API kbli.co.id → LLM jelasin ──
-    if kbli_template and is_kbli_query(req.pertanyaan):
-        clean_query = clean_kbli_query(req.pertanyaan)
-        # If clean is empty but there's a KBLI code, search by code
-        if not clean_query:
-            from core.kbli_handler import extract_kbli_code
-            code = extract_kbli_code(req.pertanyaan)
-            if code:
-                clean_query = code
-        print(f"[KBLI] Detected: '{_display_query[:60]}' -> clean: '{clean_query}'")
-        
-        kbli_results = await search_kbli_api(clean_query) if clean_query else []
-        
-        if kbli_results:
-            context = format_kbli_context(kbli_results)
-            messages = build_kbli_prompt(kbli_template, identity, _display_query, context)
-            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-            if not jawaban:
-                jawaban = "Maaf, terjadi error saat mencari KBLI. Coba lagi ya."
-        else:
-            jawaban = (
-                "Data KBLI yang paling mendekati untuk deskripsi Anda:\n\n"
-                "<b>1. KBLI — <i>(tidak ada data spesifik)</i></b>\n"
-                "ℹ️ Silakan coba kata kunci yang lebih spesifik atau cek langsung di:\n"
-                "🔗 kbli.co.id — https://kbli.co.id/id"
-            )
-        
-        api_rate_limit[_limit_key]["last_active"] = time.time()
-        if session_baru:
-            wib = timezone(timedelta(hours=7))
-            now = datetime.now(wib).strftime("%H:%M")
-            jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
-        log_query(_display_query, cid, source=req.source,
-                  centroid_sim=0, clf_domain="kbli", clf_confidence=0, clf_mode="api",
-                  gate="KBLI", dijawab=True, jawaban=jawaban,
-                  session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
-        return {"jawaban": jawaban, "skor": 1.0}
+
 
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = await async_encode_query(req.pertanyaan)
