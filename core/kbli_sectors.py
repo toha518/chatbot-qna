@@ -62,4 +62,4 @@ def get_sector_label(kbli_code: str) -> str:
     # Truncate nama if too long
     if len(nama) > 45:
         nama = nama[:42] + "..."
-    return f"Sektor {kat} — {nama}"
+    return f"{kat} — {nama}"
