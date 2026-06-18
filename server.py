@@ -23,8 +23,10 @@ from core.bm25 import get_bm25_scores_all, get_bm25_score
 from core.query_logger import log_query, get_stats, update_feedback_status
 from core.llm import (
     load_llm_config, load_prompts, load_responses,
-    build_greeting_prompt, build_system_prompt, call_llm
+    build_greeting_prompt, build_system_prompt, call_llm,
+    load_kbli_template, build_kbli_prompt
 )
+from core.kbli_handler import is_kbli_query, clean_kbli_query, search_kbli_api, format_kbli_context
 from security.rate_limiter import (
     check_api_rate_limit, init_rate_limit_entry, init_trusted_ids, TRUSTED_IDS, api_rate_limit,
     check_image_rate_limit
@@ -51,6 +53,9 @@ REJECTION_MSG = responses.get("rejection_out_of_context").format(topics_line=", 
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
+# Init KBLI prompt template
+kbli_template = load_kbli_template()
+print(f"[BOOT] KBLI template: {'loaded' if kbli_template else 'MISSING'}")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # ===================== DAILY CHAT LIMIT =====================
@@ -481,6 +486,45 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
     llm_model = ""
     llm_provider = ""
     llm_time = 0
+
+    # ── KBLI CHECK: panggil API kbli.co.id → LLM jelasin ──
+    if kbli_template and is_kbli_query(req.pertanyaan):
+        clean_query = clean_kbli_query(req.pertanyaan)
+        # If clean is empty but there's a KBLI code, search by code
+        if not clean_query:
+            from core.kbli_handler import extract_kbli_code
+            code = extract_kbli_code(req.pertanyaan)
+            if code:
+                clean_query = code
+        print(f"[KBLI] Detected: '{_display_query[:60]}' -> clean: '{clean_query}'")
+        
+        kbli_results = await search_kbli_api(clean_query) if clean_query else []
+        
+        if kbli_results:
+            context = format_kbli_context(kbli_results)
+            messages = build_kbli_prompt(kbli_template, identity, _display_query, context)
+            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            if not jawaban:
+                jawaban = "Maaf, terjadi error saat mencari KBLI. Coba lagi ya."
+        else:
+            jawaban = (
+                "Maaf, data KBLI untuk jenis usaha tersebut belum ditemukan.\n\n"
+                "Silakan cek langsung di:\n"
+                "🔗 **kbli.co.id** — https://kbli.co.id/id\n"
+                "🔗 **OSS** — https://oss.go.id/id/pencarian?tab=kbli\n\n"
+                "Atau coba sebutkan jenis usaha dengan lebih spesifik ya 😊"
+            )
+        
+        api_rate_limit[_limit_key]["last_active"] = time.time()
+        if session_baru:
+            wib = timezone(timedelta(hours=7))
+            now = datetime.now(wib).strftime("%H:%M")
+            jawaban += "\n\n---\n" + responses.get("session_new").format(time=now)
+        log_query(_display_query, cid, source=req.source,
+                  centroid_sim=0, clf_domain="kbli", clf_confidence=0, clf_mode="api",
+                  gate="KBLI", dijawab=True, jawaban=jawaban,
+                  session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
+        return {"jawaban": jawaban, "skor": 1.0}
 
     # ── DOMAIN FILTER: BM25 threshold check (3-tier) ──
     query_vec = await async_encode_query(req.pertanyaan)

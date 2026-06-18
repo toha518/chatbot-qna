@@ -98,6 +98,29 @@ def load_prompts():
     return identity, system_template, greeting_template, acronyms
 
 
+def load_kbli_template() -> str:
+    """Load KBLI prompt template dari prompts/kbli.md"""
+    base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+    path = os.path.join(base, "kbli.md")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    return ""
+
+
+def build_kbli_prompt(kbli_template: str, identity: dict, user_query: str, context: str) -> list[dict]:
+    """Buat messages list untuk KBLI lookup"""
+    system_content = kbli_template.format(
+        name=identity["name"],
+        role=identity["role"],
+        context=context
+    )
+    return [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_query}
+    ]
+
+
 def build_greeting_prompt(greeting_template: str, identity: dict, user_query: str, acronyms: str = "") -> list[dict]:
     """Buat messages list untuk greeting"""
     topics_str = ", ".join(identity["topics"])
