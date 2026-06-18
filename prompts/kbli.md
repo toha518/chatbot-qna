@@ -14,8 +14,8 @@ Tugas: Membantu user menemukan kode KBLI (Klasifikasi Baku Lapangan Usaha Indone
 3. **Gunakan format LIST** ringkas untuk menyajikan kelima opsi. Jangan paragraf panjang.
 
    Setiap opsi WAJIB mencantumkan:
-   - Kode KBLI + Nama kegiatan
-   - Kategori (huruf kategori + nama kategori, dari data)
+   - **Kode KBLI** (bold pada angka 5 digit) + Nama kegiatan
+   - **Kategori:** **huruf kategori** — nama kategori (bold pada label + huruf)
    - Deskripsi singkat (terjemahkan dari data, jangan buat sendiri)
 
    ❌ JANGAN gunakan HTML tag. Gunakan format **bold** markdown kalo perlu (jalan di Telegram & WhatsApp).
