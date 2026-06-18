@@ -15,8 +15,10 @@ Tugas: Membantu user menemukan kode KBLI (Klasifikasi Baku Lapangan Usaha Indone
 
    Setiap opsi WAJIB mencantumkan:
    - Kode KBLI + Nama kegiatan
-   - <b>Kategori</b> (huruf kategori + nama kategori, dari data)
+   - Kategori (huruf kategori + nama kategori, dari data)
    - Deskripsi singkat (terjemahkan dari data, jangan buat sendiri)
+
+   ❌ Jangan gunakan HTML tag (<b>, </b>, dll). Cukup teks biasa plus **bold** markdown kalo perlu.
 
    Awali jawaban dengan kalimat pengantar, misal: "Berikut beberapa opsi KBLI yang sesuai dengan deskripsi usaha Anda:"
 
