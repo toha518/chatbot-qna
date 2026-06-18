@@ -17,7 +17,7 @@ else:
     load_dotenv()  # fallback ke CWD
 
 # ===================== KONFIGURASI =====================
-SESSION_TIMEOUT = 1800      # 30 menit idle → session expired
+SESSION_TIMEOUT = 3600      # 1 jam idle → session expired
 MAX_HISTORY = 10            # Maks 10 tanya-jawab per session
 
 # Load responses.json untuk template
