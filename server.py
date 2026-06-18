@@ -508,11 +508,10 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
                 jawaban = "Maaf, terjadi error saat mencari KBLI. Coba lagi ya."
         else:
             jawaban = (
-                "Maaf, data KBLI untuk jenis usaha tersebut belum ditemukan.\n\n"
-                "Silakan cek langsung di:\n"
-                "🔗 **kbli.co.id** — https://kbli.co.id/id\n"
-                "🔗 **OSS** — https://oss.go.id/id/pencarian?tab=kbli\n\n"
-                "Atau coba sebutkan jenis usaha dengan lebih spesifik ya 😊"
+                "Data KBLI yang paling mendekati untuk deskripsi Anda:\n\n"
+                "<b>1. KBLI — <i>(tidak ada data spesifik)</i></b>\n"
+                "ℹ️ Silakan coba kata kunci yang lebih spesifik atau cek langsung di:\n"
+                "🔗 kbli.co.id — https://kbli.co.id/id"
             )
         
         api_rate_limit[_limit_key]["last_active"] = time.time()
