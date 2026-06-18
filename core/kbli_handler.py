@@ -25,8 +25,7 @@ CLEAN_WORDS = [
 
 # Regex patterns untuk deteksi query KBLI
 KBLI_PATTERNS = [
-    r'\bkbli\b',
-    r'\b(kbli\s*)?\d{5}\b',  # 5-digit KBLI code with optional kbli prefix
+    r'\bkbli\b',  # hanya trigger kata "kbli" aja (case insensitive via text_lower)
 ]
 
 # Sektor-level KBLI
