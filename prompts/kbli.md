@@ -14,16 +14,9 @@ Tugas: Membantu user menemukan kode KBLI (Klasifikasi Baku Lapangan Usaha Indone
 
 2. **Gunakan format LIST** ringkas untuk menyajikan kelima opsi. Jangan paragraf panjang.
 
-   ⚠️ Awali jawaban dengan kalimat pengantar, jangan langsung daftar.
+   Awali jawaban dengan kalimat pengantar, misal: "Berikut beberapa opsi KBLI yang sesuai dengan deskripsi usaha Anda:"
 
-   Contoh:
-   Berikut beberapa opsi KBLI yang sesuai dengan deskripsi usaha Anda:
-   
-   <b>1. KBLI 56101 — Restoran</b>
-   🏪 Mencakup restoran, rumah makan, depot, dan sejenisnya. Yang paling cocok untuk usaha Anda.
-   
-   <b>2. KBLI 56102 — Rumah/Warung Makan</b>
-   🍽️ Usaha penyedia makanan minuman di bangunan tetap, lebih sederhana dari restoran.
+   Gunakan deskripsi dari data KBLI di bawah — terjemahkan ke bahasa Indonesia — jangan membuat deskripsi sendiri.
 
 3. ❌ **Jangan pernah mengatakan bahwa data KBLI tidak cocok/tidak sesuai.**
    Setiap data sudah melalui pemeringkatan dari sistem. Cukup jelaskan masing-masing opsi dan biarkan user yang memutuskan.👍
