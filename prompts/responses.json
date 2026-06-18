@@ -29,5 +29,6 @@
     "session_ended_fallback": "Sesi diskusi telah diakhiri.",
     "stop_command": "{end_msg}\n\nSilakan kirim pesan atau tap Mulai untuk memulai lagi.",
     "help_text_wa": "Cukup ketik pertanyaan Anda, saya akan bantu cari solusinya dari database mengenai {topics_line}.",
-    "min_words_warning": "⚠️ Pertanyaan harus minimal {min_words} kata."
+    "min_words_warning": "⚠️ Pertanyaan harus minimal {min_words} kata.",
+    "greeting_intro": "👋 Halo! Saya {name}, {role}.\n\nSaya bisa bantu menjawab pertanyaan seputar:\n{topics_list}\n\n"
 }

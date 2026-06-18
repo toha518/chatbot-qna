@@ -358,10 +358,15 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             session_has_forward[cid] = True
             # Skip ke BM25 gate
         else:
+            # Intro template (fixed — gak pake LLM biar gak ngarang)
+            topics_list = "\n".join(f"  {t}" for t in identity['topics'])
+            intro = responses.get("greeting_intro", "👋 Halo! Saya {name}, {role}.\n\n").format(
+                name=identity["name"], role=identity["role"], topics_list=topics_list
+            )
+            # LLM hanya untuk sapaan
             messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-            if not jawaban:
-                jawaban = responses.get("error_llm")
+            jawaban_llm, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            jawaban = intro + (jawaban_llm if jawaban_llm else responses.get("greeting_fallback", "Ada yang bisa dibantu? 😊"))
             api_rate_limit[_limit_key]["last_active"] = time.time()
             if session_baru:
                 wib = timezone(timedelta(hours=7))
@@ -424,10 +429,14 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         else:
             # Tanpa konteks → treat sebagai greeting
             print(f"[DOMAIN] positive_feedback tanpa konteks → greeting")
+            # Intro template (fixed — gak pake LLM biar gak ngarang)
+            topics_list = "\n".join(f"  {t}" for t in identity['topics'])
+            intro = responses.get("greeting_intro", "👋 Halo! Saya {name}, {role}.\n\n").format(
+                name=identity["name"], role=identity["role"], topics_list=topics_list
+            )
             messages = build_greeting_prompt(greeting_template, identity, req.pertanyaan, acronyms)
-            jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-            if not jawaban:
-                jawaban = responses.get("error_llm")
+            jawaban_llm, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
+            jawaban = intro + (jawaban_llm if jawaban_llm else responses.get("greeting_fallback", "Ada yang bisa dibantu? 😊"))
             if session_baru:
                 wib = timezone(timedelta(hours=7))
                 now = datetime.now(wib).strftime("%H:%M")
