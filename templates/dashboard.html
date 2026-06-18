@@ -1487,7 +1487,7 @@
 
     <!-- ===== CHAT MONITOR PAGE ===== -->
     <div id="page-chatmonitoring" style="display:none">
-      <h2 class="section-title" style="margin-bottom:8px;font-size:18px">💬 Chat Monitoring</h2>
+      <h2 class="section-title" style="margin-bottom:8px;font-size:18px">💬 Chat Monitoring <span class="badge badge-primary" id="chatMonitorCount" style="font-size:12px;vertical-align:middle;margin-left:8px">-</span></h2>
       <div class="chat-monitor">
         <div class="chat-user-list">
           <div class="chat-user-search">
@@ -1548,7 +1548,7 @@
         if (this.dataset.page === 'analytics') loadAnalytics();
         if (this.dataset.page === 'system') startSystemPoll();
         if (this.dataset.page === 'topfaq') loadTopFAQ();
-        if (this.dataset.page === 'chatmonitoring') { loadChatUsers(); startChatPoll(); }
+        if (this.dataset.page === 'chatmonitoring') { loadChatBadge(); loadChatUsers(); startChatPoll(); }
         // Close sidebar on mobile after navigation
         const sb = document.getElementById('sidebar');
         if (sb.classList.contains('open')) {
@@ -2099,6 +2099,7 @@
     function refreshAll() {
       document.getElementById('refreshBtn').disabled = true;
       loadStats().finally(() => { document.getElementById('refreshBtn').disabled = false; });
+      loadChatBadge();
       if (document.getElementById('page-logs').style.display !== 'none') loadLogs();
       if (document.getElementById('page-analytics').style.display !== 'none') loadAnalytics();
       if (document.getElementById('page-topfaq').style.display !== 'none') loadTopFAQ();
@@ -2169,16 +2170,16 @@
 
     async function loadChatBadge() {
         try {
-            const resp = await fetch(`${API}/chats?days=1`);
+            const resp = await fetch(`${API}/chats?days=${getDays()}`);
             const data = await resp.json();
             if (Array.isArray(data)) {
                 const badge = document.getElementById('chatBadge');
-                if (badge && data.length > 0) {
+                if (badge) {
                     badge.textContent = data.length;
-                    badge.style.display = 'inline';
+                    badge.style.display = data.length > 0 ? 'inline' : 'none';
                 }
                 const cnt = document.getElementById('chatMonitorCount');
-                if (cnt) cnt.textContent = data.length + ' user hari ini';
+                if (cnt) cnt.textContent = data.length + ' user';
             }
         } catch(e) {}
     }
@@ -2404,8 +2405,9 @@
 
     function startChatPoll() {
         stopChatPoll();
+        loadChatBadge();
         loadChatUsers();
-        _chatPollTimer = setInterval(loadChatUsers, 15000);
+        _chatPollTimer = setInterval(() => { loadChatBadge(); loadChatUsers(); }, 15000);
     }
 
     function stopChatPoll() {
