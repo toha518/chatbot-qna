@@ -1697,7 +1697,10 @@ sudo lsof -i :8000              # Linux
 **Changed — System Prompt**
 - **`prompts/system.md`** — Tambah aturan #6: larang pakai pengetahuan umum model, wajib dari data referensi.
 
-**Files changed:** `core/kbli_handler.py`, `core/kbli_sectors.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/greeting.md`, `prompts/system.md`, `server.py`, `templates/dashboard.html`, `VERSION`, `README.md`
+**Changed — Session Timeout**
+- **`security/session.py`** — `SESSION_TIMEOUT: 1800 (30m)` -> `3600 (1 jam)`.
+
+**Files changed:** `core/kbli_handler.py`, `core/kbli_sectors.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/greeting.md`, `prompts/system.md`, `server.py`, `templates/dashboard.html`, `security/session.py`, `VERSION`, `README.md`
 
 
 ---
