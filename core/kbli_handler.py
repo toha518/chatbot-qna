@@ -30,30 +30,6 @@ KBLI_PATTERNS = [
 ]
 
 # Sektor-level KBLI
-KBLI_SECTORS = [
-    {"kode": "A", "judul": "Pertanian, Kehutanan, dan Perikanan"},
-    {"kode": "B", "judul": "Pertambangan dan Penggalian"},
-    {"kode": "C", "judul": "Industri Pengolahan"},
-    {"kode": "D", "judul": "Pengadaan Listrik, Gas, Uap/Air Panas"},
-    {"kode": "E", "judul": "Pengadaan Air, Pengelolaan Sampah"},
-    {"kode": "F", "judul": "Konstruksi"},
-    {"kode": "G", "judul": "Perdagangan Besar dan Eceran"},
-    {"kode": "H", "judul": "Transportasi dan Pergudangan"},
-    {"kode": "I", "judul": "Penyediaan Akomodasi dan Makan Minum"},
-    {"kode": "J", "judul": "Informasi dan Komunikasi"},
-    {"kode": "K", "judul": "Jasa Keuangan dan Asuransi"},
-    {"kode": "L", "judul": "Real Estat"},
-    {"kode": "M", "judul": "Jasa Profesional, Ilmiah, dan Teknis"},
-    {"kode": "N", "judul": "Jasa Perusahaan"},
-    {"kode": "O", "judul": "Administrasi Pemerintahan"},
-    {"kode": "P", "judul": "Pendidikan"},
-    {"kode": "Q", "judul": "Kesehatan dan Kegiatan Sosial"},
-    {"kode": "R", "judul": "Kesenian, Hiburan, dan Rekreasi"},
-    {"kode": "S", "judul": "Kegiatan Jasa Lainnya"},
-    {"kode": "T", "judul": "Jasa Rumah Tangga"},
-    {"kode": "U", "judul": "Kegiatan Badan Internasional"},
-]
-
 logger = logging.getLogger(__name__)
 
 
@@ -122,15 +98,20 @@ async def search_kbli_api(query: str) -> list[dict]:
 
 
 def format_kbli_context(results: list[dict]) -> str:
-    """Format hasil API jadi context string untuk LLM prompt"""
+    """Format hasil API jadi context string untuk LLM prompt — termasuk kategori sektor"""
     if not results:
         return "Tidak ada data KBLI yang cocok."
     
+    from core.kbli_sectors import get_sector_label
+    
     lines = []
     for i, r in enumerate(results, 1):
+        sektor = get_sector_label(r['kode'])
         lines.append(f"[Opsi {i}]")
         lines.append(f"Kode: {r['kode']}")
         lines.append(f"Nama: {r['judul']}")
+        if sektor:
+            lines.append(f"Kategori: {sektor}")
         if r.get("deskripsi_en"):
             lines.append(f"Deskripsi: {r['deskripsi_en']}")
         lines.append("")
@@ -140,7 +121,9 @@ def format_kbli_context(results: list[dict]) -> str:
 
 def format_sectors() -> str:
     """Return daftar sektor KBLI"""
-    lines = ["📂 **Daftar Sektor KBLI:**\n"]
-    for s in KBLI_SECTORS:
-        lines.append(f"• **{s['kode']}** — {s['judul']}")
+    from core.kbli_sectors import SECTOR_RANGES
+    lines = ["📂 **Kategori KBLI 2025 (A–V):**\n"]
+    for start, end, kat, nama in SECTOR_RANGES:
+        r = str(start) if start == end else f"{start}–{end}"
+        lines.append(f"• **{kat}** ({r:>5s}) — {nama}")
     return "\n".join(lines)
