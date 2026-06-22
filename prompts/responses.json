@@ -8,7 +8,7 @@
     "error_llm": "Maaf, terjadi error. Silakan coba lagi.",
     "question_too_long": "⚠️ Pertanyaan terlalu panjang. Maksimal {max_length} karakter.",
     "question_empty": "⚠️ Pesan kosong setelah penyaringan.",
-    "daily_limit_reached": "⚠️ Anda sudah mencapai batas chat harian ({limit} chat). Silakan coba lagi besok! 🙏",
+    "daily_limit_reached": "⚠️ Anda sudah mencapai batas chat harian. Silakan coba lagi besok! 🙏",
     "spam_warning": "⚠️ Kamu terdeteksi melakukan spam. Harap tunggu {minutes} menit sebelum bertanya lagi.",
     "image_no_text": "⚠️ Tidak bisa membaca teks dari gambar. Silakan ketik manual.",
     "image_format": "⚠️ Format tidak didukung. Kirim screenshot atau foto.",

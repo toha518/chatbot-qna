@@ -64,7 +64,7 @@ print(f"[BOOT] KBLI template: {'loaded' if kbli_template else 'MISSING'}")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # ===================== DAILY CHAT LIMIT =====================
-DAILY_LIMIT = 25  # maks chat per user per hari
+DAILY_LIMIT = 50  # maks chat per user per hari
 daily_limit_notified: dict[str, str] = {}  # {clean_cid: tanggal_notif}
 
 def check_daily_limit(cid: str) -> bool:
@@ -320,7 +320,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             if last_notified != today:
                 daily_limit_notified[clean_cid] = today
                 return {
-                    "jawaban": responses.get("daily_limit_reached").format(limit=DAILY_LIMIT),
+                    "jawaban": responses.get("daily_limit_reached"),
                     "skor": 0
                 }
             return {"jawaban": "", "skor": 0}
