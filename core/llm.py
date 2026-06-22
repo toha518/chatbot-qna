@@ -121,6 +121,25 @@ def build_kbli_prompt(kbli_template: str, identity: dict, user_query: str, conte
     ]
 
 
+def load_kbli_expand_template() -> str:
+    """Load KBLI expand prompt template dari prompts/kbli_expand.md"""
+    base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+    path = os.path.join(base, "kbli_expand.md")
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    return ""
+
+
+def build_kbli_expand_prompt(template: str, clean_query: str) -> list[dict]:
+    """Buat messages list untuk KBLI query expansion"""
+    system_content = template.format(text=clean_query)
+    return [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": clean_query}
+    ]
+
+
 def build_greeting_prompt(greeting_template: str, identity: dict, user_query: str, acronyms: str = "") -> list[dict]:
     """Buat messages list untuk greeting"""
     topics_str = ", ".join(identity["topics"])
