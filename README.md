@@ -187,7 +187,7 @@ USER CHAT
   ▼
 ┌─ 2. ANTI-SPAM & DAILY LIMIT ──────────────────────┐
 │  • Rate limit: 5 req/menit, block 5 menit         │
-│  • Daily limit: 25 chat/hari per user             │
+│  • Daily limit: 50 chat/hari per user             │
 │  • Trusted IDs (dari .env) skip semua             │
 └───────────────────────────────────────────────────┘
   │
@@ -726,7 +726,7 @@ Bot ini punya **6 lapis proteksi**:
 | # | Lapisan | File | Cara Kerja |
 |---|---------|------|------------|
 | 1 | 🚫 **Anti-Spam** | `security/rate_limiter.py` | **5 request per menit** per user. Lewat? Block **5 menit**. Silent block setelah peringatan pertama |
-| 2 | 📅 **Daily Chat Limit** | `server.py` | **25 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
+| 2 | 📅 **Daily Chat Limit** | `server.py` | **50 chat per hari** per user. Reset otomatis tiap ganti hari (WIB) |
 | 3 | 💬 **Session Timeout** | `security/session.py` | Session expired setelah **30 menit idle**. Watchdog tiap 15 detik, notif otomatis |
 | 4 | 🎯 **scikit-learn Intent Classifier** | `core/intent_classifier.py` | scikit-learn SGDClassifier + TF-IDF. Pure Python — zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Training dari `classifier_train.txt` (845 sampel), akurasi 98.1%. Keyword fallback sbg safety net |
 | 5 | 🔍 **Domain Gate (BM25 3-Tier)** | `core/bm25.py` → `server.py` | **BM25 3-tier threshold.** `BM25 < 3.0` → OOC (tolak). `3.0-4.9` → BM25_BORDERLINE (QNA link). `≥ 5.0` → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history. Centroid E5 di-log untuk analytics. **Zero LLM cost untuk out-of-context.** |
@@ -1119,7 +1119,7 @@ Request Q:  ─→ [antri di event loop, non-blocking] ─→ ...
 
 **Lapis Proteksi (dari murah ke mahal):**
 1. **Rate Limiter** — 5 chat/menit/user — cegah spam 1 user
-2. **Daily Limit** — 25 chat/hari/user — batasi total konsumsi
+2. **Daily Limit** — 50 chat/hari/user — batasi total konsumsi
 3. **Intent Classifier** — 4/5 kelas skip E5+LLM (sapaan/feedback/capability)
 4. **BM25 3-Tier Gate** — <3.0 tolak, 3.0-4.9 borderline → skip E5+LLM
 5. **Global Semaphore(16)** — batasi concurrent chat, LLM I/O wait gak bebanin CPU
@@ -1725,7 +1725,11 @@ sudo lsof -i :8000              # Linux
 **Flow:**
 User → clean → LLM expand (3 varian) → 3× concurrent API → pool + dedup → LLM re-rank + format → output grouping
 
-**Files changed:** `core/kbli_handler.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/kbli_expand.md`, `prompts/KBLI-FLOW-v2.md`, `server.py`, `VERSION`, `README.md`
+**Changed — Daily Limit**
+- **`server.py`** — `DAILY_LIMIT: 25` → `50`. Warning message user di-responses: dihapus `({limit} chat)` — user tidak lihat jumlah limit.
+- **`prompts/responses.json`** — Template `daily_limit_reached` dihapus placeholder limit.
+
+**Files changed:** `core/kbli_handler.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/kbli_expand.md`, `prompts/KBLI-FLOW-v2.md`, `prompts/responses.json`, `server.py`, `VERSION`, `README.md`
 
 
 ---
