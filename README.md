@@ -70,7 +70,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
 | **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
-| **KBLI Lookup** | Deteksi kata "kbli" → clean query → API **kbli.co.id** (live, 1.559 kode KBLI 2025) → top 5 → LLM re-rank + kategori A–V |
+| **KBLI Lookup v2** | Deteksi kata "kbli" → clean query → **LLM expand** (3 varian interpretasi) → **3× concurrent API** kbli.co.id → pool + dedup (top 2 per query) → LLM re-rank + format grouping + "Cocok untuk" + kategori A–V |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
 | **Database** | Google Sheets (FAQ live sync) + SQLite (chat history + daily limit) |
@@ -89,7 +89,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🔍 **KBLI Lookup (kbli.co.id API)** | Deteksi kata "kbli" → clean query → API kbli.co.id → top 5 → LLM jelasin tiap opsi (kode, nama, kategori, deskripsi). Re-rank otomatis deskripsi user. Disclaimer sumber. Kategori A–V sesuai KBLI 2025. |
+| 🔍 **KBLI Lookup v2 — Multi-Query Expansion** | Deteksi kata "kbli" → clean query → LLM expand (3 interpretasi) → 3× concurrent API kbli.co.id → pool + dedup (top 2 per query) → LLM re-rank + format grouping per interpretasi + "→ Cocok untuk:" + kategori A–V. Disclaimer sumber. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -130,7 +130,7 @@ chatbot-qna/
 │   ├── classifier_train.txt  ←   Training data (845 sampel, 5 kelas)
 │   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
-│   ├── kbli_handler.py       ←   KBLI lookup: deteksi, clean query, panggil API, format context
+│   ├── kbli_handler.py       ←   KBLI v2: deteksi, clean, expand, 3× API, pool+dedup, format context
 │   ├── kbli_sectors.py       ←   Mapping 2-digit KBLI → 22 kategori A–V (KBLI 2025)
 │   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
 │
@@ -148,7 +148,8 @@ chatbot-qna/
 │   ├── identity.json         ←   Nama, role, topik (ubah ini saja untuk bot berbeda)
 │   ├── system.md             ←   System prompt — aturan main LLM
 │   ├── greeting.md           ←   Template sapaan pertama
-│   ├── kbli.md               ←   System prompt KBLI lookup — aturan re-rank + kategori
+│   ├── kbli.md               ←   System prompt KBLI v2 — format grouping per interpretasi + "Cocok untuk"
+│   ├── kbli_expand.md        ←   🆕 Prompt LLM query expansion — deskripsi → 3 varian interpretasi
 │   ├── acronyms.md           ←   Daftar akronim/istilah teknis BPS (disisipkan ke system prompt)
 │   └── responses.json        ←   Semua user-facing text (tolak, error, dll)
 │
@@ -1701,6 +1702,30 @@ sudo lsof -i :8000              # Linux
 - **`security/session.py`** — `SESSION_TIMEOUT: 1800 (30m)` -> `3600 (1 jam)`.
 
 **Files changed:** `core/kbli_handler.py`, `core/kbli_sectors.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/greeting.md`, `prompts/system.md`, `server.py`, `templates/dashboard.html`, `security/session.py`, `VERSION`, `README.md`
+
+---
+
+#### v2.16.0 — 2026-06-23
+
+**KBLI v2 — Multi-Query Expansion + Pooling + Grouped Output**
+
+**New — LLM Query Expansion**
+- **`prompts/kbli_expand.md`** — System prompt LLM expansion: deskripsi user → 3 varian query dari sudut pandang berbeda (restoran/industri/kaki lima, dll). Output JSON array.
+- **`core/llm.py`** — + `load_kbli_expand_template()`, `build_kbli_expand_prompt()`. LLM expansion panggil model flash.
+
+**New — Multi-API Pooling + Dedup**
+- **`core/kbli_handler.py`** — + `parse_expand_response()` (parse JSON array dari LLM), + `pool_and_dedup()` (gabung 3× API + dedup by kode KBLI, top 2 per query), + `format_kbli_context_v2()` (format context grouping per interpretasi untuk LLM re-rank).
+
+**Changed — Prompts Format**
+- **`prompts/kbli.md`** — Format output baru: grouping per interpretasi (heading **🔹 Sebagai ...**), **Kategori di atas KBLI**, tiap opsi + **→ Cocok untuk:** [penjelasan matching]. Context template baru dgn `{query_user}`.
+
+**Changed — Server Pipeline**
+- **`server.py`** — KBLI flow v2: 1) LLM expand → 3 varian query, 2) 3× concurrent API call ke kbli.co.id via `asyncio.gather()`, 3) pool + dedup top 2 per query (unique), 4) LLM re-rank + format grouping + "Cocok untuk". Total 2 LLM call + 3 API call.
+
+**Flow:**
+User → clean → LLM expand (3 varian) → 3× concurrent API → pool + dedup → LLM re-rank + format → output grouping
+
+**Files changed:** `core/kbli_handler.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/kbli_expand.md`, `prompts/KBLI-FLOW-v2.md`, `server.py`, `VERSION`, `README.md`
 
 
 ---
