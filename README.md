@@ -199,7 +199,20 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 4. INTENT CLASSIFIER (scikit-learn, 98.1%) ──────┐
+┌─ 4. ⭐ KBLI CHECK (before intent) ───────────────┐
+│  Regex \bkbli\b (case insensitive)               │
+│  Kalau match → KBLI PIPELINE:                     │
+│    a. Clean query (strip noise words)              │
+│    b. LLM Expand → 3 varian query                  │
+│    c. 3× concurrent API kbli.co.id                │
+│    d. Pool + Dedup by kode (top 2/query)          │
+│    e. LLM Re-rank + group per interpretasi        │
+│    f. Format output + disclaimer                  │
+│  ⚠️ Langsung return — bypass classifier & retrieval │
+└───────────────────────────────────────────────────┘
+  │ (Non-KBLI → lanjut)
+  ▼
+┌─ 5. INTENT CLASSIFIER (scikit-learn, 98.1%) ──────┐
 │  Tentukan intent user:                             │
 │                                                     │
 │  greeting → BM25 guard                              │
@@ -218,26 +231,26 @@ USER CHAT
 │                           lewat form 🙏"            │
 │                     TIDAK → treat sebagai forward ↓ │
 │  forward         → Set session_has_forward = True   │
-│                    Lanjut ke step 4a ↓            │
+│                    Lanjut ke step 5a ↓            │
 └───────────────────────────────────────────────────┘
   │ (forward / negative_feedback tanpa konteks)
   ▼
-┌─ 4a. WORD COUNT CHECK ────────────────────────────┐
+┌─ 5a. WORD COUNT CHECK ───────────────────────────┐
 │  Forward query dicek jumlah kata:                 │
 │                                                     │
 │  ── Tanpa history ──                               │
 │  • < 3 kata  → ❌ Tolak, minta diperjelas           │
-│  • ≥ 3 kata  → ✅ Lanjut ke step 5 ↓              │
+│  • ≥ 3 kata  → ✅ Lanjut ke step 6 ↓              │
 │                                                     │
 │  ── Ada history (min 1 chat sebelumnya) ──         │
 │  • < 3 kata  → Short follow-up flag ON            │
 │                 Skip BM25 gate & E5 guard           │
-│                 Langsung cascade depth 1-3 → step 6 │
-│  • ≥ 3 kata  → ✅ Lanjut ke step 5 ↓              │
+│                 Langsung cascade depth 1-3 → step 7 │
+│  • ≥ 3 kata  → ✅ Lanjut ke step 6 ↓              │
 └───────────────────────────────────────────────────┘
   │ (forward ≥ 3 kata tanpa history / forward ≥ 3 kata dgn history)
   ▼
-┌─ 5. MULTI-PART SPLIT (E5 Semantic Boundary) ─────┐
+┌─ 6. MULTI-PART SPLIT (E5 Semantic Boundary) ─────┐
 │  Split raw query: konjungsi (dan/serta/sedangkan/  │
 │  namun/tetapi/tapi), ? , . delimiter               │
 │  Tiap pasangan dicek E5 merge (cosim ≥ 0.78)       │
@@ -246,7 +259,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 6. CASCADE + BM25 3-TIER GATE ──────────────────┐
+┌─ 7. CASCADE + BM25 3-TIER GATE ──────────────────┐
 │  BM25 = keyword overlap query vs semua FAQ        │
 │                                                     │
 │  ── CASCADE (selalu coba kalo ada history) ────────│
@@ -273,7 +286,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │ (BM25 ≥ 5.0 / cascade sukses)
   ▼
-┌─ 7. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
+┌─ 8. HYBRID SEARCH (E5 + BM25 via RRF) ──────────┐
 │  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=30      │
@@ -281,14 +294,14 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 8. LLM GENERATE ───────────────────────────────┐
+┌─ 9. LLM GENERATE ───────────────────────────────┐
 │  System prompt + FAQ context + chat history       │
 │  Multi-provider failover (cloud → Ollama lokal)   │
 │  Timeout 30 detik per provider                    │
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 9. SAVE + LOGGING ─────────────────────────────┐
+┌─ 10. SAVE + LOGGING ────────────────────────────┐
 │  • Simpan ke session history                      │
 │  • DUAL-LOGGED: JSONL + SQLite (24 kolom)         │
 │  • Kolom: CLF, RRF, E5, BM25 Gate, BM25 Raw,     │
@@ -296,7 +309,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 10. RESPONSE ──────────────────────────────────┐
+┌─ 11. RESPONSE ──────────────────────────────────┐
 │  Kirim jawaban ke user (Telegram / WA / API)      │
 │  + Feedback footer: "💡 Apakah jawaban ini sudah   │
 │    membantu?" (hanya untuk CLF forward)           │
@@ -304,7 +317,7 @@ USER CHAT
 └───────────────────────────────────────────────────┘
   │
   ▼
-┌─ 11. FEEDBACK PLATFORM ─────────────────────────┐
+┌─ 12. FEEDBACK PLATFORM ─────────────────────────┐
 │  Cek source user:                                │
 │                                                   │
 │  TELEGRAM:                                        │
@@ -665,6 +678,74 @@ Untuk query ≥ 3 kata dengan history:
 | Drift: "BPS bukan satu-satunya" setelah NIK | 2.1 | 5.2 | 0.55 ❌ | ❌ | Cascade skip → BM25 gate |
 | Non-BPS: "siapa presiden" setelah FASIH | 0.0 | 5.8 | 0.34 ❌ | ❌ | Cascade skip → BM25 gate |
 | BM25 tinggi: "cara daftar SOBAT" setelah FASIH | 7.2 | 8.5 | 0.65 ❌ | ❌ | Cascade skip → hybrid langsung |
+
+---
+
+## 🔍 KBLI Lookup — Cara Kerja
+
+Nara bisa mencari kode **KBLI (Klasifikasi Baku Lapangan Usaha Indonesia)** berdasarkan deskripsi usaha user. Menggunakan **2 LLM call + 3 concurrent API call** ke [kbli.co.id](https://kbli.co.id/api-docs).
+
+### Tahap 1: Deteksi & Pembersihan
+
+```
+Input: "kbli jualan baju online di shopee"
+  ↓ is_kbli_query() → regex \bkbli\b (case insensitive) → true
+  ↓ clean_kbli_query() → strip noise words + KBLI codes 5-digit
+Output: "jual baju online shopee"
+```
+
+Trigger cukup mention kata **"kbli"**. Query dibersihkan dari noise seperti kata tanya, panggilan (`kak`, `bang`, `mas`), partikel (`sih`, `dong`, `deh`), dan kata kerja (`cari`, `tolong`).
+
+### Tahap 2: Query Expansion (LLM)
+
+LLM (**DeepSeek V4 Flash**) generate **3 varian query** yang genuinely berbeda sudut pandang, mencakup parameter: produk/jasa, skala, cara jual, metode produksi, dan bahan baku.
+
+```
+Deskripsi user: "jual baju online shopee"
+  ↓ LLM Expand → prompts/kbli_expand.md
+  ↓
+Output (JSON array):
+["perdagangan eceran pakaian online",
+ "industri konveksi pakaian jadi",
+ "perdagangan besar tekstil pakaian"]
+```
+
+### Tahap 3: Concurrent API Call
+
+3 varian query dikirim **bersamaan** ke `https://kbli.co.id/api/search?q={query}` via `asyncio.gather()`. Masing-masing ambil top-5 hasil (level 5 — class-level KBLI). Response berisi `code`, `nameId`, `description`, `_semanticSimilarity`.
+
+### Tahap 4: Pooling & Deduplikasi
+
+| Input | Proses | Output |
+|-------|--------|--------|
+| 15 hasil (3 query × 5) | pool_and_dedup(): top 2 per query, dedup by kode KBLI | **Max 6 KBLI unik** (3 interpretasi × 2 hasil) |
+
+### Tahap 5: LLM Re-rank & Format
+
+LLM (**DeepSeek V4 Flash**) menerima context hasil pooling, lalu:
+1. **Grouping** — hasil dikelompokkan per interpretasi (3 grup)
+2. **Re-ranking** — urut berdasarkan relevansi ke deskripsi user asli
+3. **Format output:**
+
+```
+🔹 Sebagai [interpretasi]
+**Kategori: X — Nama Kategori**
+**KBLI XXXXX — Nama Kegiatan**
+Deskripsi singkat (terjemahan dari data)
+→ **Cocok untuk:** [penjelasan spesifik]
+```
+
+Hasil selalu diakhiri disclaimer: `⚠️ Sumber data: kbli.co.id — Harap dipastikan kembali kebenarannya, ya!`
+
+### Common Mistakes
+
+- ❌ **Produksi vs Dagang vs Jasa** — LLM expansion cover 3 sudut pandang
+- ❌ **Eceran vs Grosir ketuker** — LLM re-rank bedain dari deskripsi user asli
+- ❌ **Multi-kegiatan usaha** — Grouping per interpretasi tampilkan beberapa opsi
+- ❌ **API kadang hasil kurang relevan** — Multi-query + concurrent call coverage
+- ❌ **LLM hallucination** — Prompt explicitly larang nambah data sendiri
+
+📖 Dokumentasi lengkap: [`docs/KBLI-IMPLEMENTATION.md`](./docs/KBLI-IMPLEMENTATION.md)
 
 ---
 
