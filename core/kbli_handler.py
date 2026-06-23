@@ -224,6 +224,46 @@ def pool_and_dedup(pool_data: list[dict], top_per_query: int = 2) -> list[dict]:
     return deduped
 
 
+def format_raw_results(results: list[dict], user_query: str) -> str:
+    """
+    Format hasil API kbli.co.id langsung — tanpa LLM.
+    Output: list KBLI dengan ranking, nama, deskripsi.
+    """
+    if not results:
+        return (
+            f'Data KBLI untuk "{user_query}":\n\n'
+            f'1. KBLI — (tidak ada data spesifik)\n'
+            f'ℹ️ Coba kata kunci yang lebih spesifik atau cek langsung di:\n'
+            f'🔗 kbli.co.id — https://kbli.co.id/id'
+        )
+    
+    from core.kbli_sectors import get_sector_label
+    
+    lines = [f'Hasil pencarian KBLI untuk "{user_query}":\n']
+    
+    for i, r in enumerate(results[:5], 1):
+        kode = r.get("kode", "")
+        judul = r.get("judul", "").strip()
+        desk = r.get("deskripsi_en", "").strip()
+        skor = r.get("skor", 0)
+        sektor = get_sector_label(kode)
+        
+        lines.append(f'{i}. **KBLI {kode} — {judul}**')
+        if sektor:
+            lines.append(f'   Kategori: {sektor}')
+        if desk:
+            # Truncate long descriptions
+            if len(desk) > 250:
+                desk = desk[:247] + "..."
+            lines.append(f'   Deskripsi: {desk}')
+        lines.append(f'   Relevansi: {skor:.3f}')
+        lines.append('')
+    
+    lines.append('⚠️ Sumber: kbli.co.id — Harap dipastikan kembali kebenarannya, ya!')
+    
+    return '\n'.join(lines)
+
+
 def format_sectors() -> str:
     """Return daftar sektor KBLI"""
     from core.kbli_sectors import SECTOR_RANGES

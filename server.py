@@ -24,13 +24,10 @@ from core.query_logger import log_query, get_stats, update_feedback_status
 from core.llm import (
     load_llm_config, load_prompts, load_responses,
     build_greeting_prompt, build_system_prompt, call_llm,
-    load_kbli_template, build_kbli_prompt,
-    load_kbli_expand_template, build_kbli_expand_prompt
 )
 from core.kbli_handler import (
     is_kbli_query, clean_kbli_query, search_kbli_api,
-    format_kbli_context, format_kbli_context_v2,
-    parse_expand_response, pool_and_dedup
+    format_kbli_context, format_raw_results
 )
 from security.rate_limiter import (
     check_api_rate_limit, init_rate_limit_entry, init_trusted_ids, TRUSTED_IDS, api_rate_limit,
@@ -58,9 +55,7 @@ REJECTION_MSG = responses.get("rejection_out_of_context").format(topics_line=", 
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
-# Init KBLI prompt template
-kbli_template = load_kbli_template()
-print(f"[BOOT] KBLI template: {'loaded' if kbli_template else 'MISSING'}")
+print("[BOOT] KBLI: raw API mode (no LLM)")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # ===================== DAILY CHAT LIMIT =====================
@@ -350,8 +345,8 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             # Treat sebagai forward
             pass
 
-    # ── KBLI CHECK v2: expand → multi-API → pool → LLM re-rank ──
-    if kbli_template and is_kbli_query(req.pertanyaan):
+    # ── KBLI CHECK: raw query → API kbli.co.id → direct format (no LLM) ──
+    if is_kbli_query(req.pertanyaan):
         clean_query = clean_kbli_query(req.pertanyaan)
         if not clean_query:
             from core.kbli_handler import extract_kbli_code
@@ -361,61 +356,17 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
 
         if not clean_query:
             jawaban = (
-                "Data KBLI yang paling mendekati untuk deskripsi Anda:\n\n"
-                "<b>1. KBLI — <i>(tidak ada data spesifik)</i></b>\n"
-                "ℹ️ Silakan coba kata kunci yang lebih spesifik atau cek langsung di:\n"
+                "Data KBLI untuk pertanyaan Anda:\n\n"
+                "1. KBLI — (tidak ada data spesifik)\n"
+                "ℹ️ Coba kata kunci yang lebih spesifik atau cek langsung di:\n"
                 "🔗 kbli.co.id — https://kbli.co.id/id"
             )
         else:
             print(f"[KBLI] Detected: '{_display_query[:60]}' -> clean: '{clean_query}'")
 
-            # ── Step 1: LLM expand ──
-            expand_template = load_kbli_expand_template()
-            if expand_template:
-                expand_messages = build_kbli_expand_prompt(expand_template, clean_query)
-                expand_resp, _, _, _ = await call_llm(expand_messages, timeout=15)
-                variant_queries = parse_expand_response(expand_resp, clean_query)
-            else:
-                variant_queries = [clean_query]
-            print(f"[KBLI] Expanded: {variant_queries}")
-
-            # ── Step 2: 3× concurrent API calls ──
-            api_tasks = [search_kbli_api(q) for q in variant_queries]
-            all_api_results = await asyncio.gather(*api_tasks)
-
-            # ── Step 3: Pool + dedup (top 2 per query, unique across queries) ──
-            pool_in = [
-                {"query": q, "results": r}
-                for q, r in zip(variant_queries, all_api_results)
-            ]
-            deduped = pool_and_dedup(pool_in, top_per_query=2)
-
-            # ── Step 4: LLM re-rank + format ──
-            has_any_results = any(
-                entry["results"] for entry in deduped
-            )
-            if has_any_results:
-                context = format_kbli_context_v2(deduped, _display_query)
-                kbli_prompt_context = kbli_template.format(
-                    name=identity["name"],
-                    role=identity["role"],
-                    query_user=_display_query,
-                    context=context
-                )
-                messages = [
-                    {"role": "system", "content": kbli_prompt_context},
-                    {"role": "user", "content": _display_query}
-                ]
-                jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=30)
-                if not jawaban:
-                    jawaban = "Maaf, terjadi error saat mencari KBLI. Coba lagi ya."
-            else:
-                jawaban = (
-                    "Data KBLI yang paling mendekati untuk deskripsi Anda:\n\n"
-                    "<b>1. KBLI — <i>(tidak ada data spesifik)</i></b>\n"
-                    "ℹ️ Silakan coba kata kunci yang lebih spesifik atau cek langsung di:\n"
-                    "🔗 kbli.co.id — https://kbli.co.id/id"
-                )
+            # Raw API call (no expand, no re-rank)
+            api_results = await search_kbli_api(clean_query)
+            jawaban = format_raw_results(api_results, _display_query)
 
         api_rate_limit[_limit_key]["last_active"] = time.time()
         if session_baru:
