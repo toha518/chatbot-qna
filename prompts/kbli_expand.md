@@ -28,22 +28,19 @@ Kamu adalah asisten yang membantu menganalisis deskripsi usaha user dan memperlu
 
 Hanya JSON object — tidak ada teks lain.
 
-```json
-{
-  "analysis": {
-    "kegiatan_utama": {"ada": true, "nilai": "jual"},
-    "produk": {"ada": true, "nilai": "baju"},
-    "cara_transaksi": {"ada": false, "nilai": null},
-    "tempat_usaha": {"ada": false, "nilai": null},
-    "skala_usaha": {"ada": true, "nilai": "kecil"}
-  },
+{{"analysis": {{
+    "kegiatan_utama": {{"ada": true, "nilai": "jual"}},
+    "produk": {{"ada": true, "nilai": "baju"}},
+    "cara_transaksi": {{"ada": false, "nilai": null}},
+    "tempat_usaha": {{"ada": false, "nilai": null}},
+    "skala_usaha": {{"ada": true, "nilai": "kecil"}}
+}},
   "variants": [
     "jual baju di toko fisik",
     "jual baju grosir online",
     "jual baju di kios pasar"
   ]
-}
-```
+}}
 
 Field `variants` berisi **2 query per dimensi yang missing** (ada=false).
 Urutkan variants berdasarkan dimensi: kegiatan → produk → cara → tempat → skala.
@@ -62,15 +59,13 @@ Analisis:
 Missing: cara_transaksi, tempat_usaha, skala_usaha → 3 × 2 = 6 varian
 
 Output:
-```json
-{
-  "analysis": {
-    "kegiatan_utama": {"ada": true, "nilai": "jual"},
-    "produk": {"ada": true, "nilai": "bakso"},
-    "cara_transaksi": {"ada": false, "nilai": null},
-    "tempat_usaha": {"ada": false, "nilai": null},
-    "skala_usaha": {"ada": false, "nilai": null}
-  },
+{{"analysis": {{
+    "kegiatan_utama": {{"ada": true, "nilai": "jual"}},
+    "produk": {{"ada": true, "nilai": "bakso"}},
+    "cara_transaksi": {{"ada": false, "nilai": null}},
+    "tempat_usaha": {{"ada": false, "nilai": null}},
+    "skala_usaha": {{"ada": false, "nilai": null}}
+}},
   "variants": [
     "jual bakso eceran di tempat",
     "jual bakso grosir frozen",
@@ -79,7 +74,6 @@ Output:
     "jual bakso skala rumahan kecil",
     "jual bakso restoran menengah"
   ]
-}
-```
+}}
 
 **Deskripsi user:** {text}
