@@ -98,20 +98,44 @@ async def search_kbli_api(query: str) -> list[dict]:
 
 def parse_expand_response(response: str, fallback: str) -> list[str]:
     """
-    Parse JSON array dari LLM expand response.
-    Return list of query strings (max 3).
+    Parse JSON response dari LLM expand (v3 — adaptive).
+    Format: { "analysis": {...}, "variants": ["...", "..."] }
+    Return list of query strings (dynamic length).
+    Fallback ke [fallback] kalo gagal parse.
     """
     if not response:
         return [fallback]
     try:
-        # Cari JSON array dalam response (LLM kadang bungkus pake markdown)
-        json_match = re.search(r'\[.*?\]', response, re.DOTALL)
-        if json_match:
-            queries = json.loads(json_match.group())
-            if isinstance(queries, list) and len(queries) > 0:
-                valid = [str(q).strip() for q in queries if isinstance(q, str) and len(q.strip()) >= 2]
+        # Try full response as JSON dulu
+        data = json.loads(response)
+    except (json.JSONDecodeError, Exception):
+        # Fallback: cari JSON dalam markdown / teks sekitar
+        try:
+            json_match = re.search(r'\{[^{}]*"variants"[^{}]*\}', response, re.DOTALL)
+            if not json_match:
+                json_match = re.search(r'\[.*?\]', response, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+            else:
+                return [fallback]
+        except (json.JSONDecodeError, Exception):
+            return [fallback]
+    
+    try:
+        # Priority 1: field "variants" (v3 format)
+        if isinstance(data, dict) and "variants" in data:
+            variants = data["variants"]
+            if isinstance(variants, list) and len(variants) > 0:
+                valid = [str(q).strip() for q in variants if isinstance(q, str) and len(q.strip()) >= 2]
                 if valid:
-                    return valid[:3]
+                    return valid
+        # Priority 2: langsung JSON array (v1/v2 fallback)
+        if isinstance(data, list) and len(data) > 0:
+            valid = [str(q).strip() for q in data if isinstance(q, str) and len(q.strip()) >= 2]
+            if valid:
+                return valid
+    except Exception as e:
+        logger.warning(f"[KBLI] Parse expand response error: {e}")
     except (json.JSONDecodeError, Exception) as e:
         logger.warning(f"[KBLI] Parse expand response error: {e}")
     return [fallback]
