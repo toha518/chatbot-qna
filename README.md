@@ -70,7 +70,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
 | **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
-| **KBLI Lookup v2** | Deteksi kata "kbli" → clean query → **LLM expand** (3 varian interpretasi) → **3× concurrent API** kbli.co.id → pool + dedup (top 2 per query) → LLM re-rank + format grouping + "Cocok untuk" + kategori A–V |
+| **KBLI Lookup v3 — Adaptive** | Deteksi kata "kbli" → LLM analisis 5 dimensi (kegiatan, produk, cara, tempat, skala) → generate 2 varian per dimensi missing → N× concurrent API kbli.co.id → pool + dedup → LLM re-rank + format grouping + "Cocok untuk" |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
 | **Database** | Google Sheets (FAQ live sync) + SQLite (chat history + daily limit) |
@@ -89,7 +89,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🔍 **KBLI Lookup v2 — Multi-Query Expansion** | Deteksi kata "kbli" → clean query → LLM expand (3 interpretasi) → 3× concurrent API kbli.co.id → pool + dedup (top 2 per query) → LLM re-rank + format grouping per interpretasi + "→ Cocok untuk:" + kategori A–V. Disclaimer sumber. |
+| 🔍 **KBLI Lookup v3 — Adaptive 5-Dimensi** | Deteksi kata "kbli" → LLM analisis 5 dimensi usaha (kegiatan, produk, cara transaksi, tempat, skala) → generate 2 varian query per dimensi yang missing → N× concurrent API kbli.co.id → pool + dedup → LLM re-rank + format grouping + "Cocok untuk" + kategori A–V. Disclaimer sumber. Efisien: rata-rata 4-6 API, maks 10. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -130,7 +130,7 @@ chatbot-qna/
 │   ├── classifier_train.txt  ←   Training data (845 sampel, 5 kelas)
 │   ├── intent_model.pkl      ←   Trained model (auto-generated, ~185KB)
 │   ├── llm.py                ←   Multi-provider LLM, failover chain, build prompt
-│   ├── kbli_handler.py       ←   KBLI v2: deteksi, clean, expand, 3× API, pool+dedup, format context
+│   ├── kbli_handler.py       ←   KBLI v3: deteksi, clean, adaptive expand (5 dimensi), N× API, pool+dedup, format context
 │   ├── kbli_sectors.py       ←   Mapping 2-digit KBLI → 22 kategori A–V (KBLI 2025)
 │   └── query_logger.py       ←   Query evaluation logging (JSONL + SQLite)
 │
@@ -148,8 +148,8 @@ chatbot-qna/
 │   ├── identity.json         ←   Nama, role, topik (ubah ini saja untuk bot berbeda)
 │   ├── system.md             ←   System prompt — aturan main LLM
 │   ├── greeting.md           ←   Template sapaan pertama
-│   ├── kbli.md               ←   System prompt KBLI v2 — format grouping per interpretasi + "Cocok untuk"
-│   ├── kbli_expand.md        ←   🆕 Prompt LLM query expansion — deskripsi → 3 varian interpretasi
+│   ├── kbli.md               ←   System prompt KBLI v3 — format grouping per interpretasi + "Cocok untuk"
+│   ├── kbli_expand.md        ←   🆕 Prompt LLM adaptive expand — analisis 5 dimensi → generate 2 varian per missing
 │   ├── acronyms.md           ←   Daftar akronim/istilah teknis BPS (disisipkan ke system prompt)
 │   └── responses.json        ←   Semua user-facing text (tolak, error, dll)
 │
@@ -201,13 +201,14 @@ USER CHAT
   ▼
 ┌─ 4. ⭐ KBLI CHECK (before intent) ───────────────┐
 │  Regex \bkbli\b (case insensitive)               │
-│  Kalau match → KBLI PIPELINE:                     │
+│  Kalau match → KBLI PIPELINE v3:                   │
 │    a. Clean query (strip noise words)              │
-│    b. LLM Expand → 3 varian query                  │
-│    c. 3× concurrent API kbli.co.id                │
-│    d. Pool + Dedup by kode (top 2/query)          │
-│    e. LLM Re-rank + group per interpretasi        │
-│    f. Format output + disclaimer                  │
+│    b. LLM Analyze 5 dimensi usability              │
+│    c. LLM Generate 2 varian per dimensi missing    │
+│    d. N× concurrent API kbli.co.id                │
+│    e. Pool + Dedup by kode (top 2/query)          │
+│    f. LLM Re-rank + group per interpretasi        │
+│    g. Format output + disclaimer                  │
 │  ⚠️ Langsung return — bypass classifier & retrieval │
 └───────────────────────────────────────────────────┘
   │ (Non-KBLI → lanjut)
@@ -681,9 +682,9 @@ Untuk query ≥ 3 kata dengan history:
 
 ---
 
-## 🔍 KBLI Lookup — Cara Kerja
+## 🔍 KBLI Lookup v3 — Cara Kerja
 
-Nara bisa mencari kode **KBLI (Klasifikasi Baku Lapangan Usaha Indonesia)** berdasarkan deskripsi usaha user. Menggunakan **2 LLM call + 3 concurrent API call** ke [kbli.co.id](https://kbli.co.id/api-docs).
+Nara bisa mencari kode **KBLI (Klasifikasi Baku Lapangan Usaha Indonesia)** berdasarkan deskripsi usaha user. Menggunakan **2 LLM call + N× concurrent API call** ke [kbli.co.id](https://kbli.co.id/api-docs) dengan pendekatan **adaptive 5-dimensi**.
 
 ### Tahap 1: Deteksi & Pembersihan
 
@@ -696,34 +697,60 @@ Output: "jual baju online shopee"
 
 Trigger cukup mention kata **"kbli"**. Query dibersihkan dari noise seperti kata tanya, panggilan (`kak`, `bang`, `mas`), partikel (`sih`, `dong`, `deh`), dan kata kerja (`cari`, `tolong`).
 
-### Tahap 2: Query Expansion (LLM)
+### Tahap 2: Analisis 5 Dimensi + Generate Varian (LLM)
 
-LLM (**DeepSeek V4 Flash**) generate **3 varian query** yang genuinely berbeda sudut pandang, mencakup parameter: produk/jasa, skala, cara jual, metode produksi, dan bahan baku.
+LLM (**DeepSeek V4 Flash**) menganalisis deskripsi user terhadap **5 dimensi KBLI**:
+
+| # | Dimensi | Pertanyaan |
+|---|---------|-----------|
+| 1 | **kegiatan_utama** | Produksi, dagang, atau jasa? |
+| 2 | **produk** | Barang/jasa apa? |
+| 3 | **cara_transaksi** | Online, eceran, grosir? |
+| 4 | **tempat_usaha** | Toko, gerobak, kaki lima? |
+| 5 | **skala_usaha** | Mikro, kecil, besar? |
+
+**Dimensi yang sudah disebut user dilewati.** LLM hanya generate **2 varian query per dimensi yang MISSING**:
 
 ```
-Deskripsi user: "jual baju online shopee"
-  ↓ LLM Expand → prompts/kbli_expand.md
-  ↓
-Output (JSON array):
-["perdagangan eceran pakaian online",
- "industri konveksi pakaian jadi",
- "perdagangan besar tekstil pakaian"]
+Deskripsi user: "jual baju"
+
+Analisis:
+✅ kegiatan → "jual"
+✅ produk  → "baju"
+❌ cara_transaksi → missing
+❌ tempat_usaha  → missing
+❌ skala_usaha   → missing
+
+Generate 2×3 = 6 varian:
+["jual baju eceran online",
+ "jual baju grosir partai",
+ "jual baju di toko fisik",
+ "jual baju di kios pasar",
+ "jual baju skala kecil rumahan",
+ "jual baju butik menengah"]
 ```
+
+Output JSON: `{"analysis": {...}, "variants": [6 queries]}`
 
 ### Tahap 3: Concurrent API Call
 
-3 varian query dikirim **bersamaan** ke `https://kbli.co.id/api/search?q={query}` via `asyncio.gather()`. Masing-masing ambil top-5 hasil (level 5 — class-level KBLI). Response berisi `code`, `nameId`, `description`, `_semanticSimilarity`.
+N varian query dikirim **bersamaan** ke `https://kbli.co.id/api/search?q={query}` via `asyncio.gather()`. Masing-masing ambil top-5 hasil (level 5 — class-level KBLI). Response berisi `code`, `nameId`, `description`, `_semanticSimilarity`.
+
+| Skenario | Missing | API Calls |
+|----------|:-------:|:---------:|
+| Rata-rata | 2-3 dimensi | **4-6 API** |
+| Maks | 5 dimensi | **10 API** |
 
 ### Tahap 4: Pooling & Deduplikasi
 
 | Input | Proses | Output |
 |-------|--------|--------|
-| 15 hasil (3 query × 5) | pool_and_dedup(): top 2 per query, dedup by kode KBLI | **Max 6 KBLI unik** (3 interpretasi × 2 hasil) |
+| N×5 hasil | pool_and_dedup(): top 2 per query, dedup by kode KBLI | **5-10 KBLI unik** |
 
 ### Tahap 5: LLM Re-rank & Format
 
 LLM (**DeepSeek V4 Flash**) menerima context hasil pooling, lalu:
-1. **Grouping** — hasil dikelompokkan per interpretasi (3 grup)
+1. **Grouping** — hasil dikelompokkan per interpretasi
 2. **Re-ranking** — urut berdasarkan relevansi ke deskripsi user asli
 3. **Format output:**
 
@@ -739,8 +766,8 @@ Hasil selalu diakhiri disclaimer: `⚠️ Sumber data: kbli.co.id — Harap dipa
 
 ### Common Mistakes
 
-- ❌ **Produksi vs Dagang vs Jasa** — LLM expansion cover 3 sudut pandang
-- ❌ **Eceran vs Grosir ketuker** — LLM re-rank bedain dari deskripsi user asli
+- ❌ **Produksi vs Dagang vs Jasa** — LLM expansion tidak loncat kategori, varian tetap sesuai jenis kegiatan user
+- ❌ **Eceran vs Grosir ketuker** — 2 varian per dimensi cara_transaksi cover kedua arah
 - ❌ **Multi-kegiatan usaha** — Grouping per interpretasi tampilkan beberapa opsi
 - ❌ **API kadang hasil kurang relevan** — Multi-query + concurrent call coverage
 - ❌ **LLM hallucination** — Prompt explicitly larang nambah data sendiri
@@ -1783,6 +1810,22 @@ sudo lsof -i :8000              # Linux
 - **`security/session.py`** — `SESSION_TIMEOUT: 1800 (30m)` -> `3600 (1 jam)`.
 
 **Files changed:** `core/kbli_handler.py`, `core/kbli_sectors.py`, `core/llm.py`, `prompts/kbli.md`, `prompts/greeting.md`, `prompts/system.md`, `server.py`, `templates/dashboard.html`, `security/session.py`, `VERSION`, `README.md`
+
+---
+
+#### v2.17.0 — 2026-06-23
+
+**KBLI v3 — Adaptive 5-Dimensi Query Expansion**
+
+**Changed — Adaptive Expand Engine**
+- **`prompts/kbli_expand.md`** — Rewrite total: LLM analisis 5 dimensi (kegiatan, produk, cara transaksi, tempat, skala), identifikasi mana yang sudah disebut user, generate **2 varian per dimensi missing**. Output JSON `{"analysis": {...}, "variants": [...]}`. Tidak loncat kategori.
+- **`core/kbli_handler.py`** — `parse_expand_response()` update: handle format baru `variants` array, dynamic length (tidak hardcode max 3), fallback ke format lama.
+
+**How It Works**
+LLM Analyze 5 dimensi → hanya generate varian untuk dimensi yang tidak disebut user → N× concurrent API kbli.co.id (rata-rata 4-6, maks 10) → pool + dedup → LLM re-rank + format.
+
+**Flow:**
+User → clean → LLM analyze 5 dimensi → generate 2 varian/missing → N× API → pool + dedup → LLM re-rank + format grouping
 
 ---
 
