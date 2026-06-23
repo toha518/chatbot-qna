@@ -55,7 +55,35 @@ REJECTION_MSG = responses.get("rejection_out_of_context").format(topics_line=", 
 print(f"[BOOT] Identity: {identity['name']} — {identity['role']}")
 # Init trusted IDs dari .env
 init_trusted_ids(os.getenv("TRUSTED_CHAT_IDS", ""))
-print("[BOOT] KBLI: raw API mode (no LLM)")
+# Init KBLI formatting prompt
+KBLI_FORMAT_PROMPT = """Kamu adalah asisten yang membantu menyusun hasil pencarian KBLI.
+
+Tugas: Format data KBLI dari API menjadi jawaban yang rapi.
+
+## ATURAN PALING PENTING
+1. ❌ Jangan ubah urutan — gunakan ranking dari API apa adanya.
+2. ❌ Jangan tambah data KBLI dari pengetahuan sendiri.
+3. ❌ Jangan buat-buat deskripsi — gunakan deskripsi dari data.
+4. ✅ Tiap KBLI: sebut **Kategori**, lalu **KBLI XXXX — Nama**, lalu deskripsi singkat, lalu jelaskan kenapa cocok untuk user.
+5. ✅ Bahasa Indonesia. Terjemahkan deskripsi Inggris ke Indonesia.
+6. ✅ Akhiri dengan: ⚠️ Sumber data: kbli.co.id — Harap dipastikan kembali kebenarannya, ya!
+
+## Format Output
+Awali dengan kalimat pengantar yang menyebutkan usaha user.
+
+Tiap KBLI:
+🔹 **Kategori: X — Nama Kategori**
+**KBLI XXXXX — Nama Kegiatan**
+Deskripsi singkat (terjemahan dari data, jangan buat sendiri)
+→ **Cocok untuk:** [jelaskan sesuai data dan deskripsi user]
+
+## DATA
+Deskripsi user: {query}
+
+Hasil KBLI:
+{data}
+"""
+print("[BOOT] KBLI: raw API + LLM formatting")
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 # ===================== DAILY CHAT LIMIT =====================
@@ -345,8 +373,9 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
             # Treat sebagai forward
             pass
 
-    # ── KBLI CHECK: raw query → API kbli.co.id → direct format (no LLM) ──
+    # ── KBLI CHECK: raw API → LLM format (no expand, no re-rank) ──
     if is_kbli_query(req.pertanyaan):
+        llm_model = llm_provider = ""; llm_time = 0
         clean_query = clean_kbli_query(req.pertanyaan)
         if not clean_query:
             from core.kbli_handler import extract_kbli_code
@@ -364,9 +393,35 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         else:
             print(f"[KBLI] Detected: '{_display_query[:60]}' -> clean: '{clean_query}'")
 
-            # Raw API call (no expand, no re-rank)
+            # Raw API call → 1 query, ambil ranking API langsung
             api_results = await search_kbli_api(clean_query)
-            jawaban = format_raw_results(api_results, _display_query)
+
+            if api_results:
+                # Susun context dari raw results
+                from core.kbli_sectors import get_sector_label
+                context_lines = []
+                for i, r in enumerate(api_results[:5], 1):
+                    sektor = get_sector_label(r.get("kode", ""))
+                    kat = f"Kategori: {sektor}" if sektor else ""
+                    desk = r.get("deskripsi_en", "")
+                    context_lines.append(
+                        f"[{i}] KBLI {r['kode']} — {r['judul']}\n{kat}\nDeskripsi: {desk}\nSkor: {r.get('skor', 0):.3f}"
+                    )
+
+                system_content = KBLI_FORMAT_PROMPT.format(
+                    query=_display_query,
+                    data="\n\n".join(context_lines)
+                )
+                messages = [
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": _display_query}
+                ]
+                jawaban, llm_model, llm_provider, llm_time = await call_llm(messages, timeout=25)
+                if not jawaban:
+                    jawaban = format_raw_results(api_results, _display_query)
+                    llm_model = llm_provider = ""; llm_time = 0
+            else:
+                jawaban = format_raw_results([], _display_query)
 
         api_rate_limit[_limit_key]["last_active"] = time.time()
         if session_baru:
@@ -376,7 +431,7 @@ async def chat(req: ChatRequest, _conc: None = Depends(_concurrent_chat_limit)):
         log_query(_display_query, cid, source=req.source,
                   centroid_sim=0, clf_domain="kbli", clf_confidence=0, clf_mode="api",
                   gate="KBLI", dijawab=True, jawaban=jawaban,
-                  session_baru=session_baru, llm_model="", llm_provider="kbli.co.id", llm_time_ms=0)
+                  session_baru=session_baru, llm_model=llm_model, llm_provider=llm_provider, llm_time_ms=llm_time)
         return {"jawaban": jawaban, "skor": 1.0}
 
     # ===================== DOMAIN FILTER: FASTTEXT → HYBRID =====================
