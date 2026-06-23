@@ -133,7 +133,7 @@ def load_kbli_expand_template() -> str:
 
 def build_kbli_expand_prompt(template: str, clean_query: str) -> list[dict]:
     """Buat messages list untuk KBLI query expansion"""
-    system_content = template.format(text=clean_query)
+    system_content = template.replace("{text}", clean_query)
     return [
         {"role": "system", "content": system_content},
         {"role": "user", "content": clean_query}
