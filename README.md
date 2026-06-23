@@ -70,7 +70,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
 | **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
-| **KBLI Lookup** | Deteksi kata "kbli" → clean query → **API kbli.co.id** (1 call, ranking API) → LLM format dengan kategori + cocok untuk (tanpa re-rank). Cepat, akurat, tetap rapi. |
+| **KBLI Lookup** | Deteksi kata "kbli" → clean query → **API kbli.co.id** (1 call) → LLM re-rank + format (kategori + deskripsi + cocok untuk). Cepat, akurat, konteks sesuai user. |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
 | **Multi-Part Split** | E5 Semantic Boundary — heuristic split (konjungsi + delimiter) + E5 cosim merge (threshold 0.78) |
 | **Database** | Google Sheets (FAQ live sync) + SQLite (chat history + daily limit) |
@@ -89,7 +89,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 |-------|--------|
 | 🤖 **AI Answering** | Multi-LLM dengan failover chain. Coba provider 1 → error? auto lanjut provider 2 → dst. Cloud API (OpenAI-compatible) & Ollama lokal |
 | 🧠 **Domain Gate (BM25 3-Tier)** | **3 tier**: BM25 < 3.0 → OOC (tolak), 3.0-4.9 → BM25_BORDERLINE (QNA link), ≥ 5.0 → lanjut hybrid search. Cascade depth 3 selalu jalan kalo ada history (tanpa BM25 gate). **Zero LLM cost untuk out-of-context & borderline.** |
-| 🔍 **KBLI Lookup** | Deteksi kata "kbli" → clean query → 1 API call kbli.co.id (ranking API) → LLM format: kategori + deskripsi + cocok untuk. Skip LLM expand & re-rank — ranking murni dari API. |
+| 🔍 **KBLI Lookup** | Deteksi kata "kbli" → clean query → 1 API call kbli.co.id → LLM re-rank & format: kategori + deskripsi + cocok untuk. Ranking diurutkan ulang sesuai deskripsi user. |
 | 🧩 **Multi-Part Split (E5 Semantic Boundary)** | 3-layer: Comparison Guard (regex perbandingan) → heuristic split (konjungsi + delimiter) → E5 cosim merge (threshold 0.78). Bagian di luar BPS di-skip. |
 | 🏷️ **scikit-learn Intent Classifier** | SGDClassifier + TF-IDF — pure Python, zero C++ compiler. 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. 4 kelas respon langsung (template statis), skip retrieval & LLM. Keyword fallback safety net. |
 | 📱 **WhatsApp Integration** | Bridge via `whatsapp-web.js`. QR scan, typing indicator, support gambar + OCR |
@@ -205,8 +205,8 @@ USER CHAT
 │    a. Clean query (strip noise words)              │
 │    b. 1 API kbli.co.id — raw semantic search      │
 │    c. Format langsung ranking API                 │
-│  c. LLM format (kategori + deskripsi + cocok untuk)│
-│  ⚠️ No expand — ranking murni dari API             │
+│  c. LLM re-rank + format (kategori + cocok untuk)  │
+│  ⚠️ No expand — data dari 1 API call               │
 │  ⚠️ Langsung return — bypass classifier & retrieval │
 └───────────────────────────────────────────────────┘
   │ (Non-KBLI → lanjut)
@@ -694,7 +694,7 @@ Input: "kbli jualan baju di shopee"
   ↓ LLM format: kategori + deskripsi + cocok untuk
   ↓ Output
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1 LLM (format only) + 1 API call
+1 LLM (re-rank + format) + 1 API call
 ```
 
 Trigger cukup mention kata **"kbli"**. Query dibersihkan dari noise.
@@ -715,10 +715,10 @@ Mencakup usaha eceran khusus pakaian dari tekstil...
 | Aspek | Sebelum | Sekarang |
 |-------|---------|----------|
 | **Expand** | LLM generate varian query (sering ngaco) | ❌ Dihapus |
-| **Re-rank** | LLM ubah ranking API | ❌ Dihapus — ranking API asli |
-| **Format** | LLM ngarang "Cocok untuk" | ✅ LLM format data API apa adanya |
+| **Re-rank** | Dulu lewat pooling + LLM (kacau) | ✅ LLM re-rank langsung dari 1 API |
+| **Cocok untuk** | LLM ngarang karena data ngaco | ✅ Data lebih relevan → cocok untuk akurat |
 | **API calls** | 3-10 concurrent | ✅ 1 call |
-| **Total LLM** | 2 (expand + re-rank) | ✅ 1 (format only) |
+| **Total LLM** | 2 (expand + re-rank) | ✅ 1 (re-rank + format) |
 | **Latensi** | 5-10 detik | ✅ ~2-4 detik |
 
 📖 Dokumentasi lengkap: [`docs/KBLI-IMPLEMENTATION.md`](./docs/KBLI-IMPLEMENTATION.md)
@@ -1775,13 +1775,13 @@ sudo lsof -i :8000              # Linux
 
 **Why**
 - Expand sering generate varian ngaco → API return hasil irrelevant
-- Re-rank bikin LLM ngarang alasan untuk data yang gak cocok (rule "❌ jangan bilang gak cocok")
-- Sekarang: ranking murni dari API, LLM cuma format data
+- Sekarang cukup 1 API call langsung dari query user yang sudah di-clean
+- LLM re-rank hasil API berdasarkan relevansi ke deskripsi user (bukan ranking API)
 
 **Flow:**
-User → clean → 1 API kbli.co.id → LLM format + kategori + cocok untuk (strict: data only)
+User → clean → 1 API kbli.co.id → LLM re-rank + format (kategori + deskripsi + cocok untuk)
 
-**Total:** 1 LLM (format) + 1 API call
+**Total:** 1 LLM + 1 API call
 
 ---
 
