@@ -68,7 +68,7 @@ Chatbot asisten dari **BPS Provinsi Kepulauan Bangka Belitung**. Tersedia via Te
 |-------|-----------|
 | **API Server** | FastAPI (Python) |
 | **Domain Gate** | BM25 3-tier — <3 tolak, 3-4.9 QNA link, ≥5 hybrid search. Cascade BM25 depth 3 untuk follow-up pendek |
-| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-7 FAQ |
+| **Hybrid Retrieval** | E5+BM25 via RRF fusion (K=30) — E5 semantic + BM25 keyword + **category-aware BM25** (v2.8.0), top-10 FAQ |
 | **Intent Classifier** | scikit-learn SGDClassifier + TF-IDF (pure Python, 185KB, 97.4% accuracy) — 5 kelas: greeting, capability, positive_feedback, negative_feedback, forward. Fallback keyword regex |
 | **KBLI Lookup** | Deteksi kata "kbli" → clean query → **API kbli.co.id** (1 call) → LLM re-rank + format (kategori + deskripsi + cocok untuk). Cepat, akurat, konteks sesuai user. |
 | **LLM Gateway** | Multi-provider: OpenCode → DeepSeek → Ollama lokal — auto failover chain |
@@ -289,7 +289,7 @@ USER CHAT
 │  Pakai _cascade_query kalo cascade sukses         │
 │  E5 semantic similarity  +  BM25 keyword scoring  │
 │  RRF: 1/(rank_E5+K) + 1/(rank_BM25+K), K=30      │
-│  Top-7 FAQ (RRF ranking, untuk konteks LLM)       │
+│  Top-10 FAQ (RRF ranking, untuk konteks LLM)      │
 └───────────────────────────────────────────────────┘
   │
   ▼
@@ -460,7 +460,7 @@ E5 adalah model **asymmetric** — dia dilatih khusus untuk matching query → p
      RRF_score(d) = 1/(K+rank_E5(d))  ← skip BM25, hindari ranking noise
    ```
    **K = 30** — konstanta smoothing RRF, diturunkan dari default 60 untuk top_k kecil + BM25 presisi.
-4. Ambil **top-7** FAQ berdasarkan RRF_score tertinggi
+4. Ambil **top-10** FAQ berdasarkan RRF_score tertinggi
 
 **Visual sederhana (2 FAQ):**
 | FAQ | rank_E5 | rank_BM25 | RRF dengan K=30 |
@@ -735,7 +735,7 @@ BM25 dan E5 punya **kelemahan yang saling melengkapi**. Pake salah satu aja bera
 | User nanya "aktivasi FASIH" | ✅ Skor tinggi (exact match "FASIH") | ✅ Skor tinggi (paham konteks aktivasi) | ✅ Keduanya setuju → aman |
 | User nanya "aktivasi FASIH" besoknya nanya "linknya udah dicoba" | ❌ Skor 0 (gak ada keyword overlap sama FAQ) | ❌ Skor rendah (query pendek, semantic drift) | ✅ Cascade fallback concat prev query → dapat konteks |
 | User nanya "reset password FASIH" vs "lupa kata sandi FASIH" | ❌ Skor beda (password ≠ kata sandi) | ✅ Skor mirip (sinonim dipahami) | ✅ E5 angkat, BM25 bantu konfirmasi keyword "FASIH" |
-| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-7 masih include yang bener |
+| User nanya "error GC PBI" — padahal maksudnya GC PLN | ⚠️ Skor tinggi ke GC PBI (keyword match) | ⚠️ Skor mirip (pola kalimat sama, embedding berdekatan) | ✅ RRF average out — BM25 ke GC PBI, E5 ke GC PLN → top-10 masih include yang bener |
 | User nanya "resep nasi goreng" | ✅ Skor 0 → reject bersih (BM25 < 3.0, tolak sebelum retrieval) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
 | User nanya "siapa presiden indonesia" | ✅ Skor 0 → reject bersih (BM25 < 3.0) | — (tidak sampai E5) | ✅ BM25 gate sudah nangkap |
 
@@ -1731,6 +1731,23 @@ sudo lsof -i :8000              # Linux
 <details>
 <summary><b>Klik untuk lihat riwayat lengkap</b></summary>
 
+
+---
+
+#### v2.17.0 — 2026-06-24
+
+**top-k FAQ: 7 → 10 + Prompt debias rank-1**
+
+**Changed — Retrieval**
+- **`core/embedder.py`** — Default `top_k=7` → `10`. Rank labels: `PERINGKAT 1 (JAWABAN UTAMA)` → `⭐️ PERINGKAT 1`, tambah PERINGKAT 8–10. Variable `top7` → `top10`.
+- **`server.py`** — Semua panggilan `hybrid_search(..., 7)` → `(..., 10)`. Variable `top7_all` → `top10_all`, `p_top7` → `p_top10`.
+- **`prompts/system.md`** — Aturan #2: hapus bias rank-1. "Gunakan Peringkat 1 sebagai acuan utama" → "Gunakan peringkat yang paling relevan. Cek dari peringkat tertinggi ke bawah, pilih FAQ yang paling cocok."
+
+**Why**
+- Corpus sudah 3000+ FAQ — top-7 terlalu sempit, top-10 optimal untuk recall
+- Rank-1 bias bikin LLM maksa jawaban dari FAQ yang kurang relevan
+
+**Files changed:** `core/embedder.py`, `server.py`, `prompts/system.md`, `README.md`
 
 ---
 
