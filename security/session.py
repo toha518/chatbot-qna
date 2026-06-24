@@ -32,6 +32,10 @@ if _RESPONSES_DIR.exists():
 if not _RESPONSES.get("session_ending_idle"):
     print(f"[WATCHDOG] ⚠️ session_ending_idle kosong di responses.json")
 
+# Watchdog toggle — notif session ended
+WATCHDOG_ENABLED = os.getenv("WATCHDOG_ENABLED", "true").lower() in ("true", "1", "yes")
+print(f"[WATCHDOG] WATCHDOG_ENABLED={'true' if WATCHDOG_ENABLED else 'false'} — {'notif aktif' if WATCHDOG_ENABLED else 'notif dimatikan'}")
+
 # Telegram API untuk notifikasi watchdog
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API = (
@@ -166,6 +170,10 @@ async def session_watchdog():
                 session_notified.discard(cid)
                 session_has_forward.pop(cid, None)
 
+                if not WATCHDOG_ENABLED:
+                    print(f"[WATCHDOG] ⏭️ Skip notif {cid} — watchdog dimatikan (.env)")
+                    continue
+
                 if cid.lstrip('-').isdigit():
                     # Telegram — kirim via Bot API
                     if TELEGRAM_API and TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != '***':
@@ -205,6 +213,9 @@ async def session_watchdog():
                 if cid in expired:
                     continue
                 end_msg = format_end_msg(cid)
+                if not WATCHDOG_ENABLED:
+                    print(f"[WATCHDOG] ⏭️ Skip queue notif {cid} — watchdog dimatikan (.env)")
+                    continue
                 if cid.lstrip('-').isdigit():
                     # Telegram
                     if TELEGRAM_API and TELEGRAM_BOT_TOKEN and TELEGRAM_BOT_TOKEN != '***':
