@@ -1734,6 +1734,26 @@ sudo lsof -i :8000              # Linux
 
 ---
 
+#### v2.19.0 — 2026-06-25
+
+**Watchdog Toggle — Env var WATCHDOG_ENABLED**
+
+**New — Env Toggle**
+- **`.env`** — Tambah `WATCHDOG_ENABLED=false` untuk matikan notif session ended (manual, .env di gitignore)
+- **`security/session.py`** — Baca env var `WATCHDOG_ENABLED` (default `true`). Kalau `false` → skip kirim notif "💬 Sesi diskusi Anda telah berakhir" via Telegram & WhatsApp.
+
+**Changed — Watchdog**
+- **`security/session.py`** — Guard check `if not WATCHDOG_ENABLED: continue` di dua titik: expired loop + queue loop. Session cleanup tetap berjalan, cuma notif yg di-skip.
+- **`security/session.py`** — Print status watchdog di startup: `WATCHDOG_ENABLED=true/false`.
+
+**Why**
+- Owner minta matiin notif session ended tanpa hapus kode atau comment
+- Env var fleksibel — tinggal ubah di .env, gak perlu edit kode
+
+**Files changed:** `.env`, `security/session.py`, `VERSION`, `README.md`
+
+---
+
 #### v2.17.0 — 2026-06-24
 
 **top-k FAQ: 7 → 10 + Prompt debias rank-1**
